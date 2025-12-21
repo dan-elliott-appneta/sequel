@@ -24,12 +24,15 @@ class ResourceType:
     PROJECT = "project"
     CLOUDSQL = "cloudsql"
     COMPUTE = "compute"
-    COMPUTE_INSTANCE = "compute_instance"
+    COMPUTE_INSTANCE_GROUP = "compute_instance_group"  # Expandable instance group
+    COMPUTE_INSTANCE = "compute_instance"  # Individual VM instance (leaf)
     GKE = "gke"
-    GKE_NODE = "gke_node"
+    GKE_CLUSTER = "gke_cluster"  # Expandable cluster
+    GKE_NODE = "gke_node"  # Individual node (leaf)
     SECRETS = "secrets"
     IAM = "iam"
-    IAM_ROLE = "iam_role"
+    IAM_SERVICE_ACCOUNT = "iam_service_account"  # Expandable service account
+    IAM_ROLE = "iam_role"  # Individual role binding (leaf)
 
 
 class ResourceTreeNode:
@@ -193,17 +196,17 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 await self._load_cloudsql_instances(node)
             elif node.data.resource_type == ResourceType.COMPUTE:
                 await self._load_instance_groups(node)
-            elif node.data.resource_type == ResourceType.COMPUTE_INSTANCE:
+            elif node.data.resource_type == ResourceType.COMPUTE_INSTANCE_GROUP:
                 await self._load_instances_in_group(node)
             elif node.data.resource_type == ResourceType.GKE:
                 await self._load_gke_clusters(node)
-            elif node.data.resource_type == ResourceType.GKE_NODE:
+            elif node.data.resource_type == ResourceType.GKE_CLUSTER:
                 await self._load_cluster_nodes(node)
             elif node.data.resource_type == ResourceType.SECRETS:
                 await self._load_secrets(node)
             elif node.data.resource_type == ResourceType.IAM:
                 await self._load_service_accounts(node)
-            elif node.data.resource_type == ResourceType.IAM_ROLE:
+            elif node.data.resource_type == ResourceType.IAM_SERVICE_ACCOUNT:
                 await self._load_service_account_roles(node)
 
             node.data.loaded = True
@@ -271,7 +274,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     zone = zone_parts[-1]
 
             node_data = ResourceTreeNode(
-                resource_type=ResourceType.COMPUTE_INSTANCE,
+                resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
                 resource_id=group.group_name,
                 resource_data=group,
                 project_id=project_id,
@@ -308,7 +311,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
             location = cluster.location if hasattr(cluster, 'location') else None
 
             node_data = ResourceTreeNode(
-                resource_type=ResourceType.GKE_NODE,
+                resource_type=ResourceType.GKE_CLUSTER,
                 resource_id=cluster.cluster_name,
                 resource_data=cluster,
                 project_id=project_id,
@@ -372,7 +375,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         for account in accounts:
             node_data = ResourceTreeNode(
-                resource_type=ResourceType.IAM_ROLE,
+                resource_type=ResourceType.IAM_SERVICE_ACCOUNT,
                 resource_id=account.email,
                 resource_data=account,
                 project_id=project_id,

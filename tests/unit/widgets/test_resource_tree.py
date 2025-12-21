@@ -73,14 +73,14 @@ class TestResourceTreeNode:
     def test_initialization_with_all_fields(self) -> None:
         """Test resource tree node initialization with all fields."""
         node = ResourceTreeNode(
-            resource_type=ResourceType.GKE_NODE,
+            resource_type=ResourceType.GKE_CLUSTER,
             resource_id="test-cluster",
             resource_data={"test": "data"},
             project_id="my-project",
             location="us-central1-a",
             zone="us-central1-a",
         )
-        assert node.resource_type == ResourceType.GKE_NODE
+        assert node.resource_type == ResourceType.GKE_CLUSTER
         assert node.resource_id == "test-cluster"
         assert node.resource_data == {"test": "data"}
         assert node.project_id == "my-project"
@@ -92,11 +92,14 @@ class TestResourceTreeNode:
         assert ResourceType.PROJECT == "project"
         assert ResourceType.CLOUDSQL == "cloudsql"
         assert ResourceType.COMPUTE == "compute"
+        assert ResourceType.COMPUTE_INSTANCE_GROUP == "compute_instance_group"
         assert ResourceType.COMPUTE_INSTANCE == "compute_instance"
         assert ResourceType.GKE == "gke"
+        assert ResourceType.GKE_CLUSTER == "gke_cluster"
         assert ResourceType.GKE_NODE == "gke_node"
         assert ResourceType.SECRETS == "secrets"
         assert ResourceType.IAM == "iam"
+        assert ResourceType.IAM_SERVICE_ACCOUNT == "iam_service_account"
         assert ResourceType.IAM_ROLE == "iam_role"
 
 
@@ -124,7 +127,7 @@ class TestResourceTree:
 
         # Create a parent node for the cluster
         parent_node_data = ResourceTreeNode(
-            resource_type=ResourceType.GKE_NODE,
+            resource_type=ResourceType.GKE_CLUSTER,
             resource_id="my-cluster",
             resource_data=sample_gke_cluster,
             project_id="my-project",
@@ -164,7 +167,7 @@ class TestResourceTree:
         cluster = GKECluster.from_api_response(cluster_data)
 
         parent_node_data = ResourceTreeNode(
-            resource_type=ResourceType.GKE_NODE,
+            resource_type=ResourceType.GKE_CLUSTER,
             resource_id="empty-cluster",
             resource_data=cluster,
             project_id="my-project",
@@ -203,7 +206,7 @@ class TestResourceTree:
         ]
 
         parent_node_data = ResourceTreeNode(
-            resource_type=ResourceType.COMPUTE_INSTANCE,
+            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
             resource_id="my-instance-group",
             resource_data=sample_instance_group,
             project_id="my-project",
@@ -252,7 +255,7 @@ class TestResourceTree:
         ]
 
         parent_node_data = ResourceTreeNode(
-            resource_type=ResourceType.COMPUTE_INSTANCE,
+            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
             resource_id="large-group",
             resource_data=group,
             project_id="my-project",
@@ -291,7 +294,7 @@ class TestResourceTree:
         group = InstanceGroup.from_api_response(group_data)
 
         parent_node_data = ResourceTreeNode(
-            resource_type=ResourceType.COMPUTE_INSTANCE,
+            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
             resource_id="empty-group",
             resource_data=group,
             project_id="my-project",
@@ -321,7 +324,7 @@ class TestResourceTree:
         ]
 
         parent_node_data = ResourceTreeNode(
-            resource_type=ResourceType.IAM_ROLE,
+            resource_type=ResourceType.IAM_SERVICE_ACCOUNT,
             resource_id=sample_service_account.email,
             resource_data=sample_service_account,
             project_id="my-project",
@@ -349,7 +352,7 @@ class TestResourceTree:
     ) -> None:
         """Test loading roles when node has no resource data."""
         parent_node_data = ResourceTreeNode(
-            resource_type=ResourceType.IAM_ROLE,
+            resource_type=ResourceType.IAM_SERVICE_ACCOUNT,
             resource_id="test-account",
             resource_data=None,
             project_id="my-project",
@@ -387,7 +390,7 @@ class TestResourceTree:
     ) -> None:
         """Test loading cluster nodes when node has no resource data."""
         parent_node_data = ResourceTreeNode(
-            resource_type=ResourceType.GKE_NODE,
+            resource_type=ResourceType.GKE_CLUSTER,
             resource_id="test-cluster",
             resource_data=None,
             project_id="my-project",
@@ -408,7 +411,7 @@ class TestResourceTree:
     ) -> None:
         """Test loading instances when node has no resource data."""
         parent_node_data = ResourceTreeNode(
-            resource_type=ResourceType.COMPUTE_INSTANCE,
+            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
             resource_id="test-group",
             resource_data=None,
             project_id="my-project",
@@ -446,7 +449,7 @@ class TestResourceTree:
         ]
 
         parent_node_data = ResourceTreeNode(
-            resource_type=ResourceType.COMPUTE_INSTANCE,
+            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
             resource_id="single-instance-group",
             resource_data=group,
             project_id="my-project",
@@ -491,7 +494,7 @@ class TestResourceTree:
         ]
 
         parent_node_data = ResourceTreeNode(
-            resource_type=ResourceType.GKE_NODE,
+            resource_type=ResourceType.GKE_CLUSTER,
             resource_id="single-node-cluster",
             resource_data=cluster,
             project_id="my-project",
