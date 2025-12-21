@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive type checking with mypy strict mode (zero errors)
 - Test coverage at 97% across entire codebase (144 tests)
 - Full CI/CD with lint, type check, and test validation
+- Comprehensive test suite for hierarchical sub-nodes (18 new tests)
+  - Tests for service account role expansion
+  - Tests for GKE cluster node expansion
+  - Tests for instance group instance expansion
+  - Edge case coverage (empty groups, single items, over-limit scenarios)
 
 ### Changed
 - Detail pane now displays raw API JSON instead of formatted table
