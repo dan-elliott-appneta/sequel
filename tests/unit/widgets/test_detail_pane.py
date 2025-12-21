@@ -172,6 +172,7 @@ class TestDetailPane:
 
         # Verify configuration
         assert detail_pane.language == "json"
+        assert detail_pane.theme == "monokai"
         assert detail_pane.read_only is True
         assert detail_pane.show_line_numbers is True
 

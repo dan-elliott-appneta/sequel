@@ -57,7 +57,6 @@ class MainScreen(Screen[None]):
     DetailPane {
         height: 100%;
         width: 100%;
-        padding: 1 2;
         overflow-y: auto;
         scrollbar-size: 1 1;
     }
