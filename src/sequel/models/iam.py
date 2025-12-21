@@ -1,10 +1,44 @@
-"""Google Cloud IAM Service Account model."""
+"""Google Cloud IAM models."""
 
 from typing import Any
 
 from pydantic import Field
 
 from sequel.models.base import BaseModel
+
+
+class IAMRoleBinding(BaseModel):
+    """Model for an IAM role binding."""
+
+    role: str = Field(..., description="Role name (e.g., roles/editor)")
+    member: str = Field(..., description="Member (e.g., serviceAccount:email@project.iam.gserviceaccount.com)")
+    resource: str | None = Field(None, description="Resource the binding applies to")
+
+    @classmethod
+    def from_api_response(cls, role: str, member: str, resource: str | None = None) -> "IAMRoleBinding":  # type: ignore[override]
+        """Create IAMRoleBinding from role and member.
+
+        Note: This method has a different signature than the base class,
+        which is intentional for this specific model type.
+
+        Args:
+            role: Role name
+            member: Member identifier
+            resource: Optional resource identifier
+
+        Returns:
+            IAMRoleBinding instance
+        """
+        return cls(
+            id=f"{role}:{member}",
+            name=role,
+            project_id=None,
+            created_at=None,
+            role=role,
+            member=member,
+            resource=resource,
+            raw_data={"role": role, "member": member, "resource": resource},
+        )
 
 
 class ServiceAccount(BaseModel):

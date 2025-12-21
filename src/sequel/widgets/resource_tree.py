@@ -387,27 +387,88 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
     async def _load_service_account_roles(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
         """Load IAM roles for a service account."""
-        if parent_node.data is None:
+        if parent_node.data is None or parent_node.data.resource_data is None:
             return
 
+        if not parent_node.data.project_id:
+            parent_node.remove()
+            return
+
+        service_account = parent_node.data.resource_data
         parent_node.remove_children()
 
-        # For now, show a placeholder - full implementation would fetch IAM policy bindings
-        parent_node.add_leaf("📋 Roles (expand service account for details)")
+        # Fetch real IAM role bindings from IAM API
+        try:
+            iam_service = await get_iam_service()
+            role_bindings = await iam_service.get_service_account_roles(
+                project_id=parent_node.data.project_id,
+                service_account_email=service_account.email,
+            )
+
+            if not role_bindings:
+                parent_node.remove()
+                return
+
+            # Add role binding nodes with real data
+            for role_binding in role_bindings:
+                node_data = ResourceTreeNode(
+                    resource_type=ResourceType.IAM_ROLE,
+                    resource_id=role_binding.role,
+                    resource_data=role_binding,
+                    project_id=parent_node.data.project_id,
+                )
+                # Extract role name (e.g., "roles/editor" -> "Editor")
+                role_name = role_binding.role.split("/")[-1]
+                parent_node.add_leaf(
+                    f"📋 {role_name}",
+                    data=node_data,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to load service account roles: {e}")
+            parent_node.remove()
 
     async def _load_cluster_nodes(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
         """Load nodes for a GKE cluster."""
         if parent_node.data is None or parent_node.data.resource_data is None:
             return
 
+        if not parent_node.data.project_id or not parent_node.data.location:
+            parent_node.remove()
+            return
+
         cluster = parent_node.data.resource_data
         parent_node.remove_children()
 
-        # Show node pools and node count from cluster data
-        if hasattr(cluster, 'node_count') and cluster.node_count > 0:
-            for i in range(cluster.node_count):
-                parent_node.add_leaf(f"🖥️  Node {i+1}")
-        else:
+        # Fetch real node data from GKE API
+        try:
+            gke_service = await get_gke_service()
+            nodes = await gke_service.list_nodes(
+                project_id=parent_node.data.project_id,
+                location=parent_node.data.location,
+                cluster_name=cluster.cluster_name,
+            )
+
+            if not nodes:
+                parent_node.remove()
+                return
+
+            # Add node nodes with real data
+            for node in nodes:
+                node_data = ResourceTreeNode(
+                    resource_type=ResourceType.GKE_NODE,
+                    resource_id=node.node_name,
+                    resource_data=node,
+                    project_id=parent_node.data.project_id,
+                    location=parent_node.data.location,
+                )
+                parent_node.add_leaf(
+                    f"🖥️  {node.node_name}",
+                    data=node_data,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to load cluster nodes: {e}")
             parent_node.remove()
 
     async def _load_instances_in_group(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
@@ -415,14 +476,45 @@ class ResourceTree(Tree[ResourceTreeNode]):
         if parent_node.data is None or parent_node.data.resource_data is None:
             return
 
+        if not parent_node.data.project_id or not parent_node.data.zone:
+            parent_node.remove()
+            return
+
         group = parent_node.data.resource_data
         parent_node.remove_children()
 
-        # Show instance count from group data
-        if hasattr(group, 'size') and group.size > 0:
-            for i in range(min(group.size, 10)):  # Limit to 10 for now
-                parent_node.add_leaf(f"💻 Instance {i+1}")
-            if group.size > 10:
-                parent_node.add_leaf(f"... and {group.size - 10} more")
-        else:
+        # Fetch real instance data from Compute API
+        try:
+            compute_service = await get_compute_service()
+            instances = await compute_service.list_instances_in_group(
+                project_id=parent_node.data.project_id,
+                zone=parent_node.data.zone,
+                instance_group_name=group.group_name,
+            )
+
+            if not instances:
+                parent_node.remove()
+                return
+
+            # Add instance nodes with real data
+            for instance in instances:
+                node_data = ResourceTreeNode(
+                    resource_type=ResourceType.COMPUTE_INSTANCE,
+                    resource_id=instance.instance_name,
+                    resource_data=instance,
+                    project_id=parent_node.data.project_id,
+                    zone=instance.zone,
+                )
+                status_icon = "✓" if instance.is_running() else "✗"
+                parent_node.add_leaf(
+                    f"{status_icon} {instance.instance_name}",
+                    data=node_data,
+                )
+
+            # Show "and more" message if there are more instances
+            if hasattr(group, 'size') and group.size > len(instances):
+                parent_node.add_leaf(f"... and {group.size - len(instances)} more")
+
+        except Exception as e:
+            logger.error(f"Failed to load instances in group: {e}")
             parent_node.remove()
