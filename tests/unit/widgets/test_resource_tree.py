@@ -1328,3 +1328,337 @@ class TestResourceTree:
         for child in project_node.children:
             if child.data is not None:
                 assert child.data.project_id == "my-test-project"
+
+
+class TestEmptyProjectCleanup:
+    """Tests for automatic cleanup of empty project nodes."""
+
+    @pytest.mark.asyncio
+    async def test_remove_empty_project_after_clouddns_empty(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that project is removed when CloudDNS is empty and it's the last resource type."""
+        # Create a project node with only CloudDNS category
+        project_node_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="empty-project",
+            resource_data=None,
+        )
+        project_node = resource_tree.root.add(
+            "📁 Empty Project", data=project_node_data, allow_expand=True
+        )
+
+        # Add only CloudDNS category node
+        clouddns_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDDNS,
+            resource_id="empty-project:clouddns",
+            project_id="empty-project",
+        )
+        clouddns_node = project_node.add(
+            "🌐 Cloud DNS", data=clouddns_data, allow_expand=True
+        )
+
+        # Mock the CloudDNS service to return empty list
+        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_zones = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
+
+            # Load the DNS zones (should remove CloudDNS node and then project node)
+            await resource_tree._load_dns_zones(clouddns_node)
+
+        # Verify both CloudDNS node and project node were removed
+        assert clouddns_node not in project_node.children
+        assert project_node not in resource_tree.root.children
+
+    @pytest.mark.asyncio
+    async def test_remove_empty_project_after_cloudsql_empty(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that project is removed when CloudSQL is empty and it's the last resource type."""
+        # Create a project node with only CloudSQL category
+        project_node_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="empty-project",
+            resource_data=None,
+        )
+        project_node = resource_tree.root.add(
+            "📁 Empty Project", data=project_node_data, allow_expand=True
+        )
+
+        # Add only CloudSQL category node
+        cloudsql_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDSQL,
+            resource_id="empty-project:cloudsql",
+            project_id="empty-project",
+        )
+        cloudsql_node = project_node.add(
+            "☁️  Cloud SQL", data=cloudsql_data, allow_expand=True
+        )
+
+        # Mock the CloudSQL service to return empty list
+        with patch("sequel.widgets.resource_tree.get_cloudsql_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_instances = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
+
+            # Load the instances (should remove CloudSQL node and then project node)
+            await resource_tree._load_cloudsql_instances(cloudsql_node)
+
+        # Verify both CloudSQL node and project node were removed
+        assert cloudsql_node not in project_node.children
+        assert project_node not in resource_tree.root.children
+
+    @pytest.mark.asyncio
+    async def test_remove_empty_project_after_compute_empty(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that project is removed when Compute is empty and it's the last resource type."""
+        # Create a project node with only Compute category
+        project_node_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="empty-project",
+            resource_data=None,
+        )
+        project_node = resource_tree.root.add(
+            "📁 Empty Project", data=project_node_data, allow_expand=True
+        )
+
+        # Add only Compute category node
+        compute_data = ResourceTreeNode(
+            resource_type=ResourceType.COMPUTE,
+            resource_id="empty-project:compute",
+            project_id="empty-project",
+        )
+        compute_node = project_node.add(
+            "💻 Instance Groups", data=compute_data, allow_expand=True
+        )
+
+        # Mock the Compute service to return empty list
+        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_instance_groups = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
+
+            # Load the instance groups (should remove Compute node and then project node)
+            await resource_tree._load_instance_groups(compute_node)
+
+        # Verify both Compute node and project node were removed
+        assert compute_node not in project_node.children
+        assert project_node not in resource_tree.root.children
+
+    @pytest.mark.asyncio
+    async def test_remove_empty_project_after_gke_empty(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that project is removed when GKE is empty and it's the last resource type."""
+        # Create a project node with only GKE category
+        project_node_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="empty-project",
+            resource_data=None,
+        )
+        project_node = resource_tree.root.add(
+            "📁 Empty Project", data=project_node_data, allow_expand=True
+        )
+
+        # Add only GKE category node
+        gke_data = ResourceTreeNode(
+            resource_type=ResourceType.GKE,
+            resource_id="empty-project:gke",
+            project_id="empty-project",
+        )
+        gke_node = project_node.add(
+            "⎈  GKE Clusters", data=gke_data, allow_expand=True
+        )
+
+        # Mock the GKE service to return empty list
+        with patch("sequel.widgets.resource_tree.get_gke_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_clusters = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
+
+            # Load the clusters (should remove GKE node and then project node)
+            await resource_tree._load_gke_clusters(gke_node)
+
+        # Verify both GKE node and project node were removed
+        assert gke_node not in project_node.children
+        assert project_node not in resource_tree.root.children
+
+    @pytest.mark.asyncio
+    async def test_remove_empty_project_after_secrets_empty(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that project is removed when Secrets is empty and it's the last resource type."""
+        # Create a project node with only Secrets category
+        project_node_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="empty-project",
+            resource_data=None,
+        )
+        project_node = resource_tree.root.add(
+            "📁 Empty Project", data=project_node_data, allow_expand=True
+        )
+
+        # Add only Secrets category node
+        secrets_data = ResourceTreeNode(
+            resource_type=ResourceType.SECRETS,
+            resource_id="empty-project:secrets",
+            project_id="empty-project",
+        )
+        secrets_node = project_node.add(
+            "🔐 Secrets", data=secrets_data, allow_expand=True
+        )
+
+        # Mock the Secrets service to return empty list
+        with patch("sequel.widgets.resource_tree.get_secret_manager_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_secrets = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
+
+            # Load the secrets (should remove Secrets node and then project node)
+            await resource_tree._load_secrets(secrets_node)
+
+        # Verify both Secrets node and project node were removed
+        assert secrets_node not in project_node.children
+        assert project_node not in resource_tree.root.children
+
+    @pytest.mark.asyncio
+    async def test_remove_empty_project_after_iam_empty(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that project is removed when IAM is empty and it's the last resource type."""
+        # Create a project node with only IAM category
+        project_node_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="empty-project",
+            resource_data=None,
+        )
+        project_node = resource_tree.root.add(
+            "📁 Empty Project", data=project_node_data, allow_expand=True
+        )
+
+        # Add only IAM category node
+        iam_data = ResourceTreeNode(
+            resource_type=ResourceType.IAM,
+            resource_id="empty-project:iam",
+            project_id="empty-project",
+        )
+        iam_node = project_node.add(
+            "👤 Service Accounts", data=iam_data, allow_expand=True
+        )
+
+        # Mock the IAM service to return empty list
+        with patch("sequel.widgets.resource_tree.get_iam_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_service_accounts = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
+
+            # Load the service accounts (should remove IAM node and then project node)
+            await resource_tree._load_service_accounts(iam_node)
+
+        # Verify both IAM node and project node were removed
+        assert iam_node not in project_node.children
+        assert project_node not in resource_tree.root.children
+
+    @pytest.mark.asyncio
+    async def test_keep_project_with_some_resources(
+        self, resource_tree: ResourceTree, sample_dns_zone: ManagedZone
+    ) -> None:
+        """Test that project is kept when at least one resource type has resources."""
+        # Create a project node with two categories
+        project_node_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="mixed-project",
+            resource_data=None,
+        )
+        project_node = resource_tree.root.add(
+            "📁 Mixed Project", data=project_node_data, allow_expand=True
+        )
+
+        # Add CloudDNS category node (will have resources)
+        clouddns_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDDNS,
+            resource_id="mixed-project:clouddns",
+            project_id="mixed-project",
+        )
+        clouddns_node = project_node.add(
+            "🌐 Cloud DNS", data=clouddns_data, allow_expand=True
+        )
+
+        # Add CloudSQL category node (will be empty)
+        cloudsql_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDSQL,
+            resource_id="mixed-project:cloudsql",
+            project_id="mixed-project",
+        )
+        cloudsql_node = project_node.add(
+            "☁️  Cloud SQL", data=cloudsql_data, allow_expand=True
+        )
+
+        # Mock CloudDNS service to return zones
+        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_zones = AsyncMock(return_value=[sample_dns_zone])
+            mock_get_service.return_value = mock_service
+
+            # Load DNS zones (should add zones)
+            await resource_tree._load_dns_zones(clouddns_node)
+
+        # Mock CloudSQL service to return empty list
+        with patch("sequel.widgets.resource_tree.get_cloudsql_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_instances = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
+
+            # Load CloudSQL instances (should remove CloudSQL node but keep project)
+            await resource_tree._load_cloudsql_instances(cloudsql_node)
+
+        # Verify CloudSQL node was removed but project node was kept
+        assert cloudsql_node not in project_node.children
+        assert project_node in resource_tree.root.children
+        # CloudDNS node should still be there with children
+        assert clouddns_node in project_node.children
+        assert len(clouddns_node.children) > 0
+
+    @pytest.mark.asyncio
+    async def test_project_not_removed_after_all_categories_populated(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that project is not removed when it still has unexpanded categories."""
+        # Create a project node with multiple categories
+        project_node_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="full-project",
+            resource_data=None,
+        )
+        project_node = resource_tree.root.add(
+            "📁 Full Project", data=project_node_data, allow_expand=True
+        )
+
+        # Add all resource type nodes
+        resource_tree._add_resource_type_nodes(project_node, "full-project")
+
+        # Get the CloudDNS node
+        clouddns_node = None
+        for child in project_node.children:
+            if child.data and child.data.resource_type == ResourceType.CLOUDDNS:
+                clouddns_node = child
+                break
+
+        assert clouddns_node is not None
+
+        # Mock CloudDNS service to return empty list
+        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_zones = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
+
+            # Load DNS zones (should remove CloudDNS node but keep project)
+            await resource_tree._load_dns_zones(clouddns_node)
+
+        # Verify CloudDNS node was removed but project still has other categories
+        assert clouddns_node not in project_node.children
+        assert project_node in resource_tree.root.children
+        # Project should still have 5 other resource type nodes
+        assert len(project_node.children) == 5

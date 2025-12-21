@@ -188,6 +188,16 @@ class ResourceTree(Tree[ResourceTreeNode]):
         )
         project_node.add("👤 Service Accounts", data=iam_data, allow_expand=True)
 
+    def _remove_empty_project_node(self, project_node: TreeNode[ResourceTreeNode]) -> None:
+        """Remove a project node if it has no children.
+
+        Args:
+            project_node: Project node to check and potentially remove
+        """
+        if not project_node.children:
+            logger.info(f"Removing empty project node: {project_node.label}")
+            project_node.remove()
+
     async def _on_tree_node_expanded(self, event: Tree.NodeExpanded[ResourceTreeNode]) -> None:
         """Handle tree node expansion with lazy loading.
 
@@ -246,7 +256,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         if not zones:
             # Remove the parent node if there are no zones
+            project_node = parent_node.parent
             parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
             return
 
         for zone in zones:
@@ -340,7 +354,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         if not instances:
             # Remove the parent node if there are no instances
+            project_node = parent_node.parent
             parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
             return
 
         for instance in instances:
@@ -371,7 +389,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         if not groups:
             # Remove the parent node if there are no instance groups
+            project_node = parent_node.parent
             parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
             return
 
         for group in groups:
@@ -422,7 +444,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         if not clusters:
             # Remove the parent node if there are no clusters
+            project_node = parent_node.parent
             parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
             return
 
         for cluster in clusters:
@@ -459,7 +485,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         if not secrets:
             # Remove the parent node if there are no secrets
+            project_node = parent_node.parent
             parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
             return
 
         for secret in secrets:
@@ -489,7 +519,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         if not accounts:
             # Remove the parent node if there are no service accounts
+            project_node = parent_node.parent
             parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
             return
 
         for account in accounts:
