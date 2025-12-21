@@ -324,6 +324,231 @@ class TestComputeService:
             assert len(groups) == 1
             assert groups[0] == mock_group
 
+    @pytest.mark.asyncio
+    async def test_list_instance_groups_specific_zone(
+        self, compute_service: ComputeService, mock_compute_client: MagicMock
+    ) -> None:
+        """Test listing instance groups in a specific zone."""
+        mock_response = {
+            "items": [
+                {
+                    "name": "zone-specific-group",
+                    "zone": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a",
+                    "targetSize": 3,
+                }
+            ]
+        }
+
+        mock_request = MagicMock()
+        mock_request.execute = MagicMock(return_value=mock_response)
+        mock_compute_client.instanceGroupManagers().list.return_value = mock_request
+
+        # Mock unmanaged groups (empty)
+        mock_unmanaged_request = MagicMock()
+        mock_unmanaged_request.execute = MagicMock(return_value={"items": []})
+        mock_compute_client.instanceGroups().list.return_value = mock_unmanaged_request
+
+        compute_service._client = mock_compute_client
+
+        groups = await compute_service.list_instance_groups("test-project", zone="us-central1-a", use_cache=False)
+
+        assert len(groups) == 1
+        assert groups[0].group_name == "zone-specific-group"
+        mock_compute_client.instanceGroupManagers().list.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_list_instance_groups_error_handling(
+        self, compute_service: ComputeService, mock_compute_client: MagicMock
+    ) -> None:
+        """Test error handling when listing instance groups fails."""
+        mock_request = MagicMock()
+        mock_request.execute = MagicMock(side_effect=Exception("API Error"))
+        mock_compute_client.instanceGroupManagers().aggregatedList.return_value = mock_request
+        mock_compute_client.instanceGroups().aggregatedList.return_value = mock_request
+
+        compute_service._client = mock_compute_client
+
+        # Should return empty list on error
+        groups = await compute_service.list_instance_groups("test-project", use_cache=False)
+
+        assert len(groups) == 0
+
+    @pytest.mark.asyncio
+    async def test_list_instance_groups_cache_set(
+        self, compute_service: ComputeService, mock_compute_client: MagicMock
+    ) -> None:
+        """Test that results are cached when use_cache=True."""
+        mock_response = {
+            "items": {
+                "zones/us-central1-a": {
+                    "instanceGroupManagers": [
+                        {
+                            "name": "test-group",
+                            "zone": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a",
+                            "targetSize": 1,
+                        }
+                    ]
+                }
+            }
+        }
+
+        mock_managed_request = MagicMock()
+        mock_managed_request.execute = MagicMock(return_value=mock_response)
+        mock_compute_client.instanceGroupManagers().aggregatedList.return_value = mock_managed_request
+
+        mock_unmanaged_request = MagicMock()
+        mock_unmanaged_request.execute = MagicMock(return_value={"items": {}})
+        mock_compute_client.instanceGroups().aggregatedList.return_value = mock_unmanaged_request
+
+        compute_service._client = mock_compute_client
+
+        with patch.object(compute_service._cache, "set") as mock_cache_set:
+            groups = await compute_service.list_instance_groups("test-project", use_cache=True)
+
+            assert len(groups) == 1
+            # Verify cache.set was called
+            mock_cache_set.assert_called_once()
+            # Verify the cached value is the groups list
+            assert mock_cache_set.call_args[0][1] == groups
+
+    @pytest.mark.asyncio
+    async def test_list_instances_in_group_unmanaged(
+        self, compute_service: ComputeService, mock_compute_client: MagicMock
+    ) -> None:
+        """Test listing instances in an unmanaged instance group."""
+        mock_refs_response = {
+            "items": [
+                {"instance": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/instances/instance-1"},
+            ]
+        }
+
+        mock_instance = {
+            "name": "instance-1",
+            "zone": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a",
+            "status": "RUNNING",
+            "machineType": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/machineTypes/n1-standard-1",
+        }
+
+        mock_list_request = MagicMock()
+        mock_list_request.execute = MagicMock(return_value=mock_refs_response)
+
+        mock_get_request = MagicMock()
+        mock_get_request.execute = MagicMock(return_value=mock_instance)
+
+        mock_compute_client.instanceGroups().listInstances.return_value = mock_list_request
+        mock_compute_client.instances().get.return_value = mock_get_request
+
+        compute_service._client = mock_compute_client
+
+        instances = await compute_service.list_instances_in_group(
+            "test-project", "us-central1-a", "unmanaged-group", is_managed=False, use_cache=False
+        )
+
+        assert len(instances) == 1
+        assert instances[0].name == "instance-1"
+        mock_compute_client.instanceGroups().listInstances.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_list_instances_in_regional_group_unmanaged(
+        self, compute_service: ComputeService, mock_compute_client: MagicMock
+    ) -> None:
+        """Test listing instances in an unmanaged regional instance group."""
+        mock_refs_response = {
+            "items": [
+                {"instance": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/instances/regional-instance-1"},
+            ]
+        }
+
+        mock_instance = {
+            "name": "regional-instance-1",
+            "zone": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a",
+            "status": "RUNNING",
+            "machineType": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/machineTypes/n1-standard-1",
+        }
+
+        mock_list_request = MagicMock()
+        mock_list_request.execute = MagicMock(return_value=mock_refs_response)
+
+        mock_get_request = MagicMock()
+        mock_get_request.execute = MagicMock(return_value=mock_instance)
+
+        mock_compute_client.regionInstanceGroups().listInstances.return_value = mock_list_request
+        mock_compute_client.instances().get.return_value = mock_get_request
+
+        compute_service._client = mock_compute_client
+
+        instances = await compute_service.list_instances_in_regional_group(
+            "test-project", "us-central1", "unmanaged-regional-group", is_managed=False, use_cache=False
+        )
+
+        assert len(instances) == 1
+        assert instances[0].name == "regional-instance-1"
+        mock_compute_client.regionInstanceGroups().listInstances.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_list_instances_in_regional_group_error_extracting_zone(
+        self, compute_service: ComputeService, mock_compute_client: MagicMock
+    ) -> None:
+        """Test error handling when zone cannot be extracted from instance URL."""
+        mock_refs_response = {
+            "managedInstances": [
+                {"instance": "invalid-url-without-zones"},
+            ]
+        }
+
+        mock_list_request = MagicMock()
+        mock_list_request.execute = MagicMock(return_value=mock_refs_response)
+
+        mock_compute_client.regionInstanceGroupManagers().listManagedInstances.return_value = mock_list_request
+
+        compute_service._client = mock_compute_client
+
+        instances = await compute_service.list_instances_in_regional_group(
+            "test-project", "us-central1", "test-group", use_cache=False
+        )
+
+        # Should skip instances with invalid URLs
+        assert len(instances) == 0
+
+    @pytest.mark.asyncio
+    async def test_list_instances_cache_set(
+        self, compute_service: ComputeService, mock_compute_client: MagicMock
+    ) -> None:
+        """Test that instance results are cached."""
+        mock_refs_response = {
+            "managedInstances": [
+                {"instance": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/instances/instance-1"},
+            ]
+        }
+
+        mock_instance = {
+            "name": "instance-1",
+            "zone": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a",
+            "status": "RUNNING",
+            "machineType": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/machineTypes/n1-standard-1",
+        }
+
+        mock_list_request = MagicMock()
+        mock_list_request.execute = MagicMock(return_value=mock_refs_response)
+
+        mock_get_request = MagicMock()
+        mock_get_request.execute = MagicMock(return_value=mock_instance)
+
+        mock_compute_client.instanceGroupManagers().listManagedInstances.return_value = mock_list_request
+        mock_compute_client.instances().get.return_value = mock_get_request
+
+        compute_service._client = mock_compute_client
+
+        with patch.object(compute_service._cache, "set") as mock_cache_set:
+            instances = await compute_service.list_instances_in_group(
+                "test-project", "us-central1-a", "test-group", use_cache=True
+            )
+
+            assert len(instances) == 1
+            # Verify cache.set was called
+            mock_cache_set.assert_called_once()
+            assert mock_cache_set.call_args[0][1] == instances
+
 
 class TestGetComputeService:
     """Tests for get_compute_service function."""
