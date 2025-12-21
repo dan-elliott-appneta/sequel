@@ -17,10 +17,17 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
   - Instance Groups → VM instances (with actual instance names and status)
   - Sub-resources display in JSON details pane when selected
   - Automatic empty category removal
+  - Virtual scrolling with smart limits (50 items per node) and "... and N more" indicators
 - **JSON details pane** with tree-sitter syntax highlighting, pretty-printed API responses, and mouse text selection
+- **Performance optimized**:
+  - Parallel API operations for simultaneous resource loading
+  - Intelligent caching with LRU eviction and 100MB size limit
+  - Cache statistics tracking (hits, misses, evictions, expirations)
+  - Connection pooling for API clients
+  - Background cache cleanup every 5 minutes
 - **Lazy loading** for efficient API usage
 - **ADC authentication** using Google Cloud Application Default Credentials
-- **Comprehensive testing** with high code coverage
+- **Comprehensive testing** with high code coverage (81%+)
 
 ### Supported Resources (MVP)
 
