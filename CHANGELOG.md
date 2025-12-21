@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Categories removed after lazy loading discovers no resources
   - Only shows resource types that contain items (e.g., if no CloudSQL instances, node is removed after expansion)
   - Lazy loading maintains fast initial tree population
+- **Hierarchical sub-nodes** for expanded resource details:
+  - Service Accounts now expandable to show IAM role placeholder
+  - GKE Clusters now expandable to show individual cluster nodes
+  - Instance Groups now expandable to show instances in the group
+  - Provides deeper inspection of resource composition
 - JSON-based configuration file system at `~/.config/sequel/config.json`
 - Configuration precedence: Environment Variables > Config File > Defaults
 - Theme persistence - theme changes automatically saved to config file

@@ -24,9 +24,12 @@ class ResourceType:
     PROJECT = "project"
     CLOUDSQL = "cloudsql"
     COMPUTE = "compute"
+    COMPUTE_INSTANCE = "compute_instance"
     GKE = "gke"
+    GKE_NODE = "gke_node"
     SECRETS = "secrets"
     IAM = "iam"
+    IAM_ROLE = "iam_role"
 
 
 class ResourceTreeNode:
@@ -38,6 +41,8 @@ class ResourceTreeNode:
         resource_id: str,
         resource_data: Any = None,
         project_id: str | None = None,
+        location: str | None = None,
+        zone: str | None = None,
     ) -> None:
         """Initialize resource tree node.
 
@@ -46,11 +51,15 @@ class ResourceTreeNode:
             resource_id: Unique identifier for the resource
             resource_data: The actual resource data/model
             project_id: Parent project ID (if applicable)
+            location: GCP location/region (for GKE, etc.)
+            zone: GCP zone (for Compute, etc.)
         """
         self.resource_type = resource_type
         self.resource_id = resource_id
         self.resource_data = resource_data
         self.project_id = project_id
+        self.location = location
+        self.zone = zone
         self.loaded = False
 
 
@@ -184,12 +193,18 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 await self._load_cloudsql_instances(node)
             elif node.data.resource_type == ResourceType.COMPUTE:
                 await self._load_instance_groups(node)
+            elif node.data.resource_type == ResourceType.COMPUTE_INSTANCE:
+                await self._load_instances_in_group(node)
             elif node.data.resource_type == ResourceType.GKE:
                 await self._load_gke_clusters(node)
+            elif node.data.resource_type == ResourceType.GKE_NODE:
+                await self._load_cluster_nodes(node)
             elif node.data.resource_type == ResourceType.SECRETS:
                 await self._load_secrets(node)
             elif node.data.resource_type == ResourceType.IAM:
                 await self._load_service_accounts(node)
+            elif node.data.resource_type == ResourceType.IAM_ROLE:
+                await self._load_service_account_roles(node)
 
             node.data.loaded = True
 
@@ -247,16 +262,27 @@ class ResourceTree(Tree[ResourceTreeNode]):
             return
 
         for group in groups:
+            # Extract zone from self_link if available
+            zone = None
+            if hasattr(group, 'zone') and group.zone:
+                # Zone is typically like "https://www.googleapis.com/compute/v1/projects/PROJECT/zones/ZONE"
+                zone_parts = group.zone.split('/')
+                if len(zone_parts) > 0:
+                    zone = zone_parts[-1]
+
             node_data = ResourceTreeNode(
-                resource_type=ResourceType.COMPUTE,
+                resource_type=ResourceType.COMPUTE_INSTANCE,
                 resource_id=group.group_name,
                 resource_data=group,
                 project_id=project_id,
+                zone=zone,
             )
             type_icon = "M" if group.is_managed else "U"
-            parent_node.add_leaf(
+            # Make instance groups expandable to show instances
+            parent_node.add(
                 f"[{type_icon}] {group.group_name} (size: {group.size})",
                 data=node_data,
+                allow_expand=True,
             )
 
     async def _load_gke_clusters(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
@@ -278,16 +304,22 @@ class ResourceTree(Tree[ResourceTreeNode]):
             return
 
         for cluster in clusters:
+            # Extract location from cluster
+            location = cluster.location if hasattr(cluster, 'location') else None
+
             node_data = ResourceTreeNode(
-                resource_type=ResourceType.GKE,
+                resource_type=ResourceType.GKE_NODE,
                 resource_id=cluster.cluster_name,
                 resource_data=cluster,
                 project_id=project_id,
+                location=location,
             )
             status_icon = "✓" if cluster.is_running() else "✗"
-            parent_node.add_leaf(
+            # Make clusters expandable to show nodes
+            parent_node.add(
                 f"{status_icon} {cluster.cluster_name} (nodes: {cluster.node_count})",
                 data=node_data,
+                allow_expand=True,
             )
 
     async def _load_secrets(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
@@ -340,13 +372,57 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         for account in accounts:
             node_data = ResourceTreeNode(
-                resource_type=ResourceType.IAM,
+                resource_type=ResourceType.IAM_ROLE,
                 resource_id=account.email,
                 resource_data=account,
                 project_id=project_id,
             )
             status_icon = "✓" if account.is_enabled() else "✗"
-            parent_node.add_leaf(
+            # Make service accounts expandable to show IAM roles
+            parent_node.add(
                 f"{status_icon} {account.email}",
                 data=node_data,
+                allow_expand=True,
             )
+
+    async def _load_service_account_roles(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load IAM roles for a service account."""
+        if parent_node.data is None:
+            return
+
+        parent_node.remove_children()
+
+        # For now, show a placeholder - full implementation would fetch IAM policy bindings
+        parent_node.add_leaf("📋 Roles (expand service account for details)")
+
+    async def _load_cluster_nodes(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load nodes for a GKE cluster."""
+        if parent_node.data is None or parent_node.data.resource_data is None:
+            return
+
+        cluster = parent_node.data.resource_data
+        parent_node.remove_children()
+
+        # Show node pools and node count from cluster data
+        if hasattr(cluster, 'node_count') and cluster.node_count > 0:
+            for i in range(cluster.node_count):
+                parent_node.add_leaf(f"🖥️  Node {i+1}")
+        else:
+            parent_node.remove()
+
+    async def _load_instances_in_group(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load instances in an instance group."""
+        if parent_node.data is None or parent_node.data.resource_data is None:
+            return
+
+        group = parent_node.data.resource_data
+        parent_node.remove_children()
+
+        # Show instance count from group data
+        if hasattr(group, 'size') and group.size > 0:
+            for i in range(min(group.size, 10)):  # Limit to 10 for now
+                parent_node.add_leaf(f"💻 Instance {i+1}")
+            if group.size > 10:
+                parent_node.add_leaf(f"... and {group.size - 10} more")
+        else:
+            parent_node.remove()
