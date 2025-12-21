@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All mypy strict mode errors resolved using proper type casting
 - Proper handling of missing type stubs for third-party libraries
 - Tree clutter from empty resource categories - now automatically removed when expanded
+- Syntax highlighting not working - added missing tree-sitter dependencies
+  - Added tree-sitter, tree-sitter-languages, tree-sitter-json to requirements
+  - JSON syntax highlighting now works with colorful Monokai theme
 
 ### Security
 - Credential scrubbing enforced in all logging

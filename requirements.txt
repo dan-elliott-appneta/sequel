@@ -1,5 +1,10 @@
 # TUI Framework
-textual[syntax]>=0.47.0
+textual>=0.47.0
+
+# Syntax highlighting for TextArea
+tree-sitter>=0.21.0
+tree-sitter-languages>=1.10.0
+tree-sitter-json>=0.24.0
 
 # Google Cloud Client Libraries
 google-auth>=2.25.0
