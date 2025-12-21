@@ -44,13 +44,14 @@ class StatusBar(Static):
         if self._loading:
             parts.append("⏳ Loading...")
 
-        # Add keyboard shortcuts
+        # Add keyboard shortcuts with VIM bindings
         shortcuts = [
             "q: Quit",
             "r: Refresh",
             "?: Help",
-            "↑↓: Navigate",
-            "Enter: Expand",
+            "j/k/↑↓: Navigate",
+            "h/l/←→: Collapse/Expand",
+            "g/G: Top/Bottom",
         ]
         parts.append(" | ".join(shortcuts))
 
