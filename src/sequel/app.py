@@ -1,0 +1,127 @@
+"""Main Textual application for Sequel."""
+
+from typing import ClassVar
+
+from textual.app import App
+from textual.binding import Binding
+
+from sequel.screens.main import MainScreen
+from sequel.services.auth import AuthError, get_auth_manager
+from sequel.utils.logging import get_logger
+from sequel.widgets.error_modal import ErrorModal
+
+logger = get_logger(__name__)
+
+
+class SequelApp(App[None]):
+    """Main Textual application for browsing GCP resources.
+
+    Key bindings:
+    - q: Quit application
+    - r: Refresh current view
+    - ?: Show help
+    """
+
+    BINDINGS: ClassVar = [
+        Binding("q", "quit", "Quit", priority=True),
+        Binding("r", "refresh", "Refresh"),
+        Binding("?", "help", "Help"),
+    ]
+
+    CSS: ClassVar[str] = """
+    Screen {
+        background: $surface;
+    }
+
+    #error-dialog {
+        width: 60;
+        height: auto;
+        background: $panel;
+        border: thick $error;
+        padding: 1 2;
+    }
+
+    #error-title {
+        text-style: bold;
+        color: $error;
+        margin-bottom: 1;
+    }
+
+    #error-message {
+        margin-bottom: 1;
+    }
+
+    #button-container {
+        layout: horizontal;
+        height: auto;
+        align: center middle;
+    }
+    """
+
+    def __init__(self, *args: any, **kwargs: any) -> None:  # type: ignore[valid-type]
+        """Initialize the application."""
+        super().__init__(*args, **kwargs)
+        self.title = "Sequel - GCP Resource Browser"
+        self.sub_title = "v0.1.0"
+
+    async def on_mount(self) -> None:
+        """Handle application mount event."""
+        logger.info("Sequel application starting")
+
+        try:
+            # Initialize authentication
+            logger.info("Initializing authentication...")
+            await get_auth_manager()
+
+            # Push main screen
+            await self.push_screen(MainScreen())
+
+        except AuthError as e:
+            logger.error(f"Authentication failed: {e}")
+            await self.show_error("Authentication Error", str(e))
+            self.exit()
+
+        except Exception as e:
+            logger.error(f"Application initialization failed: {e}")
+            await self.show_error("Initialization Error", str(e))
+            self.exit()
+
+    async def action_refresh(self) -> None:
+        """Refresh the current view."""
+        logger.info("Refresh action triggered")
+
+        # Get current screen
+        screen = self.screen
+
+        if isinstance(screen, MainScreen):
+            await screen.refresh_tree()
+
+    async def action_help(self) -> None:
+        """Show help modal."""
+        help_text = """
+        Keyboard Shortcuts:
+
+        q - Quit application
+        r - Refresh current view
+        ? - Show this help
+        ↑/↓ - Navigate tree
+        Enter - Expand/collapse node
+        Esc - Dismiss modal
+        """
+
+        await self.show_error("Help", help_text)
+
+    async def show_error(self, title: str, message: str) -> None:
+        """Show an error modal.
+
+        Args:
+            title: Error title
+            message: Error message
+        """
+        await self.push_screen(ErrorModal(title, message))
+
+
+def run_app() -> None:
+    """Run the Sequel application."""
+    app = SequelApp()
+    app.run()

@@ -1,17 +1,77 @@
-"""Command-line interface entry point for Sequel."""
+"""Command-line interface for Sequel."""
 
+import argparse
 import sys
 
+from sequel.app import run_app
+from sequel.config import get_config
+from sequel.utils.logging import setup_logging
 
-def main() -> int:
-    """Main entry point for the Sequel CLI.
 
-    This is a placeholder that will be implemented in Phase 6.
-    """
-    print("Sequel v0.1.0 - Infrastructure phase complete")
-    print("Full application will be available after Phase 6")
-    return 0
+def main() -> None:
+    """Main CLI entry point for Sequel."""
+    parser = argparse.ArgumentParser(
+        description="Sequel - A TUI for browsing Google Cloud resources",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  sequel                    # Start with default settings
+  sequel --debug            # Enable debug logging
+  sequel --no-cache         # Disable caching
+  sequel --log-file app.log # Write logs to file
+
+For more information, visit: https://github.com/dan-elliott-appneta/sequel
+        """,
+    )
+
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging",
+    )
+
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        help="Path to log file (default: logs to stderr)",
+    )
+
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable caching of API responses",
+    )
+
+    parser.add_argument(
+        "--version",
+        action="version",
+        version="%(prog)s 0.1.0",
+    )
+
+    args = parser.parse_args()
+
+    # Set up logging
+    log_level = "DEBUG" if args.debug else get_config().log_level
+    setup_logging(level=log_level)
+
+    # Update config based on CLI args
+    if args.no_cache:
+        config = get_config()
+        config.cache_ttl_projects = 0
+        config.cache_ttl_resources = 0
+
+    try:
+        # Run the application
+        run_app()
+
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        sys.exit(0)
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
