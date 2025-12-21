@@ -202,7 +202,33 @@ pytest --cov
 pytest -m unit
 pytest -m integration
 pytest -m ui
+
+# Run performance benchmarks
+pytest -m benchmark --no-cov -s
 ```
+
+### Performance Benchmarks
+
+Sequel includes performance benchmarks to track optimization improvements:
+
+```bash
+# Run benchmarks
+pytest -m benchmark --no-cov -s
+```
+
+**Benchmark Results (as of Phase 9):**
+- **Project Loading**:
+  - 1 project: 0.11ms
+  - 10 projects: 0.14ms
+  - 100 projects: 1.48ms
+- **Cache Performance**:
+  - Hit rate: 90.9% on repeated reads
+  - SET operation: 0.014ms avg
+  - GET operation: 0.001ms avg
+  - 1000 concurrent writes: 15.68ms
+  - 1000 concurrent reads: 2.25ms
+  - Cache speedup: 215.9x faster than API calls
+- **Model Creation**: 0.002ms per model (1000 models in 2.30ms)
 
 ### Code Quality
 
@@ -235,7 +261,7 @@ This project is in **alpha** stage. The MVP includes basic browsing functionalit
 **Roadmap:**
 - ✅ [Phase 7: Performance Optimization](docs/phase-7-performance-plan.md) - **COMPLETE** - Parallel API calls, cache optimization, LRU eviction
 - ✅ [Phase 8: Error Handling & UX Polish](docs/phase-8-ux-plan.md) - **COMPLETE** - VIM bindings, enhanced status bar, error recovery
-- 🚧 [Phase 9: Testing & Documentation](docs/phase-9-testing-docs-plan.md) - **IN PROGRESS** - Comprehensive documentation complete, integration tests pending
+- ✅ [Phase 9: Testing & Documentation](docs/phase-9-testing-docs-plan.md) - **COMPLETE** - Comprehensive documentation, integration tests (35), performance benchmarks (8)
 - [ ] [Phase 10: Packaging & Release](docs/phase-10-release-plan.md) - PyPI publishing, release automation
 
 See `CLAUDE.md` for development guidelines.
