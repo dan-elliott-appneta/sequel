@@ -14,9 +14,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sequel.cache.memory import MemoryCache, get_cache, reset_cache
+from sequel.cache.memory import MemoryCache, reset_cache
 from sequel.models.cloudsql import CloudSQLInstance
-from sequel.models.project import Project
 from sequel.services.auth import reset_auth_manager
 from sequel.services.cloudsql import reset_cloudsql_service
 from sequel.services.projects import reset_project_service
@@ -89,8 +88,8 @@ async def test_benchmark_project_loading_1_project(mock_gcp_credentials):
         mock_instance = mock_client.return_value
         mock_instance.search_projects.return_value = [
             create_mock_project(
-                project_id=f"project-0",
-                display_name=f"Project 0",
+                project_id="project-0",
+                display_name="Project 0",
             )
         ]
 

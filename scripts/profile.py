@@ -67,7 +67,7 @@ async def profile_project_loading() -> dict[str, float]:
 
     # Test cached loading
     start_time_cached = time.time()
-    cached_projects = await project_service.list_projects(use_cache=True)
+    await project_service.list_projects(use_cache=True)
     elapsed_time_cached = time.time() - start_time_cached
 
     print(f"\n✓ Cached load: {elapsed_time_cached:.4f}s")

@@ -5,13 +5,11 @@ and cache behavior across multiple service operations.
 """
 
 import asyncio
-import time
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from sequel.cache.memory import MemoryCache, get_cache, reset_cache
-from sequel.models.project import Project
 from sequel.services.auth import reset_auth_manager
 from sequel.services.projects import reset_project_service
 
@@ -312,6 +310,7 @@ async def test_cache_with_project_service(mock_gcp_credentials):
     """
     from sequel.services.auth import get_auth_manager
     from sequel.services.projects import get_project_service
+
     from .conftest import create_mock_project
 
     # Setup auth
@@ -376,6 +375,7 @@ async def test_cache_with_different_ttls(mock_gcp_credentials):
     from sequel.services.auth import get_auth_manager
     from sequel.services.cloudsql import get_cloudsql_service
     from sequel.services.projects import get_project_service
+
     from .conftest import create_mock_project
 
     # Setup auth
@@ -473,7 +473,6 @@ async def test_cache_across_multiple_operations(mock_gcp_credentials):
         await get_auth_manager()
 
     cache = get_cache()
-    initial_stats = cache.get_stats()
 
     # Operation 1: List projects
     with patch("sequel.services.projects.resourcemanager_v3.ProjectsClient") as mock_client:

@@ -5,9 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2025-12-21
 
 ### Added
+- **Phase 9: Testing & Documentation**
+  - 12 comprehensive documentation files (~5,000 lines)
+    - Architecture docs (overview, services, widgets)
+    - User guides (installation, configuration, authentication, usage, troubleshooting)
+    - Contributing guides (development, architecture)
+    - Usage examples (basic, advanced)
+  - 35 integration tests
+    - Cache lifecycle tests (12): TTL expiration, LRU eviction, statistics, cleanup
+    - Concurrent access tests (9): Thread safety, parallel operations, error handling
+    - Full workflow tests (4): Authentication, multi-project browsing, refresh
+  - 8 performance benchmarks with baseline metrics
+    - Project loading: 0.11ms (1), 0.14ms (10), 1.48ms (100 projects)
+    - Cache: 90.9% hit rate, 215.9x API speedup
+    - Concurrent ops: 1000 writes in 15.68ms, 1000 reads in 2.25ms
+  - Total: 395 tests (362 unit, 25 integration, 8 benchmarks) with 94%+ coverage
+
 - **Phase 8: Error Handling & UX Polish**
   - **VIM bindings** for keyboard navigation
     - Tree navigation: j/k for up/down, h/l for collapse/expand (or parent/child), g/G for top/bottom
@@ -156,5 +172,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mypy for strict type checking
 - GitHub Actions CI/CD
 
-[Unreleased]: https://github.com/dan-elliott-appneta/sequel/compare/v0.1.0...HEAD
+[1.0.0]: https://github.com/dan-elliott-appneta/sequel/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/dan-elliott-appneta/sequel/releases/tag/v0.1.0

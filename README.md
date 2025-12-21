@@ -46,6 +46,12 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 
 ## Installation
 
+### From PyPI
+
+```bash
+pip install sequel-ag
+```
+
 ### From Source
 
 ```bash
