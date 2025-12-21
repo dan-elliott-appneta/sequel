@@ -1,6 +1,9 @@
 """Main application screen with tree and detail pane layout."""
 
+from typing import ClassVar
+
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Header
@@ -28,6 +31,19 @@ class MainScreen(Screen[None]):
     |  Status Bar                              |
     +------------------------------------------+
     """
+
+    BINDINGS: ClassVar = [
+        # VIM-style navigation
+        Binding("j", "cursor_down", "Move down", show=False),
+        Binding("k", "cursor_up", "Move up", show=False),
+        Binding("h", "collapse_node", "Collapse/Parent", show=False),
+        Binding("l", "expand_node", "Expand/Child", show=False),
+        Binding("g", "cursor_top", "Go to top", show=False),
+        Binding("G", "cursor_bottom", "Go to bottom", show=False),
+        # Arrow keys for tree navigation
+        Binding("left", "collapse_node", "Collapse/Parent", show=False),
+        Binding("right", "expand_node", "Expand/Child", show=False),
+    ]
 
     CSS = """
     MainScreen {
@@ -156,3 +172,99 @@ class MainScreen(Screen[None]):
             logger.error(f"Failed to refresh tree: {e}")
             if self.status_bar:
                 self.status_bar.set_loading(False)
+
+    # VIM-style navigation actions
+
+    async def action_cursor_down(self) -> None:
+        """Move cursor down in tree (VIM 'j' key)."""
+        if self.resource_tree:
+            self.resource_tree.action_cursor_down()
+
+    async def action_cursor_up(self) -> None:
+        """Move cursor up in tree (VIM 'k' key)."""
+        if self.resource_tree:
+            self.resource_tree.action_cursor_up()
+
+    async def action_collapse_node(self) -> None:
+        """Collapse current node or move to parent (VIM 'h' / Left arrow).
+
+        Behavior:
+        - If node is expanded: collapse it
+        - If node is already collapsed: move to parent node
+        """
+        if not self.resource_tree:
+            return
+
+        node = self.resource_tree.cursor_node
+        if not node:
+            return
+
+        # If node is expanded, collapse it
+        if node.is_expanded:
+            node.collapse()
+            logger.debug(f"Collapsed node: {node.label}")
+        # If node is collapsed and has a parent, move to parent
+        elif node.parent and node.parent != self.resource_tree.root:
+            self.resource_tree.select_node(node.parent)
+            logger.debug(f"Moved to parent node: {node.parent.label}")
+
+    async def action_expand_node(self) -> None:
+        """Expand current node or move to first child (VIM 'l' / Right arrow).
+
+        Behavior:
+        - If node can expand and is collapsed: expand it
+        - If node is already expanded and has children: move to first child
+        """
+        if not self.resource_tree:
+            return
+
+        node = self.resource_tree.cursor_node
+        if not node:
+            return
+
+        # If node is not expanded and can expand, expand it
+        if not node.is_expanded and node.allow_expand:
+            node.expand()
+            logger.debug(f"Expanded node: {node.label}")
+        # If node is expanded and has children, move to first child
+        elif node.is_expanded and node.children:
+            first_child = node.children[0]
+            self.resource_tree.select_node(first_child)
+            logger.debug(f"Moved to first child: {first_child.label}")
+
+    async def action_cursor_top(self) -> None:
+        """Move cursor to top of tree (VIM 'g' key)."""
+        if not self.resource_tree:
+            return
+
+        # Move to first child of root (first project)
+        if self.resource_tree.root.children:
+            first_node = self.resource_tree.root.children[0]
+            self.resource_tree.select_node(first_node)
+            logger.debug("Moved to top of tree")
+
+    async def action_cursor_bottom(self) -> None:
+        """Move cursor to bottom of tree (VIM 'G' key)."""
+        if not self.resource_tree:
+            return
+
+        # Find the last visible node in the tree
+        last_node = self._get_last_visible_node(self.resource_tree.root)
+        if last_node:
+            self.resource_tree.select_node(last_node)
+            logger.debug(f"Moved to bottom of tree: {last_node.label}")  # type: ignore[attr-defined]
+
+    def _get_last_visible_node(self, node: any) -> any:  # type: ignore[valid-type]
+        """Recursively find the last visible node in the tree.
+
+        Args:
+            node: Starting node
+
+        Returns:
+            Last visible node
+        """
+        # If node has children and is expanded, recurse into last child
+        if node.children and node.is_expanded:  # type: ignore[attr-defined]
+            return self._get_last_visible_node(node.children[-1])  # type: ignore[attr-defined]
+        # Otherwise, this is the last visible node
+        return node
