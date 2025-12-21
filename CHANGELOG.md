@@ -56,6 +56,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Syntax highlighting not working - added missing tree-sitter dependencies
   - Added tree-sitter, tree-sitter-languages, tree-sitter-json to requirements
   - JSON syntax highlighting now works with colorful Monokai theme
+- Regional instance groups not loading instances correctly
+  - Now properly detects both zonal and regional instance groups
+  - Calls appropriate API method based on group type (regionInstanceGroups vs instanceGroups)
+- IAM roles not displaying for service accounts
+  - Fixed AttributeError by switching from IAM API to Cloud Resource Manager API
+  - Cloud Resource Manager API provides getIamPolicy() method for fetching project IAM policies
+  - Service account role bindings now display correctly in the UI
 
 ### Security
 - Credential scrubbing enforced in all logging
