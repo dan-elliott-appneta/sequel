@@ -4,23 +4,19 @@ These tests simulate realistic user scenarios by mocking GCP APIs
 and testing the full stack from service layer through models.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
-from .conftest import create_mock_project, create_mock_gke_cluster, create_mock_secret
-
-from sequel.cache.memory import MemoryCache, reset_cache
-from sequel.models.cloudsql import CloudSQLInstance
-from sequel.models.compute import ComputeInstance, InstanceGroup
-from sequel.models.gke import GKECluster, GKENode
-from sequel.models.project import Project
-from sequel.models.secrets import Secret
+from sequel.cache.memory import reset_cache
 from sequel.services.auth import reset_auth_manager
 from sequel.services.cloudsql import reset_cloudsql_service
 from sequel.services.compute import reset_compute_service
 from sequel.services.gke import reset_gke_service
 from sequel.services.projects import reset_project_service
 from sequel.services.secrets import reset_secret_manager_service
+
+from .conftest import create_mock_gke_cluster, create_mock_project, create_mock_secret
 
 
 @pytest.fixture(autouse=True)
@@ -272,7 +268,6 @@ async def test_error_recovery_workflow(mock_gcp_credentials):
     from google.api_core.exceptions import PermissionDenied, ResourceExhausted
 
     from sequel.services.auth import get_auth_manager
-    from sequel.services.base import PermissionError, QuotaExceededError
     from sequel.services.cloudsql import get_cloudsql_service
     from sequel.services.gke import get_gke_service
     from sequel.services.projects import get_project_service

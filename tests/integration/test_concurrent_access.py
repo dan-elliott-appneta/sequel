@@ -9,14 +9,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sequel.cache.memory import MemoryCache, get_cache, reset_cache
+from sequel.cache.memory import MemoryCache, reset_cache
 from sequel.services.auth import reset_auth_manager
 from sequel.services.cloudsql import reset_cloudsql_service
 from sequel.services.compute import reset_compute_service
 from sequel.services.gke import reset_gke_service
 from sequel.services.projects import reset_project_service
 from sequel.services.secrets import reset_secret_manager_service
-from .conftest import create_mock_project, create_mock_gke_cluster, create_mock_secret
+
+from .conftest import create_mock_gke_cluster, create_mock_project, create_mock_secret
 
 
 @pytest.fixture(autouse=True)
@@ -418,11 +419,8 @@ async def test_parallel_resource_loading(mock_gcp_credentials):
     3. All results are correctly returned
     """
     from sequel.services.auth import get_auth_manager
-    from sequel.services.clouddns import get_clouddns_service
     from sequel.services.cloudsql import get_cloudsql_service
-    from sequel.services.compute import get_compute_service
     from sequel.services.gke import get_gke_service
-    from sequel.services.iam import get_iam_service
     from sequel.services.secrets import get_secret_manager_service
 
     # Setup auth

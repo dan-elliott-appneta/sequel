@@ -31,11 +31,11 @@ async def debug_instance_groups(project_id: str):
         if hasattr(group, 'zone') and group.zone:
             zone_parts = group.zone.split('/')
             zone = zone_parts[-1] if zone_parts else None
-            print(f"  Type: Zonal")
+            print("  Type: Zonal")
             print(f"  Zone: {zone}")
 
             # Try to list instances
-            print(f"  Listing instances...")
+            print("  Listing instances...")
             try:
                 instances = await service.list_instances_in_group(
                     project_id=project_id,
@@ -53,11 +53,11 @@ async def debug_instance_groups(project_id: str):
         elif hasattr(group, 'region') and group.region:
             region_parts = group.region.split('/')
             region = region_parts[-1] if region_parts else None
-            print(f"  Type: Regional")
+            print("  Type: Regional")
             print(f"  Region: {region}")
 
             # Try to list instances
-            print(f"  Listing instances...")
+            print("  Listing instances...")
             try:
                 instances = await service.list_instances_in_regional_group(
                     project_id=project_id,

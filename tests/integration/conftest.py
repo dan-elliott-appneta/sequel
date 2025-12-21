@@ -1,7 +1,7 @@
 """Integration test fixtures and utilities."""
 
-from unittest.mock import MagicMock
 from typing import Any
+from unittest.mock import MagicMock
 
 
 def create_mock_project(
@@ -83,7 +83,7 @@ def create_mock_gke_cluster(
     mock_cluster.node_pools = node_pools or []
 
     # Additional required fields for GKECluster model
-    mock_cluster.endpoint = f"10.0.0.1"  # IP address
+    mock_cluster.endpoint = "10.0.0.1"  # IP address
     mock_cluster.self_link = f"https://container.googleapis.com/v1/projects/test/locations/{location}/clusters/{name}"
 
     return mock_cluster

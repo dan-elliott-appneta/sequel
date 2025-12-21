@@ -16,7 +16,6 @@ Usage:
 import re
 import sys
 from pathlib import Path
-from typing import Tuple
 
 
 def get_version_from_file(file_path: Path, pattern: str) -> str:
@@ -35,7 +34,7 @@ def update_version_in_file(file_path: Path, pattern: str, new_version: str) -> N
     file_path.write_text(updated)
 
 
-def parse_version(version: str) -> Tuple[int, int, int]:
+def parse_version(version: str) -> tuple[int, int, int]:
     """Parse version string into (major, minor, patch) tuple."""
     match = re.match(r"^(\d+)\.(\d+)\.(\d+)$", version)
     if not match:
@@ -85,7 +84,7 @@ def validate_versions(versions: dict[str, str]) -> str:
             print(f"  {file}: {version}")
         sys.exit(1)
 
-    return list(unique_versions)[0]
+    return next(iter(unique_versions))
 
 
 def update_all_versions(new_version: str) -> None:
@@ -143,10 +142,10 @@ def main() -> None:
 
     print(f"\n✓ Version bumped to {new_version}")
     print("\nNext steps:")
-    print(f"  1. Review changes: git diff")
+    print("  1. Review changes: git diff")
     print(f"  2. Commit changes: git add -A && git commit -m 'Bump version to {new_version}'")
     print(f"  3. Create tag: git tag v{new_version}")
-    print(f"  4. Push: git push && git push --tags")
+    print("  4. Push: git push && git push --tags")
 
 
 if __name__ == "__main__":
