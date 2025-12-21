@@ -153,6 +153,32 @@ sequel --no-cache
 - `Enter` - Expand/collapse node
 - `Esc` - Dismiss modal
 
+## Documentation
+
+### User Guides
+
+- [Installation Guide](docs/user-guide/installation.md) - Prerequisites and installation instructions
+- [Configuration Guide](docs/user-guide/configuration.md) - All configuration options and examples
+- [Authentication Guide](docs/user-guide/authentication.md) - Setting up Google Cloud credentials
+- [Usage Guide](docs/user-guide/usage.md) - Interface layout, navigation, and features
+- [Troubleshooting Guide](docs/user-guide/troubleshooting.md) - Common errors and solutions
+
+### Examples
+
+- [Basic Usage Examples](docs/examples/basic-usage.md) - Step-by-step walkthroughs for common tasks
+- [Advanced Examples](docs/examples/advanced.md) - Custom configurations, performance tuning, debugging
+
+### Architecture
+
+- [Architecture Overview](docs/architecture/overview.md) - High-level architecture and component descriptions
+- [Service Layer](docs/architecture/services.md) - API wrappers, caching, error handling
+- [Widget Layer](docs/architecture/widgets.md) - UI components and event handling
+
+### Contributing
+
+- [Development Guide](docs/contributing/development.md) - Setup, testing, code quality checks
+- [Architecture Guide](docs/contributing/architecture.md) - Adding new features and extending the codebase
+
 ## Development
 
 ### Setup Development Environment
@@ -200,7 +226,7 @@ Sequel follows a layered architecture:
 - **Widgets**: Textual UI components (tree, detail pane, status bar)
 - **Cache**: TTL-based in-memory caching for API responses
 
-See `docs/architecture.md` for detailed architecture documentation.
+See [docs/architecture/overview.md](docs/architecture/overview.md) for detailed architecture documentation.
 
 ## Project Status
 
@@ -208,15 +234,17 @@ This project is in **alpha** stage. The MVP includes basic browsing functionalit
 
 **Roadmap:**
 - ✅ [Phase 7: Performance Optimization](docs/phase-7-performance-plan.md) - **COMPLETE** - Parallel API calls, cache optimization, LRU eviction
-- ✅ [Phase 8: Error Handling & UX Polish](docs/phase-8-ux-plan.md) - **COMPLETE** - VIM bindings, toast notifications, enhanced status bar, error recovery
-- [ ] [Phase 9: Testing & Documentation](docs/phase-9-testing-docs-plan.md) - Comprehensive docs, 95%+ coverage
+- ✅ [Phase 8: Error Handling & UX Polish](docs/phase-8-ux-plan.md) - **COMPLETE** - VIM bindings, enhanced status bar, error recovery
+- 🚧 [Phase 9: Testing & Documentation](docs/phase-9-testing-docs-plan.md) - **IN PROGRESS** - Comprehensive documentation complete, integration tests pending
 - [ ] [Phase 10: Packaging & Release](docs/phase-10-release-plan.md) - PyPI publishing, release automation
 
 See `CLAUDE.md` for development guidelines.
 
 ## Contributing
 
-Contributions are welcome! Please see `docs/development.md` for development guidelines.
+Contributions are welcome! Please see:
+- [Development Guide](docs/contributing/development.md) for development setup and guidelines
+- [Architecture Guide](docs/contributing/architecture.md) for extending the codebase
 
 ## License
 
