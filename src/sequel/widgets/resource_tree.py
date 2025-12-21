@@ -130,6 +130,9 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
             logger.info(f"Loaded {len(projects)} projects")
 
+            # Automatically cleanup empty nodes after loading
+            await self.cleanup_empty_nodes()
+
         except Exception as e:
             logger.error(f"Failed to load projects: {e}")
 
@@ -197,6 +200,50 @@ class ResourceTree(Tree[ResourceTreeNode]):
         if not project_node.children:
             logger.info(f"Removing empty project node: {project_node.label}")
             project_node.remove()
+
+    async def cleanup_empty_nodes(self) -> None:
+        """Automatically check and remove empty resource type and project nodes.
+
+        This method iterates through all projects and their resource type nodes,
+        loading each resource type to check if it has any resources. Empty resource
+        type nodes are removed, and projects with no resource types are also removed.
+        """
+        logger.info("Starting automatic cleanup of empty nodes")
+        projects_to_check = list(self.root.children)
+
+        for project_node in projects_to_check:
+            if not project_node.data or project_node.data.resource_type != ResourceType.PROJECT:
+                continue
+
+            # Get all resource type nodes for this project
+            resource_type_nodes = list(project_node.children)
+
+            for resource_node in resource_type_nodes:
+                if not resource_node.data or resource_node.data.loaded:
+                    continue
+
+                # Load the resource type to check if it's empty
+                resource_type = resource_node.data.resource_type
+
+                try:
+                    if resource_type == ResourceType.CLOUDDNS:
+                        await self._load_dns_zones(resource_node)
+                    elif resource_type == ResourceType.CLOUDSQL:
+                        await self._load_cloudsql_instances(resource_node)
+                    elif resource_type == ResourceType.COMPUTE:
+                        await self._load_instance_groups(resource_node)
+                    elif resource_type == ResourceType.GKE:
+                        await self._load_gke_clusters(resource_node)
+                    elif resource_type == ResourceType.SECRETS:
+                        await self._load_secrets(resource_node)
+                    elif resource_type == ResourceType.IAM:
+                        await self._load_service_accounts(resource_node)
+
+                    resource_node.data.loaded = True
+                except Exception as e:
+                    logger.error(f"Error loading {resource_type} during cleanup: {e}")
+
+        logger.info("Completed automatic cleanup of empty nodes")
 
     async def _on_tree_node_expanded(self, event: Tree.NodeExpanded[ResourceTreeNode]) -> None:
         """Handle tree node expansion with lazy loading.

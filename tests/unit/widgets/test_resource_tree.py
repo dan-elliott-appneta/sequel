@@ -1662,3 +1662,157 @@ class TestEmptyProjectCleanup:
         assert project_node in resource_tree.root.children
         # Project should still have 5 other resource type nodes
         assert len(project_node.children) == 5
+
+
+class TestAutomaticCleanup:
+    """Tests for automatic cleanup of empty nodes after tree loading."""
+
+    @pytest.mark.asyncio
+    async def test_cleanup_empty_nodes_removes_all_empty_projects(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that cleanup_empty_nodes removes projects with all empty resource types."""
+        # Create two project nodes
+        project1_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="empty-project-1",
+            resource_data=None,
+        )
+        project1_node = resource_tree.root.add(
+            "📁 Empty Project 1", data=project1_data, allow_expand=True
+        )
+        resource_tree._add_resource_type_nodes(project1_node, "empty-project-1")
+
+        project2_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="empty-project-2",
+            resource_data=None,
+        )
+        project2_node = resource_tree.root.add(
+            "📁 Empty Project 2", data=project2_data, allow_expand=True
+        )
+        resource_tree._add_resource_type_nodes(project2_node, "empty-project-2")
+
+        # Mock all services to return empty lists
+        with (
+            patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_dns,
+            patch("sequel.widgets.resource_tree.get_cloudsql_service") as mock_sql,
+            patch("sequel.widgets.resource_tree.get_compute_service") as mock_compute,
+            patch("sequel.widgets.resource_tree.get_gke_service") as mock_gke,
+            patch("sequel.widgets.resource_tree.get_secret_manager_service") as mock_secrets,
+            patch("sequel.widgets.resource_tree.get_iam_service") as mock_iam,
+        ):
+            # All services return empty lists
+            for mock_service in [mock_dns, mock_sql, mock_compute, mock_gke, mock_secrets, mock_iam]:
+                service = AsyncMock()
+                service.list_zones = AsyncMock(return_value=[])
+                service.list_instances = AsyncMock(return_value=[])
+                service.list_instance_groups = AsyncMock(return_value=[])
+                service.list_clusters = AsyncMock(return_value=[])
+                service.list_secrets = AsyncMock(return_value=[])
+                service.list_service_accounts = AsyncMock(return_value=[])
+                mock_service.return_value = service
+
+            # Run cleanup
+            await resource_tree.cleanup_empty_nodes()
+
+        # Both projects should be removed
+        assert project1_node not in resource_tree.root.children
+        assert project2_node not in resource_tree.root.children
+        assert len(resource_tree.root.children) == 0
+
+    @pytest.mark.asyncio
+    async def test_cleanup_empty_nodes_keeps_projects_with_resources(
+        self, resource_tree: ResourceTree, sample_dns_zone: ManagedZone
+    ) -> None:
+        """Test that cleanup_empty_nodes keeps projects with at least one non-empty resource type."""
+        # Create a project node
+        project_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="mixed-project",
+            resource_data=None,
+        )
+        project_node = resource_tree.root.add(
+            "📁 Mixed Project", data=project_data, allow_expand=True
+        )
+        resource_tree._add_resource_type_nodes(project_node, "mixed-project")
+
+        # Mock services: CloudDNS has zones, everything else is empty
+        with (
+            patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_dns,
+            patch("sequel.widgets.resource_tree.get_cloudsql_service") as mock_sql,
+            patch("sequel.widgets.resource_tree.get_compute_service") as mock_compute,
+            patch("sequel.widgets.resource_tree.get_gke_service") as mock_gke,
+            patch("sequel.widgets.resource_tree.get_secret_manager_service") as mock_secrets,
+            patch("sequel.widgets.resource_tree.get_iam_service") as mock_iam,
+        ):
+            # CloudDNS returns zones
+            dns_service = AsyncMock()
+            dns_service.list_zones = AsyncMock(return_value=[sample_dns_zone])
+            mock_dns.return_value = dns_service
+
+            # All other services return empty lists
+            for mock_service in [mock_sql, mock_compute, mock_gke, mock_secrets, mock_iam]:
+                service = AsyncMock()
+                service.list_instances = AsyncMock(return_value=[])
+                service.list_instance_groups = AsyncMock(return_value=[])
+                service.list_clusters = AsyncMock(return_value=[])
+                service.list_secrets = AsyncMock(return_value=[])
+                service.list_service_accounts = AsyncMock(return_value=[])
+                mock_service.return_value = service
+
+            # Run cleanup
+            await resource_tree.cleanup_empty_nodes()
+
+        # Project should be kept because CloudDNS has resources
+        assert project_node in resource_tree.root.children
+        # Project should only have CloudDNS node left
+        assert len(project_node.children) == 1
+        assert project_node.children[0].data.resource_type == ResourceType.CLOUDDNS
+
+    @pytest.mark.asyncio
+    async def test_cleanup_empty_nodes_handles_errors_gracefully(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that cleanup_empty_nodes handles errors in individual resource loads."""
+        # Create a project node
+        project_data = ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="error-project",
+            resource_data=None,
+        )
+        project_node = resource_tree.root.add(
+            "📁 Error Project", data=project_data, allow_expand=True
+        )
+        resource_tree._add_resource_type_nodes(project_node, "error-project")
+
+        # Mock services: CloudDNS throws error, everything else is empty
+        with (
+            patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_dns,
+            patch("sequel.widgets.resource_tree.get_cloudsql_service") as mock_sql,
+            patch("sequel.widgets.resource_tree.get_compute_service") as mock_compute,
+            patch("sequel.widgets.resource_tree.get_gke_service") as mock_gke,
+            patch("sequel.widgets.resource_tree.get_secret_manager_service") as mock_secrets,
+            patch("sequel.widgets.resource_tree.get_iam_service") as mock_iam,
+        ):
+            # CloudDNS throws error
+            dns_service = AsyncMock()
+            dns_service.list_zones = AsyncMock(side_effect=Exception("API Error"))
+            mock_dns.return_value = dns_service
+
+            # All other services return empty lists
+            for mock_service in [mock_sql, mock_compute, mock_gke, mock_secrets, mock_iam]:
+                service = AsyncMock()
+                service.list_instances = AsyncMock(return_value=[])
+                service.list_instance_groups = AsyncMock(return_value=[])
+                service.list_clusters = AsyncMock(return_value=[])
+                service.list_secrets = AsyncMock(return_value=[])
+                service.list_service_accounts = AsyncMock(return_value=[])
+                mock_service.return_value = service
+
+            # Run cleanup - should not raise exception
+            await resource_tree.cleanup_empty_nodes()
+
+        # Project should be removed because all other resource types are empty
+        # CloudDNS will still be there because the error prevented removal
+        assert project_node not in resource_tree.root.children or len(project_node.children) <= 1
