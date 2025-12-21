@@ -62,7 +62,7 @@ class ProjectService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} projects from cache")
-                return cast(list[Project], cached)
+                return cast("list[Project]", cached)
 
         async def _list_projects() -> list[Project]:
             """Internal function to list projects."""
@@ -139,7 +139,7 @@ class ProjectService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning project {project_id} from cache")
-                return cast(Project, cached)
+                return cast("Project", cached)
 
         async def _get_project() -> Project | None:
             """Internal function to get project."""

@@ -66,7 +66,7 @@ class IAMService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} service accounts from cache")
-                return cast(list[ServiceAccount], cached)
+                return cast("list[ServiceAccount]", cached)
 
         async def _list_service_accounts() -> list[ServiceAccount]:
             """Internal function to list service accounts."""
@@ -136,7 +136,7 @@ class IAMService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning service account {email} from cache")
-                return cast(ServiceAccount, cached)
+                return cast("ServiceAccount", cached)
 
         async def _get_service_account() -> ServiceAccount | None:
             """Internal function to get service account."""

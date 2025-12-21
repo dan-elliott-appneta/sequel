@@ -68,7 +68,7 @@ class ComputeService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} instance groups from cache")
-                return cast(list[InstanceGroup], cached)
+                return cast("list[InstanceGroup]", cached)
 
         async def _list_instance_groups() -> list[InstanceGroup]:
             """Internal function to list instance groups."""

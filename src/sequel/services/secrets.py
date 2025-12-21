@@ -68,7 +68,7 @@ class SecretManagerService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} secrets from cache")
-                return cast(list[Secret], cached)
+                return cast("list[Secret]", cached)
 
         async def _list_secrets() -> list[Secret]:
             """Internal function to list secrets."""
@@ -141,7 +141,7 @@ class SecretManagerService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning secret {secret_name} from cache")
-                return cast(Secret, cached)
+                return cast("Secret", cached)
 
         async def _get_secret() -> Secret | None:
             """Internal function to get secret."""

@@ -66,7 +66,7 @@ class CloudSQLService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} Cloud SQL instances from cache")
-                return cast(list[CloudSQLInstance], cached)
+                return cast("list[CloudSQLInstance]", cached)
 
         async def _list_instances() -> list[CloudSQLInstance]:
             """Internal function to list instances."""
@@ -134,7 +134,7 @@ class CloudSQLService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning Cloud SQL instance {instance_name} from cache")
-                return cast(CloudSQLInstance, cached)
+                return cast("CloudSQLInstance", cached)
 
         async def _get_instance() -> CloudSQLInstance | None:
             """Internal function to get instance."""

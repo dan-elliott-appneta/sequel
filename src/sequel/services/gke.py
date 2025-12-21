@@ -64,7 +64,7 @@ class GKEService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} GKE clusters from cache")
-                return cast(list[GKECluster], cached)
+                return cast("list[GKECluster]", cached)
 
         async def _list_clusters() -> list[GKECluster]:
             """Internal function to list clusters."""
@@ -136,7 +136,7 @@ class GKEService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning GKE cluster {cluster_name} from cache")
-                return cast(GKECluster, cached)
+                return cast("GKECluster", cached)
 
         async def _get_cluster() -> GKECluster | None:
             """Internal function to get cluster."""
