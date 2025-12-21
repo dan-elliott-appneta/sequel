@@ -51,7 +51,7 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Test coverage: 94.61% (332 tests)
   - All CI checks passing (lint, type check, tests)
 
-- [x] **Phase 7: Performance Optimization** (Current) - [Plan](docs/phase-7-performance-plan.md)
+- [x] **Phase 7: Performance Optimization** - [Plan](docs/phase-7-performance-plan.md)
   - Branch: `phase-7-performance`
   - Implemented:
     - Parallel API operations using asyncio.gather() for simultaneous resource loading
@@ -60,6 +60,9 @@ This project is being built in 10 phases. Each phase is implemented in its own b
     - Connection pooling for all API clients (already implemented in all services)
     - Virtual scrolling with MAX_CHILDREN_PER_NODE limit (50 items) and "... and N more" indicators
     - Performance profiling script (scripts/profile.py) for benchmarking
+    - Bug fix: Managed instance groups now use correct API (instanceGroupManagers vs instanceGroups)
+    - Bug fix: Increased instance limit from 10 to 100 per group
+    - Debug script (scripts/debug_mig.py) for testing instance group API calls
   - Test coverage: 81.05% (355 tests)
   - All tests passing
 

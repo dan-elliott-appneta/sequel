@@ -855,6 +855,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
             if not instances:
                 # Show message that no instances are found instead of removing the node
+                logger.warning(f"No instances found for {group.group_name}, adding placeholder")
                 parent_node.add(
                     "💻 No instances found",
                     allow_expand=False,
@@ -864,6 +865,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
             # Add instance nodes with real data (with limit)
             total_instances = len(instances)
             instances_to_show = instances[:MAX_CHILDREN_PER_NODE] if self._should_limit_children(total_instances) else instances
+
+            logger.info(f"Adding {len(instances_to_show)} of {total_instances} instances to tree for {group.group_name}")
 
             for instance in instances_to_show:
                 node_data = ResourceTreeNode(
