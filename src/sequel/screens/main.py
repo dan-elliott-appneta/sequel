@@ -42,7 +42,6 @@ class MainScreen(Screen[None]):
     #tree-container {
         width: 40%;
         height: 100%;
-        border-right: tall $primary;
     }
 
     #detail-container {

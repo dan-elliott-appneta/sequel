@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **JSON details pane**: Displays syntax-highlighted, pretty-printed JSON from raw GCP API responses
-  - Tree-sitter powered JSON syntax highlighting with Monokai theme
+  - Tree-sitter powered JSON syntax highlighting with Dracula theme
   - Line numbers enabled for easy reference
   - Mouse text selection and copying support
   - Scrollable view for long API responses
@@ -32,10 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Detail pane now displays raw API JSON instead of formatted table
 - Detail pane switched from Static to TextArea widget for text selection support
+- Syntax highlighting theme changed from Monokai to Dracula for better readability
 - All models now store raw API response data in `raw_data` field for inspection
 - Tree population now eagerly checks for resources instead of lazy loading categories
   - Initial tree load calls all list APIs to determine which categories have content
   - Trade-off: slower initial load for cleaner UX (no empty category placeholders)
+- Removed border between tree and details panes for cleaner interface
 
 ### Fixed
 - UI border gaps when expanding tree nodes (changed from solid to tall border style)
