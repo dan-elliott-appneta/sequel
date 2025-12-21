@@ -208,7 +208,7 @@ This project is in **alpha** stage. The MVP includes basic browsing functionalit
 
 **Roadmap:**
 - ✅ [Phase 7: Performance Optimization](docs/phase-7-performance-plan.md) - **COMPLETE** - Parallel API calls, cache optimization, LRU eviction
-- [ ] [Phase 8: Error Handling & UX Polish](docs/phase-8-ux-plan.md) - Enhanced error recovery, progress indicators
+- ✅ [Phase 8: Error Handling & UX Polish](docs/phase-8-ux-plan.md) - **COMPLETE** - VIM bindings, toast notifications, enhanced status bar, error recovery
 - [ ] [Phase 9: Testing & Documentation](docs/phase-9-testing-docs-plan.md) - Comprehensive docs, 95%+ coverage
 - [ ] [Phase 10: Packaging & Release](docs/phase-10-release-plan.md) - PyPI publishing, release automation
 

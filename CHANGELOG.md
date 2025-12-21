@@ -8,6 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Phase 8: Error Handling & UX Polish**
+  - **VIM bindings** for keyboard navigation
+    - j/k for up/down movement
+    - h/l for collapse/expand (or move to parent/child)
+    - g/G for jumping to top/bottom of tree
+    - Arrow keys also supported (←→↑↓)
+  - **Toast notification system** for non-blocking user feedback
+    - Auto-dismissing toasts (3 second default)
+    - Three types: info (blue), success (green), warning (yellow)
+    - Stack multiple toasts
+    - Shows notifications for: project loading, refresh completion, errors
+  - **Enhanced status bar** with live statistics
+    - Current operation display (e.g., "⏳ Loading projects...")
+    - Cache hit rate percentage (e.g., "Cache: 73% hit rate")
+    - API call count tracking (e.g., "12 API calls")
+    - Last refresh time (e.g., "Updated 2m ago")
+    - VIM keyboard shortcuts displayed (j/k/↑↓: Navigate, h/l/←→: Collapse/Expand, g/G: Top/Bottom)
+  - **Resource counts** in tree node labels
+    - Displays count of resources in each category
+    - Proper pluralization (e.g., "2 zones", "1 instance")
+    - Updates dynamically as resources load
+  - **Enhanced error recovery** mechanisms
+    - Automatic credential refresh on authentication errors
+    - Quota exceeded errors now wait and retry with configurable delay
+    - Intelligent retry-after time extraction from API error messages
+  - All Phase 8 features pass linting and type checking (96.25% test coverage maintained)
+
 - **Phase 7: Performance Optimization**
   - Parallel API operations using `asyncio.gather()` for simultaneous resource loading across all resource types
   - Cache optimization with LRU eviction algorithm and 100MB size limit
