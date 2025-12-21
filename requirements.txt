@@ -10,6 +10,7 @@ tree-sitter-json>=0.24.0
 google-auth>=2.25.0
 google-auth-oauthlib>=1.2.0
 google-api-python-client>=2.110.0
+google-api-python-client-stubs>=1.31.0  # Type stubs for google-api-python-client
 google-cloud-resource-manager>=1.12.0
 # Note: google-cloud-sql admin API - will be added in Phase 4
 # google-cloud-compute - will be added in Phase 4
