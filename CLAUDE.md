@@ -28,31 +28,30 @@ This project is being built in 10 phases. Each phase is implemented in its own b
 
 ### Completed Phases
 
-- [x] **Phase 1: Infrastructure Setup** (Current)
+- [x] **Phase 1: Infrastructure Setup**
   - Branch: `phase-1-infrastructure`
   - Project structure, CI/CD, testing framework
 
-### Planned Phases
-
-- [ ] **Phase 2: Authentication & Base Services**
+- [x] **Phase 2: Authentication & Base Services**
   - Branch: `phase-2-auth-services`
   - ADC authentication, base service class, secure logging
 
-- [ ] **Phase 3: Data Models & Project Service**
-  - Branch: `phase-3-models-projects`
-  - Pydantic models, project service, caching
+- [x] **Phases 3-6: MVP Implementation** (Current)
+  - Branch: `phases-3-6-implementation`
+  - Combined implementation of data models, services, widgets, and application integration
+  - Includes:
+    - Pydantic models for all resources (Project, CloudSQL, Compute, GKE, Secrets, IAM)
+    - Service layer for all GCP APIs with caching and retry logic
+    - Resource tree widget with lazy loading
+    - Detail pane for resource information
+    - Main application with CLI entry point
+    - Configuration file system (JSON-based)
+    - Command palette with theme selection
+    - Project filtering by regex
+  - Test coverage: 97%
+  - All CI checks passing (lint, type check, tests)
 
-- [ ] **Phase 4: Resource Models & Services**
-  - Branch: `phase-4-resources`
-  - CloudSQL, Compute, GKE, Secrets, IAM services
-
-- [ ] **Phase 5: Core TUI Widgets**
-  - Branch: `phase-5-widgets`
-  - Tree widget, detail pane, status bar, error modal
-
-- [ ] **Phase 6: Application Integration**
-  - Branch: `phase-6-integration`
-  - Main app, screens, CLI entry point
+### Planned Phases
 
 - [ ] **Phase 7: Performance Optimization**
   - Branch: `phase-7-performance`
@@ -122,9 +121,23 @@ All PRs must pass:
 ### Testing
 
 - Write tests alongside implementation
-- Target: >90% overall coverage
+- Target: >90% overall coverage (currently at 97%)
 - Test all error paths
 - Use fixtures from `tests/conftest.py`
+- All tests must pass in CI for Python 3.11 and 3.12
+
+### Type Safety
+
+- **Strict mypy mode** enforced across entire codebase
+- All functions have proper type hints
+- Using `cast()` from typing for cache returns to maintain type safety
+- Type expressions in `cast()` must be quoted (ruff requirement)
+- Third-party libraries without type stubs configured in `pyproject.toml`:
+  - `google.auth.*`
+  - `google.cloud.*`
+  - `googleapiclient.*`
+  - `textual.*`
+- Zero mypy errors allowed in CI
 
 ### Async Best Practices
 
