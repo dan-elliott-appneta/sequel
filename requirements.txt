@@ -1,5 +1,5 @@
 # TUI Framework
-textual>=0.47.0
+textual[syntax]>=0.47.0
 
 # Google Cloud Client Libraries
 google-auth>=2.25.0

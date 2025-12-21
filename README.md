@@ -11,7 +11,7 @@ Current version: **0.1.0** (Alpha)
 Sequel provides a keyboard-focused, responsive interface for exploring Google Cloud resources:
 
 - **Tree view** of projects and resources
-- **JSON details pane** with syntax-highlighted, pretty-printed API responses
+- **JSON details pane** with syntax-highlighted, pretty-printed API responses and mouse text selection
 - **Lazy loading** for efficient API usage
 - **ADC authentication** using Google Cloud Application Default Credentials
 - **Comprehensive testing** with high code coverage

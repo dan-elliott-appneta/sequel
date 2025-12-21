@@ -9,8 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **JSON details pane**: Displays syntax-highlighted, pretty-printed JSON from raw GCP API responses
-  - Monokai theme for JSON syntax highlighting
+  - Monokai theme for JSON syntax highlighting with tree-sitter
   - Line numbers enabled for easy reference
+  - Mouse text selection and copying support
+  - Scrollable view for long API responses
   - Preserves all original API fields including custom/extra fields
   - Falls back to model dict if raw API data unavailable
 - JSON-based configuration file system at `~/.config/sequel/config.json`
@@ -25,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Detail pane now displays raw API JSON instead of formatted table
+- Detail pane switched from Static to TextArea widget for text selection support
 - All models now store raw API response data in `raw_data` field for inspection
 
 ### Fixed

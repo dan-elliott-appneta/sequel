@@ -1,10 +1,8 @@
 """Tests for detail pane widget."""
 
 import json
-from datetime import datetime
 
 import pytest
-from rich.syntax import Syntax
 
 from sequel.models.base import BaseModel
 from sequel.models.project import Project
@@ -77,14 +75,13 @@ class TestDetailPane:
         """Test that format_resource uses raw_data when available."""
         result = detail_pane._format_resource(sample_project)
 
-        assert isinstance(result, Syntax)
-        assert result.lexer.name == "JSON"  # type: ignore[attr-defined]
+        assert isinstance(result, str)
 
         # Check that raw_data is present in the formatted output
         assert sample_project.raw_data
         assert "projectId" in sample_project.raw_data
-        # Access the code content through the private attribute
-        assert "my-project" in result.code
+        # JSON string should contain the project ID
+        assert "my-project" in result
 
     def test_format_resource_with_empty_raw_data(
         self, detail_pane: DetailPane
@@ -100,15 +97,11 @@ class TestDetailPane:
 
         result = detail_pane._format_resource(model)
 
-        assert isinstance(result, Syntax)
+        assert isinstance(result, str)
         # Should use to_dict() as fallback
-        data_dict = model.to_dict()
-        data_dict.pop("raw_data", None)  # This gets removed in _format_resource
-        expected_json = json.dumps(data_dict, indent=2, sort_keys=True, default=str)
-
-        # The syntax object should contain the model's dict data
-        assert "test-id" in result.code
-        assert "Test Name" in result.code
+        # The JSON string should contain the model's dict data
+        assert "test-id" in result
+        assert "Test Name" in result
 
     def test_format_resource_json_structure(
         self, detail_pane: DetailPane, sample_base_model: BaseModel
@@ -116,12 +109,12 @@ class TestDetailPane:
         """Test that formatted JSON has correct structure."""
         result = detail_pane._format_resource(sample_base_model)
 
-        assert isinstance(result, Syntax)
+        assert isinstance(result, str)
 
         # Check that JSON includes raw_data fields
-        assert "description" in result.code
-        assert "A test resource" in result.code
-        assert "ACTIVE" in result.code
+        assert "description" in result
+        assert "A test resource" in result
+        assert "ACTIVE" in result
 
     def test_format_resource_sorts_keys(
         self, detail_pane: DetailPane, sample_base_model: BaseModel
@@ -129,11 +122,11 @@ class TestDetailPane:
         """Test that JSON keys are sorted."""
         result = detail_pane._format_resource(sample_base_model)
 
-        # Get the JSON string from the Syntax object
-        json_text = result.code
+        # The result is now a JSON string directly
+        assert isinstance(result, str)
 
         # Parse it back to verify it's valid JSON
-        parsed = json.loads(json_text)
+        parsed = json.loads(result)
 
         # Verify it's a dict (JSON object)
         assert isinstance(parsed, dict)
@@ -153,11 +146,10 @@ class TestDetailPane:
         result = detail_pane._format_resource(sample_project)
 
         # Should not raise an error
-        assert isinstance(result, Syntax)
+        assert isinstance(result, str)
 
         # JSON should be valid (datetime converted to string)
-        json_text = result.code
-        parsed = json.loads(json_text)
+        parsed = json.loads(result)
         assert isinstance(parsed, dict)
 
     def test_clear_content(self, detail_pane: DetailPane, sample_project: Project) -> None:
@@ -170,18 +162,18 @@ class TestDetailPane:
         detail_pane.clear_content()
         assert detail_pane.current_resource is None
 
-    def test_syntax_highlighting_config(
-        self, detail_pane: DetailPane, sample_base_model: BaseModel
+    def test_textarea_config(
+        self, detail_pane: DetailPane
     ) -> None:
-        """Test that Syntax highlighting is configured correctly."""
-        result = detail_pane._format_resource(sample_base_model)
+        """Test that TextArea is configured correctly."""
+        # Verify it's a TextArea widget
+        from textual.widgets import TextArea
+        assert isinstance(detail_pane, TextArea)
 
-        assert isinstance(result, Syntax)
-        # Verify line numbers and word wrap settings
-        assert result.line_numbers is True
-        assert result.word_wrap is False
-        # Verify it's using JSON lexer
-        assert result.lexer.name == "JSON"  # type: ignore[attr-defined]
+        # Verify configuration
+        assert detail_pane.language == "json"
+        assert detail_pane.read_only is True
+        assert detail_pane.show_line_numbers is True
 
     def test_raw_data_preserves_all_api_fields(self) -> None:
         """Test that raw_data preserves all original API response fields."""

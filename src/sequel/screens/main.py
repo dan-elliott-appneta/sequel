@@ -59,6 +59,8 @@ class MainScreen(Screen[None]):
         height: 100%;
         width: 100%;
         padding: 1 2;
+        overflow-y: auto;
+        scrollbar-size: 1 1;
     }
 
     StatusBar {
