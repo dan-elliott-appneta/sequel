@@ -15,10 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Scrollable view for long API responses
   - Preserves all original API fields including custom/extra fields
   - Falls back to model dict if raw API data unavailable
-- **Smart tree view**: Empty resource categories automatically hidden
-  - Categories checked during tree population, not after expansion
-  - Only shows resource types that contain items (e.g., if no CloudSQL instances, node never appears)
-  - Cleaner initial view with no placeholder text
+- **Smart tree view**: Empty resource categories automatically removed
+  - Categories removed after lazy loading discovers no resources
+  - Only shows resource types that contain items (e.g., if no CloudSQL instances, node is removed after expansion)
+  - Lazy loading maintains fast initial tree population
 - JSON-based configuration file system at `~/.config/sequel/config.json`
 - Configuration precedence: Environment Variables > Config File > Defaults
 - Theme persistence - theme changes automatically saved to config file
@@ -34,9 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Detail pane switched from Static to TextArea widget for text selection support
 - Syntax highlighting theme changed from Monokai to Dracula for better readability
 - All models now store raw API response data in `raw_data` field for inspection
-- Tree population now eagerly checks for resources instead of lazy loading categories
-  - Initial tree load calls all list APIs to determine which categories have content
-  - Trade-off: slower initial load for cleaner UX (no empty category placeholders)
 - Removed border between tree and details panes for cleaner interface
 
 ### Fixed
