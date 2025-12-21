@@ -328,6 +328,106 @@ class ComputeService(BaseService):
 
         return instances
 
+    async def list_instances_in_regional_group(
+        self,
+        project_id: str,
+        region: str,
+        instance_group_name: str,
+        use_cache: bool = True,
+    ) -> list[ComputeInstance]:
+        """List instances in a regional instance group.
+
+        Args:
+            project_id: GCP project ID
+            region: GCP region (e.g., "us-central1")
+            instance_group_name: Name of the regional instance group
+            use_cache: Whether to use caching
+
+        Returns:
+            List of ComputeInstance objects (limited to 10)
+        """
+        cache_key = f"instances_in_regional_group:{project_id}:{region}:{instance_group_name}"
+
+        # Check cache first
+        if use_cache:
+            cached = await self._cache.get(cache_key)
+            if cached is not None:
+                logger.info(f"Returning {len(cached)} instances from cache")
+                return cast("list[ComputeInstance]", cached)
+
+        async def _list_instances() -> list[ComputeInstance]:
+            """Internal function to list instances in a regional group."""
+            client = await self._get_client()
+
+            logger.info(
+                f"Listing instances in regional group {instance_group_name} "
+                f"(project: {project_id}, region: {region})"
+            )
+
+            instances: list[ComputeInstance] = []
+
+            try:
+                # Get instance references from the regional group
+                request = client.regionInstanceGroups().listInstances(
+                    project=project_id,
+                    region=region,
+                    instanceGroup=instance_group_name,
+                    body={"instanceState": "ALL"},
+                )
+                response = await asyncio.to_thread(request.execute)
+
+                instance_refs = response.get("items", [])
+
+                # Fetch detailed information for each instance
+                for ref in instance_refs[:10]:  # Limit to 10 instances
+                    instance_url = ref.get("instance", "")
+                    if instance_url:
+                        # Extract instance name and zone from URL
+                        # URL format: https://.../zones/ZONE/instances/INSTANCE_NAME
+                        url_parts = instance_url.split("/")
+                        instance_name = url_parts[-1]
+
+                        # Extract zone from URL (regional groups can have instances in different zones)
+                        zone_idx = url_parts.index("zones") if "zones" in url_parts else -1
+                        if zone_idx > 0 and zone_idx < len(url_parts) - 1:
+                            instance_zone = url_parts[zone_idx + 1]
+                        else:
+                            logger.debug(f"Could not extract zone from URL: {instance_url}")
+                            continue
+
+                        try:
+                            # Get detailed instance information
+                            instance_req = client.instances().get(
+                                project=project_id,
+                                zone=instance_zone,
+                                instance=instance_name,
+                            )
+                            instance_data = await asyncio.to_thread(instance_req.execute)
+                            instance = ComputeInstance.from_api_response(instance_data)
+                            instances.append(instance)
+                        except Exception as e:
+                            logger.debug(f"Failed to get instance {instance_name}: {e}")
+
+                logger.info(f"Found {len(instances)} instances in regional group")
+                return instances
+
+            except Exception as e:
+                logger.error(f"Failed to list instances in regional group: {e}")
+                return []
+
+        # Execute with retry logic
+        instances = await self._execute_with_retry(
+            operation=_list_instances,
+            operation_name=f"list_instances_in_regional_group({project_id}, {region}, {instance_group_name})",
+        )
+
+        # Cache the results
+        if use_cache:
+            ttl = get_config().cache_ttl_resources
+            await self._cache.set(cache_key, instances, ttl)
+
+        return instances
+
 
 # Global service instance
 _compute_service: ComputeService | None = None

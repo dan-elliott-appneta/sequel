@@ -265,13 +265,20 @@ class ResourceTree(Tree[ResourceTreeNode]):
             return
 
         for group in groups:
-            # Extract zone from self_link if available
+            # Extract zone or region from the group
             zone = None
+            region = None
+
             if hasattr(group, 'zone') and group.zone:
-                # Zone is typically like "https://www.googleapis.com/compute/v1/projects/PROJECT/zones/ZONE"
+                # Zonal group: zone is like "https://www.googleapis.com/compute/v1/projects/PROJECT/zones/ZONE"
                 zone_parts = group.zone.split('/')
                 if len(zone_parts) > 0:
                     zone = zone_parts[-1]
+            elif hasattr(group, 'region') and group.region:
+                # Regional group: region is like "https://www.googleapis.com/compute/v1/projects/PROJECT/regions/REGION"
+                region_parts = group.region.split('/')
+                if len(region_parts) > 0:
+                    region = region_parts[-1]
 
             node_data = ResourceTreeNode(
                 resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
@@ -279,11 +286,13 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 resource_data=group,
                 project_id=project_id,
                 zone=zone,
+                location=region,  # Store region in location field for regional groups
             )
             type_icon = "M" if group.is_managed else "U"
+            zone_or_region = zone if zone else region
             # Make instance groups expandable to show instances
             parent_node.add(
-                f"[{type_icon}] {group.group_name} (size: {group.size})",
+                f"[{type_icon}] {group.group_name} ({zone_or_region}, size: {group.size})",
                 data=node_data,
                 allow_expand=True,
             )
@@ -406,10 +415,16 @@ class ResourceTree(Tree[ResourceTreeNode]):
         # Fetch real IAM role bindings from IAM API
         try:
             iam_service = await get_iam_service()
+            logger.info(
+                f"Fetching IAM roles for service account {service_account.email} "
+                f"in project {parent_node.data.project_id}"
+            )
             role_bindings = await iam_service.get_service_account_roles(
                 project_id=parent_node.data.project_id,
                 service_account_email=service_account.email,
             )
+
+            logger.info(f"Retrieved {len(role_bindings)} role bindings for {service_account.email}")
 
             if not role_bindings:
                 # Show message that no roles are assigned instead of removing the node
@@ -499,16 +514,27 @@ class ResourceTree(Tree[ResourceTreeNode]):
             )
 
     async def _load_instances_in_group(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
-        """Load instances in an instance group."""
+        """Load instances in an instance group (zonal or regional)."""
         if parent_node.data is None or parent_node.data.resource_data is None:
             return
 
         group = parent_node.data.resource_data
         parent_node.remove_children()
 
-        if not parent_node.data.project_id or not parent_node.data.zone:
+        if not parent_node.data.project_id:
             parent_node.add(
-                "⚠️  Missing project ID or zone",
+                "⚠️  Missing project ID",
+                allow_expand=False,
+            )
+            return
+
+        # Check if this is a zonal or regional group
+        zone = parent_node.data.zone
+        region = parent_node.data.location  # For regional groups, region is stored in location
+
+        if not zone and not region:
+            parent_node.add(
+                "⚠️  Missing zone or region",
                 allow_expand=False,
             )
             return
@@ -516,11 +542,22 @@ class ResourceTree(Tree[ResourceTreeNode]):
         # Fetch real instance data from Compute API
         try:
             compute_service = await get_compute_service()
-            instances = await compute_service.list_instances_in_group(
-                project_id=parent_node.data.project_id,
-                zone=parent_node.data.zone,
-                instance_group_name=group.group_name,
-            )
+
+            # Use appropriate method based on whether it's zonal or regional
+            if zone:
+                # Zonal instance group
+                instances = await compute_service.list_instances_in_group(
+                    project_id=parent_node.data.project_id,
+                    zone=zone,
+                    instance_group_name=group.group_name,
+                )
+            else:
+                # Regional instance group
+                instances = await compute_service.list_instances_in_regional_group(
+                    project_id=parent_node.data.project_id,
+                    region=region,  # type: ignore[arg-type]
+                    instance_group_name=group.group_name,
+                )
 
             if not instances:
                 # Show message that no instances are found instead of removing the node

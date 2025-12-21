@@ -719,19 +719,20 @@ class TestResourceTree:
 
         # Should show warning message
         assert len(parent_node.children) == 1
-        assert "Missing project ID or zone" in parent_node.children[0].label.plain
+        assert "Missing project ID" in parent_node.children[0].label.plain
 
     @pytest.mark.asyncio
     async def test_load_instances_in_group_missing_zone(
         self, resource_tree: ResourceTree, sample_instance_group: InstanceGroup
     ) -> None:
-        """Test loading instances when parent node has no zone."""
+        """Test loading instances when parent node has no zone or region."""
         parent_node_data = ResourceTreeNode(
             resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
             resource_id="my-instance-group",
             resource_data=sample_instance_group,
             project_id="my-project",
             zone=None,  # No zone
+            location=None,  # No region either
         )
         parent_node = resource_tree.root.add(
             "Test Instance Group", data=parent_node_data, allow_expand=True
@@ -742,7 +743,61 @@ class TestResourceTree:
 
         # Should show warning message
         assert len(parent_node.children) == 1
-        assert "Missing project ID or zone" in parent_node.children[0].label.plain
+        assert "Missing zone or region" in parent_node.children[0].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_instances_in_regional_group(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test loading instances from a regional instance group."""
+        # Create a regional instance group
+        group_data = {
+            "name": "regional-group",
+            "region": "https://www.googleapis.com/compute/v1/projects/my-project/regions/us-central1",
+            "size": 2,
+            "creationTimestamp": "2023-01-01T00:00:00Z",
+        }
+        group = InstanceGroup.from_api_response(group_data)
+
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
+            resource_id="regional-group",
+            resource_data=group,
+            project_id="my-project",
+            zone=None,  # Regional groups don't have a zone
+            location="us-central1",  # They have a region in location
+        )
+        parent_node = resource_tree.root.add(
+            "Regional Group", data=parent_node_data, allow_expand=True
+        )
+
+        # Mock instances to return
+        mock_instances = [
+            ComputeInstance.from_api_response({
+                "name": "regional-instance-1",
+                "zone": "us-central1-a",
+                "status": "RUNNING",
+            }),
+            ComputeInstance.from_api_response({
+                "name": "regional-instance-2",
+                "zone": "us-central1-b",
+                "status": "RUNNING",
+            })
+        ]
+
+        # Mock the Compute service
+        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_instances_in_regional_group = AsyncMock(return_value=mock_instances)
+            mock_get_service.return_value = mock_service
+
+            # Load the instances
+            await resource_tree._load_instances_in_group(parent_node)
+
+        # Should have loaded instances from the regional group
+        assert len(parent_node.children) == 2
+        assert "regional-instance-1" in parent_node.children[0].label.plain
+        assert "regional-instance-2" in parent_node.children[1].label.plain
 
     @pytest.mark.asyncio
     async def test_load_instances_in_group_error(
