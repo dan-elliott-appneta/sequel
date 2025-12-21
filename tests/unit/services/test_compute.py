@@ -142,10 +142,10 @@ class TestComputeService:
     async def test_list_instances_in_group_success(
         self, compute_service: ComputeService, mock_compute_client: MagicMock
     ) -> None:
-        """Test listing instances in a zonal instance group."""
-        # Mock instance references response
+        """Test listing instances in a zonal managed instance group."""
+        # Mock managed instance references response (different format than unmanaged)
         mock_refs_response = {
-            "items": [
+            "managedInstances": [
                 {"instance": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/instances/instance-1"},
                 {"instance": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/instances/instance-2"},
             ]
@@ -166,7 +166,7 @@ class TestComputeService:
             "machineType": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/machineTypes/n1-standard-1",
         }
 
-        # Mock the API calls
+        # Mock the API calls for managed instance groups
         mock_list_request = MagicMock()
         mock_list_request.execute = MagicMock(return_value=mock_refs_response)
 
@@ -176,7 +176,7 @@ class TestComputeService:
         mock_get_request_2 = MagicMock()
         mock_get_request_2.execute = MagicMock(return_value=mock_instance_2)
 
-        mock_compute_client.instanceGroups().listInstances.return_value = mock_list_request
+        mock_compute_client.instanceGroupManagers().listManagedInstances.return_value = mock_list_request
         mock_compute_client.instances().get.side_effect = [mock_get_request_1, mock_get_request_2]
 
         compute_service._client = mock_compute_client
@@ -194,10 +194,10 @@ class TestComputeService:
     async def test_list_instances_in_regional_group_success(
         self, compute_service: ComputeService, mock_compute_client: MagicMock
     ) -> None:
-        """Test listing instances in a regional instance group."""
-        # Mock instance references response
+        """Test listing instances in a regional managed instance group."""
+        # Mock managed instance references response (different format than unmanaged)
         mock_refs_response = {
-            "items": [
+            "managedInstances": [
                 {"instance": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a/instances/regional-instance-1"},
                 {"instance": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-b/instances/regional-instance-2"},
             ]
@@ -218,7 +218,7 @@ class TestComputeService:
             "machineType": "https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-b/machineTypes/n1-standard-1",
         }
 
-        # Mock the API calls
+        # Mock the API calls for managed instance groups
         mock_list_request = MagicMock()
         mock_list_request.execute = MagicMock(return_value=mock_refs_response)
 
@@ -228,7 +228,7 @@ class TestComputeService:
         mock_get_request_2 = MagicMock()
         mock_get_request_2.execute = MagicMock(return_value=mock_instance_2)
 
-        mock_compute_client.regionInstanceGroups().listInstances.return_value = mock_list_request
+        mock_compute_client.regionInstanceGroupManagers().listManagedInstances.return_value = mock_list_request
         mock_compute_client.instances().get.side_effect = [mock_get_request_1, mock_get_request_2]
 
         compute_service._client = mock_compute_client

@@ -830,21 +830,25 @@ class ResourceTree(Tree[ResourceTreeNode]):
             compute_service = await get_compute_service()
 
             # Use appropriate method based on whether it's zonal or regional
+            is_managed = group.is_managed if hasattr(group, 'is_managed') else True
+
             if zone:
                 # Zonal instance group
-                logger.info(f"Loading zonal instances: project={parent_node.data.project_id}, zone={zone}, group={group.group_name}")
+                logger.info(f"Loading zonal instances: project={parent_node.data.project_id}, zone={zone}, group={group.group_name}, managed={is_managed}")
                 instances = await compute_service.list_instances_in_group(
                     project_id=parent_node.data.project_id,
                     zone=zone,
                     instance_group_name=group.group_name,
+                    is_managed=is_managed,
                 )
             else:
                 # Regional instance group
-                logger.info(f"Loading regional instances: project={parent_node.data.project_id}, region={region}, group={group.group_name}")
+                logger.info(f"Loading regional instances: project={parent_node.data.project_id}, region={region}, group={group.group_name}, managed={is_managed}")
                 instances = await compute_service.list_instances_in_regional_group(
                     project_id=parent_node.data.project_id,
                     region=region,  # type: ignore[arg-type]
                     instance_group_name=group.group_name,
+                    is_managed=is_managed,
                 )
 
             logger.info(f"Loaded {len(instances)} instances for {group.group_name}")
