@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **JSON details pane**: Displays syntax-highlighted, pretty-printed JSON from raw GCP API responses
-  - Monokai theme for JSON syntax highlighting with tree-sitter
+  - Tree-sitter powered JSON syntax highlighting with Monokai theme
   - Line numbers enabled for easy reference
   - Mouse text selection and copying support
   - Scrollable view for long API responses
   - Preserves all original API fields including custom/extra fields
   - Falls back to model dict if raw API data unavailable
+- **Smart tree view**: Empty resource categories automatically hidden
+  - Only shows resource types that contain items (e.g., if no CloudSQL instances, node is removed)
 - JSON-based configuration file system at `~/.config/sequel/config.json`
 - Configuration precedence: Environment Variables > Config File > Defaults
 - Theme persistence - theme changes automatically saved to config file
@@ -34,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UI border gaps when expanding tree nodes (changed from solid to tall border style)
 - All mypy strict mode errors resolved using proper type casting
 - Proper handling of missing type stubs for third-party libraries
+- Tree clutter from empty resource categories - now automatically removed when expanded
 
 ### Security
 - Credential scrubbing enforced in all logging

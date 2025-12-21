@@ -211,7 +211,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
         parent_node.remove_children()
 
         if not instances:
-            parent_node.add_leaf("(no instances)")
+            # Remove the parent node if there are no instances
+            parent_node.remove()
             return
 
         for instance in instances:
@@ -241,7 +242,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
         parent_node.remove_children()
 
         if not groups:
-            parent_node.add_leaf("(no instance groups)")
+            # Remove the parent node if there are no instance groups
+            parent_node.remove()
             return
 
         for group in groups:
@@ -271,7 +273,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
         parent_node.remove_children()
 
         if not clusters:
-            parent_node.add_leaf("(no clusters)")
+            # Remove the parent node if there are no clusters
+            parent_node.remove()
             return
 
         for cluster in clusters:
@@ -301,7 +304,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
         parent_node.remove_children()
 
         if not secrets:
-            parent_node.add_leaf("(no secrets)")
+            # Remove the parent node if there are no secrets
+            parent_node.remove()
             return
 
         for secret in secrets:
@@ -330,7 +334,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
         parent_node.remove_children()
 
         if not accounts:
-            parent_node.add_leaf("(no service accounts)")
+            # Remove the parent node if there are no service accounts
+            parent_node.remove()
             return
 
         for account in accounts:
