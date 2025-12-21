@@ -90,6 +90,7 @@ def setup_logging(
     level: str = "INFO",
     format_string: str | None = None,
     enable_credential_scrubbing: bool = True,
+    log_file: str | None = None,
 ) -> None:
     """Set up logging with credential scrubbing.
 
@@ -97,21 +98,31 @@ def setup_logging(
         level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         format_string: Custom format string (uses default if None)
         enable_credential_scrubbing: Whether to enable credential scrubbing filter
+        log_file: Path to log file (if None, logs are suppressed for TUI mode)
     """
     if format_string is None:
         format_string = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
 
-    # Configure root logger
-    logging.basicConfig(
-        level=getattr(logging, level.upper()),
-        format=format_string,
-        datefmt="%Y-%m-%d %H:%M:%S",
+    # Get root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(getattr(logging, level.upper()))
+
+    # Remove any existing handlers
+    root_logger.handlers.clear()
+
+    # Configure handler: write to file if specified, otherwise use NullHandler for TUI
+    handler: logging.Handler = (
+        logging.FileHandler(log_file) if log_file else logging.NullHandler()
     )
+
+    handler.setLevel(getattr(logging, level.upper()))
+    formatter = logging.Formatter(format_string, datefmt="%Y-%m-%d %H:%M:%S")
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)
 
     # Add credential scrubbing filter to all handlers
     if enable_credential_scrubbing:
         scrubbing_filter = CredentialScrubbingFilter()
-        root_logger = logging.getLogger()
         for handler in root_logger.handlers:
             handler.addFilter(scrubbing_filter)
 

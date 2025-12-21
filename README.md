@@ -49,6 +49,30 @@ pip install -e .
 
 ## Configuration
 
+### Configuration File
+
+Sequel stores user preferences in `~/.config/sequel/config.json`. This file is automatically created on first run with default values.
+
+**Example configuration:**
+
+```json
+{
+  "ui": {
+    "theme": "textual-dark"
+  },
+  "filters": {
+    "project_regex": "^s[d|v|p]ap[n|nc]gl.*$"
+  }
+}
+```
+
+You can edit this file manually or use the command palette (`Ctrl+P`) to change themes. Theme changes are automatically persisted to the config file.
+
+**Configuration precedence:**
+1. Environment variables (highest priority)
+2. Config file (`~/.config/sequel/config.json`)
+3. Default values
+
 ### Google Cloud Authentication
 
 Sequel uses Application Default Credentials (ADC). Set up authentication using one of these methods:
@@ -59,6 +83,34 @@ gcloud auth application-default login
 
 # Option 2: Using a service account key
 export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
+```
+
+### Environment Variables
+
+Sequel can be configured using environment variables with the `SEQUEL_` prefix. These override config file values:
+
+```bash
+# Project Filtering - Filter projects by regex (default: ^s[d|v|p]ap[n|nc]gl.*$)
+export SEQUEL_PROJECT_FILTER_REGEX="^my-project-prefix.*$"
+
+# Disable project filtering (show all projects)
+export SEQUEL_PROJECT_FILTER_REGEX=""
+
+# Caching
+export SEQUEL_CACHE_ENABLED="true"                # Enable/disable caching (default: true)
+export SEQUEL_CACHE_TTL_PROJECTS="600"            # Project cache TTL in seconds (default: 600)
+export SEQUEL_CACHE_TTL_RESOURCES="300"           # Resource cache TTL in seconds (default: 300)
+
+# API Settings
+export SEQUEL_API_TIMEOUT="30"                    # API timeout in seconds (default: 30)
+export SEQUEL_API_MAX_RETRIES="3"                 # Max retry attempts (default: 3)
+
+# Logging
+export SEQUEL_LOG_LEVEL="INFO"                    # Log level: DEBUG, INFO, WARNING, ERROR
+export SEQUEL_LOG_FILE="/path/to/sequel.log"      # Log file path (optional)
+
+# UI Settings
+export SEQUEL_THEME="textual-dark"                # Textual theme name
 ```
 
 ## Usage
@@ -81,6 +133,7 @@ sequel --no-cache
 
 - `q` - Quit
 - `r` - Refresh current view
+- `Ctrl+P` - Open command palette (theme selection, etc.)
 - `?` - Show help
 - `↑/↓` - Navigate tree
 - `Enter` - Expand/collapse node

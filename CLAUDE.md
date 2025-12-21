@@ -28,31 +28,30 @@ This project is being built in 10 phases. Each phase is implemented in its own b
 
 ### Completed Phases
 
-- [x] **Phase 1: Infrastructure Setup** (Current)
+- [x] **Phase 1: Infrastructure Setup**
   - Branch: `phase-1-infrastructure`
   - Project structure, CI/CD, testing framework
 
-### Planned Phases
-
-- [ ] **Phase 2: Authentication & Base Services**
+- [x] **Phase 2: Authentication & Base Services**
   - Branch: `phase-2-auth-services`
   - ADC authentication, base service class, secure logging
 
-- [ ] **Phase 3: Data Models & Project Service**
-  - Branch: `phase-3-models-projects`
-  - Pydantic models, project service, caching
+- [x] **Phases 3-6: MVP Implementation** (Current)
+  - Branch: `phases-3-6-implementation`
+  - Combined implementation of data models, services, widgets, and application integration
+  - Includes:
+    - Pydantic models for all resources (Project, CloudSQL, Compute, GKE, Secrets, IAM)
+    - Service layer for all GCP APIs with caching and retry logic
+    - Resource tree widget with lazy loading
+    - Detail pane for resource information
+    - Main application with CLI entry point
+    - Configuration file system (JSON-based)
+    - Command palette with theme selection
+    - Project filtering by regex
+  - Test coverage: 97%
+  - All CI checks passing (lint, type check, tests)
 
-- [ ] **Phase 4: Resource Models & Services**
-  - Branch: `phase-4-resources`
-  - CloudSQL, Compute, GKE, Secrets, IAM services
-
-- [ ] **Phase 5: Core TUI Widgets**
-  - Branch: `phase-5-widgets`
-  - Tree widget, detail pane, status bar, error modal
-
-- [ ] **Phase 6: Application Integration**
-  - Branch: `phase-6-integration`
-  - Main app, screens, CLI entry point
+### Planned Phases
 
 - [ ] **Phase 7: Performance Optimization**
   - Branch: `phase-7-performance`
@@ -122,9 +121,23 @@ All PRs must pass:
 ### Testing
 
 - Write tests alongside implementation
-- Target: >90% overall coverage
+- Target: >90% overall coverage (currently at 97%)
 - Test all error paths
 - Use fixtures from `tests/conftest.py`
+- All tests must pass in CI for Python 3.11 and 3.12
+
+### Type Safety
+
+- **Strict mypy mode** enforced across entire codebase
+- All functions have proper type hints
+- Using `cast()` from typing for cache returns to maintain type safety
+- Type expressions in `cast()` must be quoted (ruff requirement)
+- Third-party libraries without type stubs configured in `pyproject.toml`:
+  - `google.auth.*`
+  - `google.cloud.*`
+  - `googleapiclient.*`
+  - `textual.*`
+- Zero mypy errors allowed in CI
 
 ### Async Best Practices
 
@@ -187,6 +200,37 @@ sequel/
 - Use reactive attributes for state management
 - Never block the UI thread (always async)
 - Use `App.run_test()` for UI testing
+
+### Project Filtering
+- Projects can be filtered by regex using `SEQUEL_PROJECT_FILTER_REGEX` environment variable
+- Default filter: `^s[d|v|p]ap[n|nc]gl.*$` (matches specific project naming patterns)
+- Filter matches against both `project_id` and `display_name`
+- Set to empty string (`""`) to disable filtering and show all projects
+- Invalid regex patterns are logged but don't crash the app
+- Configured in `src/sequel/config.py`, applied in `src/sequel/widgets/resource_tree.py`
+
+### Configuration File System
+- User preferences stored in `~/.config/sequel/config.json` (JSON format)
+- File location follows XDG Base Directory spec (`XDG_CONFIG_HOME` or `~/.config`)
+- Can be overridden with `SEQUEL_CONFIG_DIR` environment variable
+- Configuration precedence: Environment Variables > Config File > Defaults
+- Current supported settings:
+  - `ui.theme`: Textual theme name (default: `"textual-dark"`)
+  - `filters.project_regex`: Project filter regex (default: `"^s[d|v|p]ap[n|nc]gl.*$"`)
+- Implemented in `src/sequel/config_file.py` with helpers:
+  - `load_config_file()`: Load config from JSON
+  - `save_config_file()`: Save config to JSON
+  - `update_config_value()`: Update single value and save
+  - `get_default_config()`: Get default configuration structure
+- Integrated with `Config.from_env()` in `src/sequel/config.py`
+
+### Command Palette & Theme Persistence
+- Press `Ctrl+P` to open the command palette
+- Textual's built-in "set-theme" command is available
+- Custom theme provider also available in `src/sequel/commands.py`
+- Available themes (Textual built-in): catppuccin-frappe, catppuccin-latte, catppuccin-macchiato, catppuccin-mocha, dracula, gruvbox, monokai, nord, solarized-dark, solarized-light, textual-ansi, textual-dark, textual-light, tokyo-night
+- **Theme persistence**: The `watch_theme()` method in `SequelApp` automatically saves any theme change to the config file, regardless of how the theme is changed (built-in command, custom provider, or programmatic change)
+- Command providers registered via `COMMAND_PROVIDERS` class variable in app
 
 ## Common Gotchas
 
