@@ -379,6 +379,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 self._remove_empty_project_node(project_node)
             return
 
+        # Update parent label with count
+        zone_word = "zone" if len(zones) == 1 else "zones"
+        parent_node.set_label(f"🌐 Cloud DNS ({len(zones)} {zone_word})")
+
         for zone in zones:
             node_data = ResourceTreeNode(
                 resource_type=ResourceType.CLOUDDNS_ZONE,
@@ -485,6 +489,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 self._remove_empty_project_node(project_node)
             return
 
+        # Update parent label with count
+        instance_word = "instance" if len(instances) == 1 else "instances"
+        parent_node.set_label(f"☁️  Cloud SQL ({len(instances)} {instance_word})")
+
         for instance in instances:
             node_data = ResourceTreeNode(
                 resource_type=ResourceType.CLOUDSQL,
@@ -519,6 +527,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
             if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
                 self._remove_empty_project_node(project_node)
             return
+
+        # Update parent label with count
+        group_word = "group" if len(groups) == 1 else "groups"
+        parent_node.set_label(f"💻 Instance Groups ({len(groups)} {group_word})")
 
         for group in groups:
             # Extract zone or region from the group
@@ -575,6 +587,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 self._remove_empty_project_node(project_node)
             return
 
+        # Update parent label with count
+        cluster_word = "cluster" if len(clusters) == 1 else "clusters"
+        parent_node.set_label(f"⎈  GKE Clusters ({len(clusters)} {cluster_word})")
+
         for cluster in clusters:
             # Extract location from cluster
             location = cluster.location if hasattr(cluster, 'location') else None
@@ -616,6 +632,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 self._remove_empty_project_node(project_node)
             return
 
+        # Update parent label with count
+        secret_word = "secret" if len(secrets) == 1 else "secrets"
+        parent_node.set_label(f"🔐 Secrets ({len(secrets)} {secret_word})")
+
         for secret in secrets:
             node_data = ResourceTreeNode(
                 resource_type=ResourceType.SECRETS,
@@ -649,6 +669,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
             if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
                 self._remove_empty_project_node(project_node)
             return
+
+        # Update parent label with count
+        account_word = "account" if len(accounts) == 1 else "accounts"
+        parent_node.set_label(f"👤 Service Accounts ({len(accounts)} {account_word})")
 
         for account in accounts:
             node_data = ResourceTreeNode(

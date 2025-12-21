@@ -126,13 +126,30 @@ class SequelApp(App[None]):
         help_text = """
         Keyboard Shortcuts:
 
-        q - Quit application
-        r - Refresh current view
-        Ctrl+P - Open command palette (theme selection)
-        ? - Show this help
-        ↑/↓ - Navigate tree
-        Enter - Expand/collapse node
-        Esc - Dismiss modal
+        Tree Navigation:
+          j / ↓       - Move down
+          k / ↑       - Move up
+          h / ←       - Collapse node or go to parent
+          l / →       - Expand node or go to first child
+          g           - Go to top
+          G           - Go to bottom
+          Enter       - Toggle expand/collapse
+
+        Detail Pane (VIM mode):
+          j / k       - Move down / up
+          h / l       - Move left / right
+          g / G       - Page up / Page down
+          0 / $       - Line start / Line end
+          y           - Yank (copy) selection
+          Y           - Yank (copy) current line
+          Mouse       - Select text to copy
+
+        Actions:
+          q           - Quit application
+          r           - Refresh current view
+          Ctrl+P      - Open command palette (themes)
+          ?           - Show this help
+          Esc         - Dismiss modal
         """
 
         await self.show_error("Help", help_text)

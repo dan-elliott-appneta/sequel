@@ -19,6 +19,8 @@ This phase enhances error recovery mechanisms and polishes the user experience w
 - Toast notifications for non-blocking errors
 - Keyboard shortcut hints
 - Resource counts in tree nodes
+- VIM bindings for keyboard navigation (j/k/h/l/g/G)
+- Enhanced tree navigation with left/right arrow keys for expand/collapse
 
 ---
 
@@ -158,6 +160,123 @@ except Exception:
 
 ---
 
+### 8.6 VIM Bindings & Enhanced Tree Navigation
+
+**Files to modify:**
+- `src/sequel/app.py` - Add VIM keybindings
+- `src/sequel/widgets/resource_tree.py` - Add expand/collapse on arrow keys
+- `src/sequel/screens/main.py` - Update key handling
+
+**New Features:**
+
+**VIM Navigation Bindings:**
+```python
+# Tree navigation (VIM-style)
+BINDINGS = [
+    ("j", "cursor_down", "Move down"),
+    ("k", "cursor_up", "Move up"),
+    ("h", "collapse_node", "Collapse node / Go to parent"),
+    ("l", "expand_node", "Expand node / Go to child"),
+    ("g", "cursor_top", "Go to top"),
+    ("G", "cursor_bottom", "Go to bottom"),
+]
+```
+
+**Arrow Key Tree Expansion:**
+```python
+# Enhanced arrow key behavior for tree
+# Current behavior: Up/Down navigate, Enter toggles expand/collapse
+# New behavior:
+#   - Up/Down: Navigate (unchanged)
+#   - Left: Collapse current node OR move to parent if already collapsed
+#   - Right: Expand current node OR move to first child if already expanded
+#   - Enter: Toggle expand/collapse (unchanged for compatibility)
+```
+
+**Implementation Details:**
+
+1. **Left Arrow / 'h' Behavior:**
+   ```python
+   async def action_collapse_node(self) -> None:
+       """Collapse current node or move to parent."""
+       node = self.resource_tree.cursor_node
+       if node and node.is_expanded:
+           node.collapse()
+       elif node and node.parent:
+           self.resource_tree.select_node(node.parent)
+   ```
+
+2. **Right Arrow / 'l' Behavior:**
+   ```python
+   async def action_expand_node(self) -> None:
+       """Expand current node or move to first child."""
+       node = self.resource_tree.cursor_node
+       if node and not node.is_expanded and node.allow_expand:
+           await node.expand()
+       elif node and node.is_expanded and node.children:
+           self.resource_tree.select_node(node.children[0])
+   ```
+
+3. **Top/Bottom Navigation:**
+   ```python
+   async def action_cursor_top(self) -> None:
+       """Move cursor to first tree node."""
+       if self.resource_tree.root.children:
+           self.resource_tree.select_node(self.resource_tree.root.children[0])
+
+   async def action_cursor_bottom(self) -> None:
+       """Move cursor to last visible tree node."""
+       # Find last visible node in tree
+       last_node = self.resource_tree.get_last_visible_node()
+       if last_node:
+           self.resource_tree.select_node(last_node)
+   ```
+
+**Keybinding Configuration:**
+```python
+# In app.py or main.py
+BINDINGS = [
+    # VIM-style navigation
+    Binding("j", "cursor_down", "Move down", show=False),
+    Binding("k", "cursor_up", "Move up", show=False),
+    Binding("h", "collapse_node", "Collapse/Parent", show=False),
+    Binding("l", "expand_node", "Expand/Child", show=False),
+    Binding("g", "cursor_top", "Go to top", show=False),
+    Binding("G", "cursor_bottom", "Go to bottom", show=False),
+
+    # Arrow keys for tree navigation
+    Binding("left", "collapse_node", "Collapse/Parent", show=False),
+    Binding("right", "expand_node", "Expand/Child", show=False),
+
+    # Existing bindings
+    Binding("q", "quit", "Quit"),
+    Binding("r", "refresh", "Refresh"),
+    Binding("ctrl+p", "command_palette", "Commands"),
+    Binding("question_mark", "help", "Help"),
+]
+```
+
+**Updated Keyboard Hints:**
+```
+[Footer] q: Quit | r: Refresh | j/k/↑/↓: Navigate | h/l/←/→: Collapse/Expand | g/G: Top/Bottom | ?: Help
+```
+
+**Testing:**
+- Test VIM navigation (j, k, h, l, g, G)
+- Test arrow key expand/collapse (←, →)
+- Test edge cases: already collapsed, already expanded, no children, root node
+- Test that Enter still works for toggle (backwards compatibility)
+- Verify keyboard hints updated
+- Test navigation with large trees (1000+ nodes)
+
+**Benefits:**
+- VIM users get familiar navigation without configuration
+- Arrow key expand/collapse is more intuitive (matches file browsers)
+- Faster navigation with g/G for jumping to top/bottom
+- Consistent with common TUI applications (lazygit, ranger, etc.)
+
+---
+
 ## Success Criteria
 
 - Users can recover from 90% of errors without restarting
@@ -165,6 +284,9 @@ except Exception:
 - Toasts appear for all non-critical events
 - Status bar provides useful context
 - Keyboard hints reduce support questions
+- VIM bindings work seamlessly (j/k/h/l/g/G)
+- Arrow keys collapse/expand nodes intuitively
+- Navigation is fast and responsive with large trees (1000+ nodes)
 
 ---
 

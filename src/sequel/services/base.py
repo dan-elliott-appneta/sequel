@@ -134,14 +134,28 @@ class BaseService:
                 logger.warning(f"{operation_name} failed (network/timeout): {e}")
 
             except ResourceExhausted as e:
+                # Handle quota exceeded with wait and retry
+                wait_time = float(
+                    self._extract_retry_after(e) or self.config.gcloud_quota_wait_time
+                )
                 last_exception = QuotaExceededError(
                     f"API quota exceeded for {operation_name}. "
-                    f"Please wait {self.config.gcloud_quota_wait_time}s or request quota increase. "
+                    f"Waiting {wait_time:.0f}s before retry. "
                     f"Error: {e}"
                 )
-                logger.error(f"{operation_name} failed due to quota: {e}")
-                # Don't retry quota errors
-                raise last_exception from e
+                logger.warning(
+                    f"{operation_name} failed due to quota on attempt {attempt + 1}. "
+                    f"Waiting {wait_time:.0f}s..."
+                )
+
+                # If we have retries left, wait and continue
+                if attempt < max_retries:
+                    await asyncio.sleep(wait_time)
+                    continue
+                else:
+                    # No more retries, raise error
+                    logger.error(f"{operation_name} failed due to quota after all retries")
+                    raise last_exception from e
 
             except (PermissionDenied, Forbidden) as e:
                 # Extract permission details if available
@@ -154,13 +168,32 @@ class BaseService:
                 raise last_exception from e
 
             except Unauthenticated as e:
+                # Try to refresh credentials
+                if attempt == 0:  # Only try refresh on first attempt
+                    logger.warning(
+                        f"{operation_name} failed due to authentication. "
+                        "Attempting credential refresh..."
+                    )
+                    try:
+                        auth_manager = await self._get_auth_manager()
+                        if hasattr(auth_manager.credentials, "refresh"):
+                            import google.auth.transport.requests
+
+                            request = google.auth.transport.requests.Request()  # type: ignore[no-untyped-call]
+                            auth_manager.credentials.refresh(request)  # type: ignore[no-untyped-call]
+                            logger.info("Credentials refreshed successfully. Retrying...")
+                            continue  # Retry with refreshed credentials
+                    except Exception as refresh_error:
+                        logger.error(f"Failed to refresh credentials: {refresh_error}")
+
+                # Credential refresh failed or not first attempt
                 last_exception = AuthError(
                     f"Authentication failed for {operation_name}. "
                     "Please run 'gcloud auth application-default login'. "
                     f"Error: {e}"
                 )
                 logger.error(f"{operation_name} failed due to authentication: {e}")
-                # Don't retry auth errors
+                # Don't retry auth errors after refresh attempt
                 raise last_exception from e
 
             except NotFound as e:
@@ -194,7 +227,7 @@ class BaseService:
 
             # Retry logic - only reached if we didn't raise
             if attempt < max_retries:
-                wait_time = retry_delay * (backoff**attempt)
+                wait_time = float(retry_delay * (backoff**attempt))
                 logger.info(f"Retrying {operation_name} in {wait_time:.1f}s...")
                 await asyncio.sleep(wait_time)
 
@@ -206,6 +239,32 @@ class BaseService:
             raise last_exception
         else:
             raise Exception(f"{operation_name} failed after all retries")
+
+    def _extract_retry_after(self, error: Exception) -> int | None:
+        """Extract retry-after time from quota error.
+
+        Args:
+            error: Quota exceeded error
+
+        Returns:
+            Retry-after time in seconds, or None if not found
+        """
+        error_str = str(error)
+
+        # Try to extract retry-after time
+        # Example: "Retry after 60 seconds"
+        import re
+
+        match = re.search(r"retry.*?(\d+)\s*seconds?", error_str, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+
+        # Check for rateLimitExceeded with retry time
+        match = re.search(r"rateLimitExceeded.*?(\d+)", error_str)
+        if match:
+            return int(match.group(1))
+
+        return None
 
     def _extract_permission_error(self, error: Exception) -> str:
         """Extract permission details from error.

@@ -23,3 +23,6 @@ pydantic>=2.5.0
 
 # Async utilities
 aiohttp>=3.9.0
+
+# Clipboard support for VIM-style yanking
+pyperclip>=1.8.0

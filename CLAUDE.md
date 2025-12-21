@@ -67,13 +67,25 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - All tests passing
   - PR: #6
 
+- [x] **Phase 8: Error Handling & UX Polish** - [Plan](docs/phase-8-ux-plan.md)
+  - Branch: `phase-8-ux`
+  - Implemented:
+    - VIM bindings (j/k for up/down, h/l for collapse/expand, g/G for top/bottom)
+    - Smart collapse/expand (h/← collapses or moves to parent, l/→ expands or moves to child)
+    - Enhanced status bar with live stats (operation, cache hit rate, API calls, last refresh)
+    - Resource counts in tree node labels with proper pluralization
+    - Enhanced error recovery (credential refresh, quota wait/retry)
+  - Not Implemented:
+    - Toast notifications (removed due to Textual layout issues - will revisit in future)
+    - Progress indicators (status bar serves this purpose)
+  - Test coverage: **96.02%** (362 tests) maintained
+  - All tests passing
+  - All linting and type checking passing
+  - PR: #7
+
 ### Planned Phases
 
-- [ ] **Phase 8: Error Handling & UX Polish** - [Plan](docs/phase-8-ux-plan.md)
-  - Branch: `phase-8-ux`
-  - Enhanced error recovery, progress indicators, toast notifications
-
-- [ ] **Phase 9: Testing & Documentation** - [Plan](docs/phase-9-testing-docs-plan.md)
+- [ ] **Phase 9: Testing & Documentation** (Current) - [Plan](docs/phase-9-testing-docs-plan.md)
   - Branch: `phase-9-docs-tests`
   - 95%+ coverage, comprehensive documentation, integration tests
 
