@@ -69,9 +69,11 @@ This project is being built in 10 phases. Each phase is implemented in its own b
 
 ### Planned Phases
 
-- [ ] **Phase 8: Error Handling & UX Polish** - [Plan](docs/phase-8-ux-plan.md)
+- [ ] **Phase 8: Error Handling & UX Polish** (Current) - [Plan](docs/phase-8-ux-plan.md)
   - Branch: `phase-8-ux`
   - Enhanced error recovery, progress indicators, toast notifications
+  - VIM bindings for keyboard navigation (j/k/h/l/g/G)
+  - Enhanced tree navigation with left/right arrow expand/collapse
 
 - [ ] **Phase 9: Testing & Documentation** - [Plan](docs/phase-9-testing-docs-plan.md)
   - Branch: `phase-9-docs-tests`
