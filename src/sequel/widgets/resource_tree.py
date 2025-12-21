@@ -816,6 +816,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
         zone = parent_node.data.zone
         region = parent_node.data.location  # For regional groups, region is stored in location
 
+        logger.info(f"Loading instances for group: {group.group_name}, zone={zone}, region={region}")
+
         if not zone and not region:
             parent_node.add(
                 "⚠️  Missing zone or region",
@@ -830,6 +832,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
             # Use appropriate method based on whether it's zonal or regional
             if zone:
                 # Zonal instance group
+                logger.info(f"Loading zonal instances: project={parent_node.data.project_id}, zone={zone}, group={group.group_name}")
                 instances = await compute_service.list_instances_in_group(
                     project_id=parent_node.data.project_id,
                     zone=zone,
@@ -837,11 +840,14 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 )
             else:
                 # Regional instance group
+                logger.info(f"Loading regional instances: project={parent_node.data.project_id}, region={region}, group={group.group_name}")
                 instances = await compute_service.list_instances_in_regional_group(
                     project_id=parent_node.data.project_id,
                     region=region,  # type: ignore[arg-type]
                     instance_group_name=group.group_name,
                 )
+
+            logger.info(f"Loaded {len(instances)} instances for {group.group_name}")
 
             if not instances:
                 # Show message that no instances are found instead of removing the node
@@ -876,7 +882,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 self._add_more_indicator(parent_node, remaining)
 
         except Exception as e:
-            logger.error(f"Failed to load instances in group: {e}")
+            logger.error(f"Failed to load instances in group: {e}", exc_info=True)
             # Show error message instead of removing the node
             parent_node.add(
                 f"⚠️  Error loading instances: {str(e)[:50]}",
