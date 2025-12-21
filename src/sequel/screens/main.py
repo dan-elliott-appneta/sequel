@@ -103,10 +103,6 @@ class MainScreen(Screen[None]):
         """
         yield Header()
 
-        # Toast container for notifications
-        self.toast_container = ToastContainer()
-        yield self.toast_container
-
         with Horizontal(id="main-container"):
             with Vertical(id="tree-container"):
                 self.resource_tree = ResourceTree()
@@ -118,6 +114,10 @@ class MainScreen(Screen[None]):
 
         self.status_bar = StatusBar()
         yield self.status_bar
+
+        # Toast container for notifications (overlay, doesn't affect layout)
+        self.toast_container = ToastContainer()
+        yield self.toast_container
 
     async def on_mount(self) -> None:
         """Handle screen mount event."""

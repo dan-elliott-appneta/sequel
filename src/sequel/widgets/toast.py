@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, ClassVar
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Container
 from textual.widgets import Static
 
 if TYPE_CHECKING:
@@ -61,7 +61,7 @@ class Toast(Static):
         self.remove()
 
 
-class ToastContainer(Vertical):
+class ToastContainer(Container):
     """Container for stacking multiple toast notifications."""
 
     DEFAULT_CLASSES = "toast-container"
@@ -69,10 +69,11 @@ class ToastContainer(Vertical):
     CSS: ClassVar[str] = """
     ToastContainer {
         width: 100%;
-        height: 0;
+        height: 100%;
+        overlay: screen;
         align: center top;
-        layer: notification;
-        offset: 1 0;
+        content-align: center top;
+        layout: vertical;
     }
 
     .toast {
