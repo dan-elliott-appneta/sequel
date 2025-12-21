@@ -3,8 +3,9 @@
 
 Updates version in all locations atomically:
 - src/sequel/__init__.py
-- setup.py
 - pyproject.toml
+
+Note: setup.py no longer contains version (defers to pyproject.toml)
 
 Usage:
     python scripts/bump_version.py patch  # 0.1.0 -> 0.1.1
@@ -21,7 +22,7 @@ from typing import Tuple
 def get_version_from_file(file_path: Path, pattern: str) -> str:
     """Extract version string from a file using regex pattern."""
     content = file_path.read_text()
-    match = re.search(pattern, content)
+    match = re.search(pattern, content, re.MULTILINE)
     if not match:
         raise ValueError(f"Could not find version in {file_path}")
     return match.group(1)
@@ -30,7 +31,7 @@ def get_version_from_file(file_path: Path, pattern: str) -> str:
 def update_version_in_file(file_path: Path, pattern: str, new_version: str) -> None:
     """Update version in a file using regex pattern."""
     content = file_path.read_text()
-    updated = re.sub(pattern, lambda m: m.group(0).replace(m.group(1), new_version), content)
+    updated = re.sub(pattern, lambda m: m.group(0).replace(m.group(1), new_version), content, flags=re.MULTILINE)
     file_path.write_text(updated)
 
 
@@ -65,13 +66,9 @@ def get_current_versions() -> dict[str, str]:
             repo_root / "src/sequel/__init__.py",
             r'__version__\s*=\s*"([^"]+)"'
         ),
-        "setup.py": get_version_from_file(
-            repo_root / "setup.py",
-            r'version="([^"]+)"'
-        ),
         "pyproject.toml": get_version_from_file(
             repo_root / "pyproject.toml",
-            r'version\s*=\s*"([^"]+)"'
+            r'^\s*version\s*=\s*"([^"]+)"'  # Match only at start of line
         ),
     }
 
@@ -101,12 +98,8 @@ def update_all_versions(new_version: str) -> None:
             r'__version__\s*=\s*"([^"]+)"'
         ),
         (
-            repo_root / "setup.py",
-            r'version="([^"]+)"'
-        ),
-        (
             repo_root / "pyproject.toml",
-            r'version\s*=\s*"([^"]+)"'
+            r'^\s*version\s*=\s*"([^"]+)"'  # Match only at start of line
         ),
     ]
 
