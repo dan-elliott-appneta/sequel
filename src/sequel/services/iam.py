@@ -210,6 +210,7 @@ class IAMService(BaseService):
             client = await self._get_client()
 
             logger.info(f"Getting IAM roles for service account: {service_account_email}")
+            logger.debug(f"Fetching IAM policy for project: {project_id}")
 
             role_bindings: list[IAMRoleBinding] = []
 
@@ -222,25 +223,37 @@ class IAMService(BaseService):
                 )
                 response = await asyncio.to_thread(request.execute)
 
+                total_bindings = len(response.get("bindings", []))
+                logger.debug(f"Retrieved IAM policy with {total_bindings} total bindings")
+
                 # Find bindings for this service account
                 member_identifier = f"serviceAccount:{service_account_email}"
-                for binding in response.get("bindings", []):
+                logger.debug(f"Looking for member identifier: {member_identifier}")
+
+                for idx, binding in enumerate(response.get("bindings", [])):
                     role = binding.get("role", "")
                     members = binding.get("members", [])
 
+                    logger.debug(f"Binding {idx}: role={role}, members count={len(members)}")
+
                     if member_identifier in members:
+                        logger.info(f"Found matching role: {role}")
                         role_binding = IAMRoleBinding.from_api_response(
                             role=role,
                             member=service_account_email,
                             resource=f"projects/{project_id}",
                         )
                         role_bindings.append(role_binding)
+                    else:
+                        # Log a sample of members to help debug
+                        if len(members) > 0:
+                            logger.debug(f"  Sample members: {members[:2]}")
 
-                logger.info(f"Found {len(role_bindings)} role bindings")
+                logger.info(f"Found {len(role_bindings)} role bindings for {service_account_email}")
                 return role_bindings
 
             except Exception as e:
-                logger.error(f"Failed to get service account roles: {e}")
+                logger.error(f"Failed to get service account roles: {e}", exc_info=True)
                 return []
 
         # Execute with retry logic
