@@ -11,6 +11,7 @@ Current version: **0.1.0** (Alpha)
 Sequel provides a keyboard-focused, responsive interface for exploring Google Cloud resources:
 
 - **Hierarchical tree view** with expandable sub-nodes showing real resource data:
+  - Cloud DNS Zones → DNS records (A, CNAME, MX, TXT, etc.)
   - Service Accounts → IAM role bindings (with actual role names)
   - GKE Clusters → Individual nodes (with actual node pool names)
   - Instance Groups → VM instances (with actual instance names and status)
@@ -24,6 +25,7 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 ### Supported Resources (MVP)
 
 - Projects
+- Cloud DNS managed zones and DNS records
 - CloudSQL instances
 - Compute Engine Instance Groups
 - Google Kubernetes Engine (GKE) clusters and nodes

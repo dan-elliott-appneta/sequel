@@ -40,15 +40,15 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Branch: `phases-3-6-implementation`
   - Combined implementation of data models, services, widgets, and application integration
   - Includes:
-    - Pydantic models for all resources (Project, CloudSQL, Compute, GKE, Secrets, IAM)
+    - Pydantic models for all resources (Project, CloudDNS, CloudSQL, Compute, GKE, Secrets, IAM)
     - Service layer for all GCP APIs with caching and retry logic
-    - Resource tree widget with lazy loading
-    - Detail pane for resource information
+    - Resource tree widget with lazy loading (includes CloudDNS zones → records hierarchy)
+    - Detail pane for resource information with JSON syntax highlighting
     - Main application with CLI entry point
     - Configuration file system (JSON-based)
     - Command palette with theme selection
     - Project filtering by regex
-  - Test coverage: 97%
+  - Test coverage: 94.61% (332 tests)
   - All CI checks passing (lint, type check, tests)
 
 ### Planned Phases
@@ -121,7 +121,7 @@ All PRs must pass:
 ### Testing
 
 - Write tests alongside implementation
-- Target: >90% overall coverage (currently at 97%)
+- Target: >90% overall coverage (currently at 94.61%)
 - Test all error paths
 - Use fixtures from `tests/conftest.py`
 - All tests must pass in CI for Python 3.11 and 3.12
