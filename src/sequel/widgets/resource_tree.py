@@ -19,6 +19,10 @@ from sequel.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Maximum number of children to display per node expansion
+# Additional items are shown as "... and N more"
+MAX_CHILDREN_PER_NODE = 50
+
 
 class ResourceType:
     """Constants for resource types."""
@@ -87,6 +91,33 @@ class ResourceTree(Tree[ResourceTreeNode]):
         """Initialize the resource tree."""
         super().__init__("GCP Resources", *args, **kwargs)
         self.root.expand()
+
+    def _should_limit_children(self, count: int) -> bool:
+        """Check if we should limit the number of children displayed.
+
+        Args:
+            count: Total number of children
+
+        Returns:
+            True if count exceeds MAX_CHILDREN_PER_NODE
+        """
+        return count > MAX_CHILDREN_PER_NODE
+
+    def _add_more_indicator(
+        self,
+        parent_node: TreeNode[ResourceTreeNode],
+        remaining_count: int,
+    ) -> None:
+        """Add '... and N more' indicator node.
+
+        Args:
+            parent_node: Parent tree node
+            remaining_count: Number of remaining items not displayed
+        """
+        parent_node.add(
+            f"💭 ... and {remaining_count} more",
+            allow_expand=False,
+        )
 
     async def load_projects(self) -> None:
         """Load all projects as root-level nodes."""
@@ -209,43 +240,79 @@ class ResourceTree(Tree[ResourceTreeNode]):
         This method iterates through all projects and their resource type nodes,
         loading each resource type to check if it has any resources. Empty resource
         type nodes are removed, and projects with no resource types are also removed.
+
+        Uses parallel loading for performance - loads all resource types for each
+        project simultaneously using asyncio.gather().
         """
-        logger.info("Starting automatic cleanup of empty nodes")
+        logger.info("Starting automatic cleanup of empty nodes with parallel loading")
         projects_to_check = list(self.root.children)
 
         for project_node in projects_to_check:
             if not project_node.data or project_node.data.resource_type != ResourceType.PROJECT:
                 continue
 
-            # Get all resource type nodes for this project
-            resource_type_nodes = list(project_node.children)
-
-            for resource_node in resource_type_nodes:
-                if not resource_node.data or resource_node.data.loaded:
-                    continue
-
-                # Load the resource type to check if it's empty
-                resource_type = resource_node.data.resource_type
-
-                try:
-                    if resource_type == ResourceType.CLOUDDNS:
-                        await self._load_dns_zones(resource_node)
-                    elif resource_type == ResourceType.CLOUDSQL:
-                        await self._load_cloudsql_instances(resource_node)
-                    elif resource_type == ResourceType.COMPUTE:
-                        await self._load_instance_groups(resource_node)
-                    elif resource_type == ResourceType.GKE:
-                        await self._load_gke_clusters(resource_node)
-                    elif resource_type == ResourceType.SECRETS:
-                        await self._load_secrets(resource_node)
-                    elif resource_type == ResourceType.IAM:
-                        await self._load_service_accounts(resource_node)
-
-                    resource_node.data.loaded = True
-                except Exception as e:
-                    logger.error(f"Error loading {resource_type} during cleanup: {e}")
+            # Load all resource types in parallel for this project
+            await self._load_all_resources_parallel(project_node)
 
         logger.info("Completed automatic cleanup of empty nodes")
+
+    async def _load_all_resources_parallel(self, project_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load all resource types for a project in parallel.
+
+        This method loads CloudDNS, CloudSQL, Compute, GKE, Secrets, and IAM
+        resources simultaneously to significantly improve performance.
+
+        Args:
+            project_node: Project node to load resources for
+        """
+        # Get all resource type nodes for this project
+        resource_type_nodes = list(project_node.children)
+
+        # Create tasks for loading each resource type
+        # Track which node corresponds to which task
+        tasks = []
+        task_nodes = []
+
+        for resource_node in resource_type_nodes:
+            if not resource_node.data or resource_node.data.loaded:
+                continue
+
+            resource_type = resource_node.data.resource_type
+
+            # Create coroutine for each resource type
+            task = None
+            if resource_type == ResourceType.CLOUDDNS:
+                task = self._load_dns_zones(resource_node)
+            elif resource_type == ResourceType.CLOUDSQL:
+                task = self._load_cloudsql_instances(resource_node)
+            elif resource_type == ResourceType.COMPUTE:
+                task = self._load_instance_groups(resource_node)
+            elif resource_type == ResourceType.GKE:
+                task = self._load_gke_clusters(resource_node)
+            elif resource_type == ResourceType.SECRETS:
+                task = self._load_secrets(resource_node)
+            elif resource_type == ResourceType.IAM:
+                task = self._load_service_accounts(resource_node)
+
+            if task:
+                tasks.append(task)
+                task_nodes.append(resource_node)
+
+        # Load all resource types in parallel
+        # return_exceptions=True prevents one failure from stopping all loads
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results and mark nodes as loaded
+            for i, result in enumerate(results):
+                node_data = task_nodes[i].data
+                if isinstance(result, Exception):
+                    resource_type = node_data.resource_type if node_data else "unknown"
+                    logger.error(f"Error loading {resource_type} during parallel load: {result}")
+                else:
+                    # Mark as loaded if successful
+                    if node_data:
+                        node_data.loaded = True
 
     async def _on_tree_node_expanded(self, event: Tree.NodeExpanded[ResourceTreeNode]) -> None:
         """Handle tree node expansion with lazy loading.
@@ -364,8 +431,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 )
                 return
 
-            # Add DNS record nodes
-            for record in records:
+            # Add DNS record nodes (with limit)
+            total_records = len(records)
+            records_to_show = records[:MAX_CHILDREN_PER_NODE] if self._should_limit_children(total_records) else records
+
+            for record in records_to_show:
                 node_data = ResourceTreeNode(
                     resource_type=ResourceType.CLOUDDNS_RECORD,
                     resource_id=f"{record.record_name}:{record.record_type}",
@@ -379,6 +449,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     data=node_data,
                     allow_expand=False,
                 )
+
+            # Add "... and N more" indicator if we hit the limit
+            if self._should_limit_children(total_records):
+                remaining = total_records - MAX_CHILDREN_PER_NODE
+                self._add_more_indicator(parent_node, remaining)
 
         except Exception as e:
             logger.error(f"Failed to load DNS records: {e}")
@@ -627,8 +702,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 )
                 return
 
-            # Add role binding nodes with real data
-            for role_binding in role_bindings:
+            # Add role binding nodes with real data (with limit)
+            total_roles = len(role_bindings)
+            roles_to_show = role_bindings[:MAX_CHILDREN_PER_NODE] if self._should_limit_children(total_roles) else role_bindings
+
+            for role_binding in roles_to_show:
                 node_data = ResourceTreeNode(
                     resource_type=ResourceType.IAM_ROLE,
                     resource_id=role_binding.role,
@@ -642,6 +720,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     data=node_data,
                     allow_expand=False,
                 )
+
+            # Add "... and N more" indicator if we hit the limit
+            if self._should_limit_children(total_roles):
+                remaining = total_roles - MAX_CHILDREN_PER_NODE
+                self._add_more_indicator(parent_node, remaining)
 
         except Exception as e:
             logger.error(f"Failed to load service account roles: {e}")
@@ -683,8 +766,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 )
                 return
 
-            # Add node nodes with real data
-            for node in nodes:
+            # Add node nodes with real data (with limit)
+            total_nodes = len(nodes)
+            nodes_to_show = nodes[:MAX_CHILDREN_PER_NODE] if self._should_limit_children(total_nodes) else nodes
+
+            for node in nodes_to_show:
                 node_data = ResourceTreeNode(
                     resource_type=ResourceType.GKE_NODE,
                     resource_id=node.node_name,
@@ -697,6 +783,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     data=node_data,
                     allow_expand=False,
                 )
+
+            # Add "... and N more" indicator if we hit the limit
+            if self._should_limit_children(total_nodes):
+                remaining = total_nodes - MAX_CHILDREN_PER_NODE
+                self._add_more_indicator(parent_node, remaining)
 
         except Exception as e:
             logger.error(f"Failed to load cluster nodes: {e}")
@@ -725,6 +816,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
         zone = parent_node.data.zone
         region = parent_node.data.location  # For regional groups, region is stored in location
 
+        logger.info(f"Loading instances for group: {group.group_name}, zone={zone}, region={region}")
+
         if not zone and not region:
             parent_node.add(
                 "⚠️  Missing zone or region",
@@ -737,31 +830,45 @@ class ResourceTree(Tree[ResourceTreeNode]):
             compute_service = await get_compute_service()
 
             # Use appropriate method based on whether it's zonal or regional
+            is_managed = group.is_managed if hasattr(group, 'is_managed') else True
+
             if zone:
                 # Zonal instance group
+                logger.info(f"Loading zonal instances: project={parent_node.data.project_id}, zone={zone}, group={group.group_name}, managed={is_managed}")
                 instances = await compute_service.list_instances_in_group(
                     project_id=parent_node.data.project_id,
                     zone=zone,
                     instance_group_name=group.group_name,
+                    is_managed=is_managed,
                 )
             else:
                 # Regional instance group
+                logger.info(f"Loading regional instances: project={parent_node.data.project_id}, region={region}, group={group.group_name}, managed={is_managed}")
                 instances = await compute_service.list_instances_in_regional_group(
                     project_id=parent_node.data.project_id,
                     region=region,  # type: ignore[arg-type]
                     instance_group_name=group.group_name,
+                    is_managed=is_managed,
                 )
+
+            logger.info(f"Loaded {len(instances)} instances for {group.group_name}")
 
             if not instances:
                 # Show message that no instances are found instead of removing the node
+                logger.warning(f"No instances found for {group.group_name}, adding placeholder")
                 parent_node.add(
                     "💻 No instances found",
                     allow_expand=False,
                 )
                 return
 
-            # Add instance nodes with real data
-            for instance in instances:
+            # Add instance nodes with real data (with limit)
+            total_instances = len(instances)
+            instances_to_show = instances[:MAX_CHILDREN_PER_NODE] if self._should_limit_children(total_instances) else instances
+
+            logger.info(f"Adding {len(instances_to_show)} of {total_instances} instances to tree for {group.group_name}")
+
+            for instance in instances_to_show:
                 node_data = ResourceTreeNode(
                     resource_type=ResourceType.COMPUTE_INSTANCE,
                     resource_id=instance.instance_name,
@@ -776,15 +883,13 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     allow_expand=False,
                 )
 
-            # Show "and more" message if there are more instances
-            if hasattr(group, 'size') and group.size > len(instances):
-                parent_node.add(
-                    f"... and {group.size - len(instances)} more",
-                    allow_expand=False,
-                )
+            # Add "... and N more" indicator if we hit the limit
+            if self._should_limit_children(total_instances):
+                remaining = total_instances - MAX_CHILDREN_PER_NODE
+                self._add_more_indicator(parent_node, remaining)
 
         except Exception as e:
-            logger.error(f"Failed to load instances in group: {e}")
+            logger.error(f"Failed to load instances in group: {e}", exc_info=True)
             # Show error message instead of removing the node
             parent_node.add(
                 f"⚠️  Error loading instances: {str(e)[:50]}",

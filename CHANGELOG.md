@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Phase 7: Performance Optimization**
+  - Parallel API operations using `asyncio.gather()` for simultaneous resource loading across all resource types
+  - Cache optimization with LRU eviction algorithm and 100MB size limit
+  - Cache statistics tracking: hits, misses, evictions, expirations
+  - Background cache cleanup task running every 5 minutes
+  - Virtual scrolling with MAX_CHILDREN_PER_NODE limit (50 items) and "... and N more" indicators
+  - Performance profiling script (`scripts/profile.py`) for benchmarking API calls and cache performance
+  - Debug script (`scripts/debug_mig.py`) for testing instance group API calls directly
+  - Enhanced logging in resource tree widget for better debugging
+  - **Test coverage improvement**: 81% → 96.25% (added 7 comprehensive tests for compute.py)
+
+### Added
 - **JSON details pane**: Displays syntax-highlighted, pretty-printed JSON from raw GCP API responses
   - Tree-sitter powered JSON syntax highlighting with Monokai theme
   - Line numbers enabled for easy reference
@@ -49,6 +61,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed border between tree and details panes for cleaner interface
 
 ### Fixed
+- **Managed instance groups not showing instances**
+  - Fixed API endpoint selection: managed groups now use `instanceGroupManagers().listManagedInstances()` instead of `instanceGroups().listInstances()`
+  - Added `is_managed` parameter to properly detect and handle managed vs unmanaged instance groups
+  - Fixed response parsing: managed groups return `managedInstances` field, unmanaged return `items`
+  - Increased instance limit from 10 to 100 per group (tree applies virtual scrolling at 50)
+  - Regional managed instance groups now working correctly with proper API calls
 - UI border gaps when expanding tree nodes (changed from solid to tall border style)
 - All mypy strict mode errors resolved using proper type casting
 - Proper handling of missing type stubs for third-party libraries

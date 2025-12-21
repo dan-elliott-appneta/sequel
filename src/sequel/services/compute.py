@@ -239,6 +239,7 @@ class ComputeService(BaseService):
         zone: str,
         instance_group_name: str,
         use_cache: bool = True,
+        is_managed: bool = True,
     ) -> list[ComputeInstance]:
         """List instances in a specific instance group.
 
@@ -247,6 +248,7 @@ class ComputeService(BaseService):
             zone: Zone name
             instance_group_name: Instance group name
             use_cache: Whether to use cached results
+            is_managed: Whether this is a managed instance group (default: True)
 
         Returns:
             List of ComputeInstance instances
@@ -256,7 +258,7 @@ class ComputeService(BaseService):
             PermissionError: If user lacks permission
             ServiceError: If API call fails
         """
-        cache_key = f"instances_in_group:{project_id}:{zone}:{instance_group_name}"
+        cache_key = f"instances_in_group:{project_id}:{zone}:{instance_group_name}:managed={is_managed}"
 
         # Check cache first
         if use_cache:
@@ -278,18 +280,35 @@ class ComputeService(BaseService):
 
             try:
                 # Get instance references from the group
-                request = client.instanceGroups().listInstances(
-                    project=project_id,
-                    zone=zone,
-                    instanceGroup=instance_group_name,
-                    body={"instanceState": "ALL"},
-                )
+                # Use different API for managed vs unmanaged instance groups
+                if is_managed:
+                    # Managed instance group - use instanceGroupManagers API
+                    request = client.instanceGroupManagers().listManagedInstances(
+                        project=project_id,
+                        zone=zone,
+                        instanceGroupManager=instance_group_name,
+                    )
+                else:
+                    # Unmanaged instance group - use instanceGroups API
+                    request = client.instanceGroups().listInstances(
+                        project=project_id,
+                        zone=zone,
+                        instanceGroup=instance_group_name,
+                        body={"instanceState": "ALL"},
+                    )
                 response = await asyncio.to_thread(request.execute)
 
-                instance_refs = response.get("items", [])
+                # Parse response based on group type
+                if is_managed:
+                    # Managed instances have a different response format
+                    instance_refs = response.get("managedInstances", [])
+                else:
+                    instance_refs = response.get("items", [])
 
                 # Fetch detailed information for each instance
-                for ref in instance_refs[:10]:  # Limit to 10 instances
+                # Limit to 100 instances (tree widget will apply virtual scrolling at 50)
+                for ref in instance_refs[:100]:
+                    # Extract instance URL (same field for both managed and unmanaged)
                     instance_url = ref.get("instance", "")
                     if instance_url:
                         # Extract instance name from URL
@@ -334,6 +353,7 @@ class ComputeService(BaseService):
         region: str,
         instance_group_name: str,
         use_cache: bool = True,
+        is_managed: bool = True,
     ) -> list[ComputeInstance]:
         """List instances in a regional instance group.
 
@@ -342,11 +362,12 @@ class ComputeService(BaseService):
             region: GCP region (e.g., "us-central1")
             instance_group_name: Name of the regional instance group
             use_cache: Whether to use caching
+            is_managed: Whether this is a managed instance group (default: True)
 
         Returns:
-            List of ComputeInstance objects (limited to 10)
+            List of ComputeInstance objects (up to 100, tree widget applies virtual scrolling)
         """
-        cache_key = f"instances_in_regional_group:{project_id}:{region}:{instance_group_name}"
+        cache_key = f"instances_in_regional_group:{project_id}:{region}:{instance_group_name}:managed={is_managed}"
 
         # Check cache first
         if use_cache:
@@ -368,18 +389,34 @@ class ComputeService(BaseService):
 
             try:
                 # Get instance references from the regional group
-                request = client.regionInstanceGroups().listInstances(
-                    project=project_id,
-                    region=region,
-                    instanceGroup=instance_group_name,
-                    body={"instanceState": "ALL"},
-                )
+                # Use different API for managed vs unmanaged instance groups
+                if is_managed:
+                    # Managed instance group - use regionInstanceGroupManagers API
+                    request = client.regionInstanceGroupManagers().listManagedInstances(
+                        project=project_id,
+                        region=region,
+                        instanceGroupManager=instance_group_name,
+                    )
+                else:
+                    # Unmanaged instance group - use regionInstanceGroups API
+                    request = client.regionInstanceGroups().listInstances(
+                        project=project_id,
+                        region=region,
+                        instanceGroup=instance_group_name,
+                        body={"instanceState": "ALL"},
+                    )
                 response = await asyncio.to_thread(request.execute)
 
-                instance_refs = response.get("items", [])
+                # Parse response based on group type
+                if is_managed:
+                    # Managed instances have a different response format
+                    instance_refs = response.get("managedInstances", [])
+                else:
+                    instance_refs = response.get("items", [])
 
                 # Fetch detailed information for each instance
-                for ref in instance_refs[:10]:  # Limit to 10 instances
+                # Limit to 100 instances (tree widget will apply virtual scrolling at 50)
+                for ref in instance_refs[:100]:
                     instance_url = ref.get("instance", "")
                     if instance_url:
                         # Extract instance name and zone from URL

@@ -253,24 +253,27 @@ class TestResourceTree:
     async def test_load_instances_in_group_over_limit(
         self, resource_tree: ResourceTree
     ) -> None:
-        """Test loading instances when group has more than 10 instances."""
-        # Create a group with 15 instances
+        """Test loading instances when group exceeds display limit."""
+        from sequel.widgets.resource_tree import MAX_CHILDREN_PER_NODE
+
+        # Create a group with size > MAX_CHILDREN_PER_NODE
         group_data = {
             "name": "large-group",
             "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/us-central1-a",
-            "size": 15,
+            "size": MAX_CHILDREN_PER_NODE + 10,
             "creationTimestamp": "2023-01-01T00:00:00Z",
         }
         group = InstanceGroup.from_api_response(group_data)
 
-        # Mock service returns only 10 instances (API limit)
+        # Mock service returns instances exceeding the display limit
+        num_instances = MAX_CHILDREN_PER_NODE + 10
         mock_instances = [
             ComputeInstance.from_api_response({
                 "name": f"instance-{i}",
                 "zone": "us-central1-a",
                 "status": "RUNNING",
             })
-            for i in range(1, 11)
+            for i in range(1, num_instances + 1)
         ]
 
         parent_node_data = ResourceTreeNode(
@@ -293,10 +296,10 @@ class TestResourceTree:
             # Load the instances
             await resource_tree._load_instances_in_group(parent_node)
 
-        # Should have 10 instances + 1 "and more" message
-        assert len(parent_node.children) == 11
-        assert "instance-10" in parent_node.children[9].label.plain
-        assert "and 5 more" in parent_node.children[10].label.plain
+        # Should have MAX_CHILDREN_PER_NODE instances + 1 "and more" message
+        assert len(parent_node.children) == MAX_CHILDREN_PER_NODE + 1
+        assert f"instance-{MAX_CHILDREN_PER_NODE}" in parent_node.children[MAX_CHILDREN_PER_NODE - 1].label.plain
+        assert "and 10 more" in parent_node.children[MAX_CHILDREN_PER_NODE].label.plain
 
     @pytest.mark.asyncio
     async def test_load_instances_in_group_empty(
