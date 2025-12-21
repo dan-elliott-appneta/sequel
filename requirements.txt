@@ -1,0 +1,18 @@
+# TUI Framework
+textual>=0.47.0
+
+# Google Cloud Client Libraries
+google-auth>=2.25.0
+google-auth-oauthlib>=1.2.0
+google-cloud-resource-manager>=1.12.0
+# Note: google-cloud-sql admin API - will be added in Phase 4
+# google-cloud-compute - will be added in Phase 4
+google-cloud-container>=2.36.0
+google-cloud-secret-manager>=2.18.0
+# Note: google-cloud-iam - will be added in Phase 4
+
+# Data validation and serialization
+pydantic>=2.5.0
+
+# Async utilities
+aiohttp>=3.9.0
