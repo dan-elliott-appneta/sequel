@@ -59,6 +59,7 @@ class GKECluster(BaseModel):
             endpoint=data.get("endpoint"),
             node_count=data.get("currentNodeCount", 0),
             version=data.get("currentMasterVersion"),
+            raw_data=data.copy(),
         )
 
     def is_running(self) -> bool:
@@ -105,4 +106,5 @@ class GKENode(BaseModel):
             machine_type=data.get("machineType"),
             status=data.get("status", "UNKNOWN"),
             version=data.get("version"),
+            raw_data=data.copy(),
         )

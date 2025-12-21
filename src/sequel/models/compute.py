@@ -90,4 +90,5 @@ class InstanceGroup(BaseModel):
             instance_template=data.get("instanceTemplate"),
             is_managed=is_managed,
             target_size=data.get("targetSize"),
+            raw_data=data.copy(),
         )

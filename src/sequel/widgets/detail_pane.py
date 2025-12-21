@@ -1,8 +1,9 @@
 """Detail pane widget for displaying resource details."""
 
+import json
 from typing import Any
 
-from rich.table import Table
+from rich.syntax import Syntax
 from textual.widgets import Static
 
 from sequel.models.base import BaseModel
@@ -40,67 +41,38 @@ class DetailPane(Static):
             logger.error(f"Failed to format resource details: {e}")
             self.update(f"Error displaying resource: {e}")
 
-    def _format_resource(self, resource: BaseModel) -> Table:
-        """Format a resource as a Rich table.
+    def _format_resource(self, resource: BaseModel) -> Syntax:
+        """Format a resource as pretty-printed JSON.
 
         Args:
             resource: Resource to format
 
         Returns:
-            Rich Table with resource details
+            Rich Syntax widget with JSON highlighting
         """
-        # Create table
-        table = Table(
-            title=f"{resource.__class__.__name__}: {resource.name}",
-            show_header=True,
-            header_style="bold cyan",
+        # Get raw API response data if available, otherwise use model dict
+        if resource.raw_data:
+            data = resource.raw_data
+        else:
+            # Fallback to model dict if raw_data is empty
+            data = resource.to_dict()
+            # Remove raw_data from display if it's empty
+            data.pop("raw_data", None)
+
+        # Pretty-print JSON with 2-space indentation
+        json_str = json.dumps(data, indent=2, sort_keys=True, default=str)
+
+        # Create syntax-highlighted JSON
+        syntax = Syntax(
+            json_str,
+            "json",
+            theme="monokai",
+            line_numbers=True,
+            word_wrap=False,
+            code_width=None,
         )
 
-        table.add_column("Property", style="bold")
-        table.add_column("Value")
-
-        # Get resource data
-        data = resource.to_dict()
-
-        # Add rows for each property
-        for key, value in sorted(data.items()):
-            if value is None:
-                continue
-
-            # Format value
-            formatted_value = self._format_value(value)
-            table.add_row(key, formatted_value)
-
-        return table
-
-    def _format_value(self, value: Any) -> str:
-        """Format a value for display.
-
-        Args:
-            value: Value to format
-
-        Returns:
-            Formatted string
-        """
-        if isinstance(value, dict):
-            # Format dict as key=value pairs
-            if not value:
-                return "(empty)"
-            items = [f"{k}={v}" for k, v in value.items()]
-            return ", ".join(items)
-
-        elif isinstance(value, list):
-            # Format list
-            if not value:
-                return "(empty)"
-            return ", ".join(str(item) for item in value)
-
-        elif isinstance(value, bool):
-            # Format boolean with symbols
-            return "✓" if value else "✗"
-
-        else:
-            return str(value)
+        return syntax
 
     def clear_content(self) -> None:
         """Clear the detail pane."""

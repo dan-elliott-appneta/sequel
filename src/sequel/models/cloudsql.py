@@ -73,6 +73,7 @@ class CloudSQLInstance(BaseModel):
             region=data.get("region"),
             ip_addresses=ip_addresses,
             connection_name=data.get("connectionName"),
+            raw_data=data.copy(),
         )
 
     def is_running(self) -> bool:

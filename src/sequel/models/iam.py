@@ -58,6 +58,7 @@ class ServiceAccount(BaseModel):
             description=data.get("description"),
             disabled=data.get("disabled", False),
             unique_id=data.get("uniqueId"),
+            raw_data=data.copy(),
         )
 
     def is_enabled(self) -> bool:

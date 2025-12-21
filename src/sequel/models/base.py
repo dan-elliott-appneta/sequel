@@ -27,6 +27,9 @@ class BaseModel(PydanticBaseModel):
     project_id: str | None = Field(None, description="GCP project ID containing this resource")
     created_at: datetime | None = Field(None, description="Resource creation timestamp")
     labels: dict[str, str] = Field(default_factory=dict, description="Resource labels")
+    raw_data: dict[str, Any] = Field(
+        default_factory=dict, description="Raw API response data for this resource"
+    )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary.
@@ -46,6 +49,11 @@ class BaseModel(PydanticBaseModel):
         Returns:
             Model instance populated from API data
         """
+        # Store raw data for later use (e.g., JSON display in UI)
+        # Subclasses should call this or manually set raw_data
+        if "raw_data" not in data:
+            data = {**data, "raw_data": data.copy()}
+
         # Default implementation - subclasses should override for custom mapping
         return cls(**data)
 

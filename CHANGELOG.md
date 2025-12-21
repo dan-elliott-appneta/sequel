@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **JSON details pane**: Displays syntax-highlighted, pretty-printed JSON from raw GCP API responses
+  - Monokai theme for JSON syntax highlighting
+  - Line numbers enabled for easy reference
+  - Preserves all original API fields including custom/extra fields
+  - Falls back to model dict if raw API data unavailable
 - JSON-based configuration file system at `~/.config/sequel/config.json`
 - Configuration precedence: Environment Variables > Config File > Defaults
 - Theme persistence - theme changes automatically saved to config file
@@ -15,8 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for 14 Textual themes (catppuccin, dracula, gruvbox, monokai, nord, solarized, tokyo-night, etc.)
 - Project filtering by regex (configurable via config file or environment variable)
 - Comprehensive type checking with mypy strict mode (zero errors)
-- Test coverage at 97% across entire codebase
+- Test coverage at 97% across entire codebase (144 tests)
 - Full CI/CD with lint, type check, and test validation
+
+### Changed
+- Detail pane now displays raw API JSON instead of formatted table
+- All models now store raw API response data in `raw_data` field for inspection
 
 ### Fixed
 - UI border gaps when expanding tree nodes (changed from solid to tall border style)
