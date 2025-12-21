@@ -422,9 +422,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 )
                 # Extract role name (e.g., "roles/editor" -> "Editor")
                 role_name = role_binding.role.split("/")[-1]
-                parent_node.add_leaf(
+                parent_node.add(
                     f"📋 {role_name}",
                     data=node_data,
+                    allow_expand=False,
                 )
 
         except Exception as e:
@@ -465,9 +466,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     project_id=parent_node.data.project_id,
                     location=parent_node.data.location,
                 )
-                parent_node.add_leaf(
+                parent_node.add(
                     f"🖥️  {node.node_name}",
                     data=node_data,
+                    allow_expand=False,
                 )
 
         except Exception as e:
@@ -509,14 +511,18 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     zone=instance.zone,
                 )
                 status_icon = "✓" if instance.is_running() else "✗"
-                parent_node.add_leaf(
+                parent_node.add(
                     f"{status_icon} {instance.instance_name}",
                     data=node_data,
+                    allow_expand=False,
                 )
 
             # Show "and more" message if there are more instances
             if hasattr(group, 'size') and group.size > len(instances):
-                parent_node.add_leaf(f"... and {group.size - len(instances)} more")
+                parent_node.add(
+                    f"... and {group.size - len(instances)} more",
+                    allow_expand=False,
+                )
 
         except Exception as e:
             logger.error(f"Failed to load instances in group: {e}")
