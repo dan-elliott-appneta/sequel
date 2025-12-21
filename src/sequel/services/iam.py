@@ -22,6 +22,7 @@ class IAMService(BaseService):
         """Initialize the IAM service."""
         super().__init__()
         self._client: Any | None = None
+        self._crm_client: Any | None = None  # Cloud Resource Manager client for IAM policies
         self._cache = get_cache()
 
     async def _get_client(self) -> Any:
@@ -39,6 +40,22 @@ class IAMService(BaseService):
                 cache_discovery=False,
             )
         return self._client
+
+    async def _get_crm_client(self) -> Any:
+        """Get or create the Cloud Resource Manager client for IAM policies.
+
+        Returns:
+            Initialized cloudresourcemanager client
+        """
+        if self._crm_client is None:
+            auth_manager = await get_auth_manager()
+            self._crm_client = discovery.build(
+                "cloudresourcemanager",
+                "v1",
+                credentials=auth_manager.credentials,
+                cache_discovery=False,
+            )
+        return self._crm_client
 
     async def list_service_accounts(
         self,
@@ -207,7 +224,8 @@ class IAMService(BaseService):
 
         async def _get_roles() -> list[IAMRoleBinding]:
             """Internal function to get role bindings."""
-            client = await self._get_client()
+            # Use Cloud Resource Manager client for IAM policies, not IAM client
+            crm_client = await self._get_crm_client()
 
             logger.info(f"Getting IAM roles for service account: {service_account_email}")
             logger.debug(f"Fetching IAM policy for project: {project_id}")
@@ -215,10 +233,10 @@ class IAMService(BaseService):
             role_bindings: list[IAMRoleBinding] = []
 
             try:
-                # Get project IAM policy
-                resource = f"projects/{project_id}"
-                request = client.projects().getIamPolicy(
-                    resource=resource,
+                # Get project IAM policy using Cloud Resource Manager API
+                # Note: The resource parameter should be just the project ID
+                request = crm_client.projects().getIamPolicy(
+                    resource=project_id,
                     body={}
                 )
                 response = await asyncio.to_thread(request.execute)
