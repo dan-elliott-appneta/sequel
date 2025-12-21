@@ -393,12 +393,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
         if parent_node.data is None or parent_node.data.resource_data is None:
             return
 
-        if not parent_node.data.project_id:
-            parent_node.remove()
-            return
-
         service_account = parent_node.data.resource_data
         parent_node.remove_children()
+
+        if not parent_node.data.project_id:
+            parent_node.add(
+                "⚠️  Missing project ID",
+                allow_expand=False,
+            )
+            return
 
         # Fetch real IAM role bindings from IAM API
         try:
@@ -409,7 +412,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
             )
 
             if not role_bindings:
-                parent_node.remove()
+                # Show message that no roles are assigned instead of removing the node
+                parent_node.add(
+                    "📋 No roles assigned",
+                    allow_expand=False,
+                )
                 return
 
             # Add role binding nodes with real data
@@ -430,19 +437,26 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         except Exception as e:
             logger.error(f"Failed to load service account roles: {e}")
-            parent_node.remove()
+            # Show error message instead of removing the node
+            parent_node.add(
+                f"⚠️  Error loading roles: {str(e)[:50]}",
+                allow_expand=False,
+            )
 
     async def _load_cluster_nodes(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
         """Load nodes for a GKE cluster."""
         if parent_node.data is None or parent_node.data.resource_data is None:
             return
 
-        if not parent_node.data.project_id or not parent_node.data.location:
-            parent_node.remove()
-            return
-
         cluster = parent_node.data.resource_data
         parent_node.remove_children()
+
+        if not parent_node.data.project_id or not parent_node.data.location:
+            parent_node.add(
+                "⚠️  Missing project ID or location",
+                allow_expand=False,
+            )
+            return
 
         # Fetch real node data from GKE API
         try:
@@ -454,7 +468,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
             )
 
             if not nodes:
-                parent_node.remove()
+                # Show message that no nodes are found instead of removing the node
+                parent_node.add(
+                    "🖥️  No nodes found",
+                    allow_expand=False,
+                )
                 return
 
             # Add node nodes with real data
@@ -474,19 +492,26 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         except Exception as e:
             logger.error(f"Failed to load cluster nodes: {e}")
-            parent_node.remove()
+            # Show error message instead of removing the node
+            parent_node.add(
+                f"⚠️  Error loading nodes: {str(e)[:50]}",
+                allow_expand=False,
+            )
 
     async def _load_instances_in_group(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
         """Load instances in an instance group."""
         if parent_node.data is None or parent_node.data.resource_data is None:
             return
 
-        if not parent_node.data.project_id or not parent_node.data.zone:
-            parent_node.remove()
-            return
-
         group = parent_node.data.resource_data
         parent_node.remove_children()
+
+        if not parent_node.data.project_id or not parent_node.data.zone:
+            parent_node.add(
+                "⚠️  Missing project ID or zone",
+                allow_expand=False,
+            )
+            return
 
         # Fetch real instance data from Compute API
         try:
@@ -498,7 +523,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
             )
 
             if not instances:
-                parent_node.remove()
+                # Show message that no instances are found instead of removing the node
+                parent_node.add(
+                    "💻 No instances found",
+                    allow_expand=False,
+                )
                 return
 
             # Add instance nodes with real data
@@ -526,4 +555,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         except Exception as e:
             logger.error(f"Failed to load instances in group: {e}")
-            parent_node.remove()
+            # Show error message instead of removing the node
+            parent_node.add(
+                f"⚠️  Error loading instances: {str(e)[:50]}",
+                allow_expand=False,
+            )

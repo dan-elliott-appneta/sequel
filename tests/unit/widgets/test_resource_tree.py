@@ -186,8 +186,10 @@ class TestResourceTree:
             # Load the cluster nodes
             await resource_tree._load_cluster_nodes(parent_node)
 
-        # Node should be removed since it has no children
-        assert parent_node not in resource_tree.root.children
+        # Node should remain with a message instead of being removed
+        assert parent_node in resource_tree.root.children
+        assert len(parent_node.children) == 1
+        assert "No nodes found" in parent_node.children[0].label.plain
 
     @pytest.mark.asyncio
     async def test_load_instances_in_group_with_instances(
@@ -287,7 +289,7 @@ class TestResourceTree:
         # Create an empty group
         group_data = {
             "name": "empty-group",
-            "zone": "us-central1-a",
+            "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/us-central1-a",
             "size": 0,
             "creationTimestamp": "2023-01-01T00:00:00Z",
         }
@@ -298,16 +300,25 @@ class TestResourceTree:
             resource_id="empty-group",
             resource_data=group,
             project_id="my-project",
+            zone="us-central1-a",
         )
         parent_node = resource_tree.root.add(
             "Empty Group", data=parent_node_data, allow_expand=True
         )
 
-        # Load the instances
-        await resource_tree._load_instances_in_group(parent_node)
+        # Mock the Compute service to return empty list
+        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_instances_in_group = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
 
-        # Node should be removed since it has no children
-        assert parent_node not in resource_tree.root.children
+            # Load the instances
+            await resource_tree._load_instances_in_group(parent_node)
+
+        # Node should remain with a message instead of being removed
+        assert parent_node in resource_tree.root.children
+        assert len(parent_node.children) == 1
+        assert "No instances found" in parent_node.children[0].label.plain
 
     @pytest.mark.asyncio
     async def test_load_service_account_roles(
@@ -528,3 +539,539 @@ class TestResourceTree:
         # Simulate loading
         node.loaded = True
         assert node.loaded is True
+
+    @pytest.mark.asyncio
+    async def test_load_service_account_roles_empty(
+        self, resource_tree: ResourceTree, sample_service_account: ServiceAccount
+    ) -> None:
+        """Test loading roles when service account has no roles."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.IAM_SERVICE_ACCOUNT,
+            resource_id=sample_service_account.email,
+            resource_data=sample_service_account,
+            project_id="my-project",
+        )
+        parent_node = resource_tree.root.add(
+            sample_service_account.email, data=parent_node_data, allow_expand=True
+        )
+
+        # Mock the IAM service to return empty list
+        with patch("sequel.widgets.resource_tree.get_iam_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.get_service_account_roles = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
+
+            # Load the roles
+            await resource_tree._load_service_account_roles(parent_node)
+
+        # Node should remain with a message instead of being removed
+        assert parent_node in resource_tree.root.children
+        assert len(parent_node.children) == 1
+        assert "No roles assigned" in parent_node.children[0].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_service_account_roles_missing_project_id(
+        self, resource_tree: ResourceTree, sample_service_account: ServiceAccount
+    ) -> None:
+        """Test loading roles when parent node has no project_id."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.IAM_SERVICE_ACCOUNT,
+            resource_id=sample_service_account.email,
+            resource_data=sample_service_account,
+            project_id=None,  # No project ID
+        )
+        parent_node = resource_tree.root.add(
+            sample_service_account.email, data=parent_node_data, allow_expand=True
+        )
+
+        # Load the roles
+        await resource_tree._load_service_account_roles(parent_node)
+
+        # Should show warning message
+        assert len(parent_node.children) == 1
+        assert "Missing project ID" in parent_node.children[0].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_service_account_roles_error(
+        self, resource_tree: ResourceTree, sample_service_account: ServiceAccount
+    ) -> None:
+        """Test loading roles when IAM service raises an exception."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.IAM_SERVICE_ACCOUNT,
+            resource_id=sample_service_account.email,
+            resource_data=sample_service_account,
+            project_id="my-project",
+        )
+        parent_node = resource_tree.root.add(
+            sample_service_account.email, data=parent_node_data, allow_expand=True
+        )
+
+        # Mock the IAM service to raise an exception
+        with patch("sequel.widgets.resource_tree.get_iam_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.get_service_account_roles = AsyncMock(
+                side_effect=Exception("API Error")
+            )
+            mock_get_service.return_value = mock_service
+
+            # Load the roles
+            await resource_tree._load_service_account_roles(parent_node)
+
+        # Node should remain with error message
+        assert parent_node in resource_tree.root.children
+        assert len(parent_node.children) == 1
+        assert "Error loading roles" in parent_node.children[0].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_cluster_nodes_missing_project_id(
+        self, resource_tree: ResourceTree, sample_gke_cluster: GKECluster
+    ) -> None:
+        """Test loading cluster nodes when parent node has no project_id."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.GKE_CLUSTER,
+            resource_id="my-cluster",
+            resource_data=sample_gke_cluster,
+            project_id=None,  # No project ID
+            location="us-central1-a",
+        )
+        parent_node = resource_tree.root.add(
+            "Test Cluster", data=parent_node_data, allow_expand=True
+        )
+
+        # Load the cluster nodes
+        await resource_tree._load_cluster_nodes(parent_node)
+
+        # Should show warning message
+        assert len(parent_node.children) == 1
+        assert "Missing project ID or location" in parent_node.children[0].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_cluster_nodes_missing_location(
+        self, resource_tree: ResourceTree, sample_gke_cluster: GKECluster
+    ) -> None:
+        """Test loading cluster nodes when parent node has no location."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.GKE_CLUSTER,
+            resource_id="my-cluster",
+            resource_data=sample_gke_cluster,
+            project_id="my-project",
+            location=None,  # No location
+        )
+        parent_node = resource_tree.root.add(
+            "Test Cluster", data=parent_node_data, allow_expand=True
+        )
+
+        # Load the cluster nodes
+        await resource_tree._load_cluster_nodes(parent_node)
+
+        # Should show warning message
+        assert len(parent_node.children) == 1
+        assert "Missing project ID or location" in parent_node.children[0].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_cluster_nodes_error(
+        self, resource_tree: ResourceTree, sample_gke_cluster: GKECluster
+    ) -> None:
+        """Test loading cluster nodes when GKE service raises an exception."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.GKE_CLUSTER,
+            resource_id="my-cluster",
+            resource_data=sample_gke_cluster,
+            project_id="my-project",
+            location="us-central1-a",
+        )
+        parent_node = resource_tree.root.add(
+            "Test Cluster", data=parent_node_data, allow_expand=True
+        )
+
+        # Mock the GKE service to raise an exception
+        with patch("sequel.widgets.resource_tree.get_gke_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_nodes = AsyncMock(side_effect=Exception("API Error"))
+            mock_get_service.return_value = mock_service
+
+            # Load the cluster nodes
+            await resource_tree._load_cluster_nodes(parent_node)
+
+        # Node should remain with error message
+        assert parent_node in resource_tree.root.children
+        assert len(parent_node.children) == 1
+        assert "Error loading nodes" in parent_node.children[0].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_instances_in_group_missing_project_id(
+        self, resource_tree: ResourceTree, sample_instance_group: InstanceGroup
+    ) -> None:
+        """Test loading instances when parent node has no project_id."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
+            resource_id="my-instance-group",
+            resource_data=sample_instance_group,
+            project_id=None,  # No project ID
+            zone="us-central1-a",
+        )
+        parent_node = resource_tree.root.add(
+            "Test Instance Group", data=parent_node_data, allow_expand=True
+        )
+
+        # Load the instances
+        await resource_tree._load_instances_in_group(parent_node)
+
+        # Should show warning message
+        assert len(parent_node.children) == 1
+        assert "Missing project ID or zone" in parent_node.children[0].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_instances_in_group_missing_zone(
+        self, resource_tree: ResourceTree, sample_instance_group: InstanceGroup
+    ) -> None:
+        """Test loading instances when parent node has no zone."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
+            resource_id="my-instance-group",
+            resource_data=sample_instance_group,
+            project_id="my-project",
+            zone=None,  # No zone
+        )
+        parent_node = resource_tree.root.add(
+            "Test Instance Group", data=parent_node_data, allow_expand=True
+        )
+
+        # Load the instances
+        await resource_tree._load_instances_in_group(parent_node)
+
+        # Should show warning message
+        assert len(parent_node.children) == 1
+        assert "Missing project ID or zone" in parent_node.children[0].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_instances_in_group_error(
+        self, resource_tree: ResourceTree, sample_instance_group: InstanceGroup
+    ) -> None:
+        """Test loading instances when Compute service raises an exception."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
+            resource_id="my-instance-group",
+            resource_data=sample_instance_group,
+            project_id="my-project",
+            zone="us-central1-a",
+        )
+        parent_node = resource_tree.root.add(
+            "Test Instance Group", data=parent_node_data, allow_expand=True
+        )
+
+        # Mock the Compute service to raise an exception
+        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_instances_in_group = AsyncMock(
+                side_effect=Exception("API Error")
+            )
+            mock_get_service.return_value = mock_service
+
+            # Load the instances
+            await resource_tree._load_instances_in_group(parent_node)
+
+        # Node should remain with error message
+        assert parent_node in resource_tree.root.children
+        assert len(parent_node.children) == 1
+        assert "Error loading instances" in parent_node.children[0].label.plain
+
+    @pytest.mark.asyncio
+    async def test_on_tree_node_expanded_already_loaded(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that node expansion skips already loaded nodes."""
+        # Create a node that's already loaded
+        node_data = ResourceTreeNode(
+            resource_type=ResourceType.GKE,
+            resource_id="test-gke",
+            project_id="my-project",
+        )
+        node_data.loaded = True  # Mark as already loaded
+
+        node = resource_tree.root.add(
+            "GKE Clusters", data=node_data, allow_expand=True
+        )
+
+        # Create mock event with just the node attribute
+        from unittest.mock import Mock
+        event = Mock()
+        event.node = node
+
+        # Should skip loading since already loaded
+        await resource_tree._on_tree_node_expanded(event)
+
+        # Node should have no children (loading was skipped)
+        assert len(node.children) == 0
+        assert node_data.loaded is True
+
+    @pytest.mark.asyncio
+    async def test_on_tree_node_expanded_no_data(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that node expansion handles nodes with no data."""
+        # Create a node with no data
+        node = resource_tree.root.add(
+            "Test Node", data=None, allow_expand=True
+        )
+
+        # Create mock event
+        from unittest.mock import Mock
+        event = Mock()
+        event.node = node
+
+        # Should handle gracefully
+        await resource_tree._on_tree_node_expanded(event)
+
+        # Node should remain unchanged
+        assert len(node.children) == 0
+
+    @pytest.mark.asyncio
+    async def test_on_tree_node_expanded_instance_group(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test node expansion for instance groups."""
+        group_data = {
+            "name": "my-instance-group",
+            "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/us-central1-a",
+            "size": 2,
+            "creationTimestamp": "2023-01-01T00:00:00Z",
+        }
+        group = InstanceGroup.from_api_response(group_data)
+
+        node_data = ResourceTreeNode(
+            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
+            resource_id="my-instance-group",
+            resource_data=group,
+            project_id="my-project",
+            zone="us-central1-a",
+        )
+
+        node = resource_tree.root.add(
+            "Test Group", data=node_data, allow_expand=True
+        )
+
+        # Mock the Compute service
+        mock_instances = [
+            ComputeInstance.from_api_response({
+                "name": "instance-1",
+                "zone": "us-central1-a",
+                "status": "RUNNING",
+            }),
+            ComputeInstance.from_api_response({
+                "name": "instance-2",
+                "zone": "us-central1-a",
+                "status": "RUNNING",
+            })
+        ]
+
+        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_instances_in_group = AsyncMock(return_value=mock_instances)
+            mock_get_service.return_value = mock_service
+
+            # Create mock event
+            from unittest.mock import Mock
+            event = Mock()
+            event.node = node
+            await resource_tree._on_tree_node_expanded(event)
+
+        # Should have loaded instances
+        assert len(node.children) == 2
+        assert "instance-1" in node.children[0].label.plain
+        assert "instance-2" in node.children[1].label.plain
+        assert node_data.loaded is True
+
+    @pytest.mark.asyncio
+    async def test_on_tree_node_expanded_gke_cluster(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test node expansion for GKE clusters."""
+        cluster_data = {
+            "name": "my-cluster",
+            "location": "us-central1-a",
+            "status": "RUNNING",
+            "currentNodeCount": 1,
+        }
+        cluster = GKECluster.from_api_response(cluster_data)
+
+        node_data = ResourceTreeNode(
+            resource_type=ResourceType.GKE_CLUSTER,
+            resource_id="my-cluster",
+            resource_data=cluster,
+            project_id="my-project",
+            location="us-central1-a",
+        )
+
+        node = resource_tree.root.add(
+            "Test Cluster", data=node_data, allow_expand=True
+        )
+
+        # Mock the GKE service
+        mock_nodes = [
+            GKENode.from_api_response(
+                {"name": "node-1", "status": "READY", "machineType": "n1-standard-1"},
+                "my-cluster"
+            )
+        ]
+
+        with patch("sequel.widgets.resource_tree.get_gke_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_nodes = AsyncMock(return_value=mock_nodes)
+            mock_get_service.return_value = mock_service
+
+            # Create mock event
+            from unittest.mock import Mock
+            event = Mock()
+            event.node = node
+            await resource_tree._on_tree_node_expanded(event)
+
+        # Should have loaded nodes
+        assert len(node.children) == 1
+        assert "node-1" in node.children[0].label.plain
+        assert node_data.loaded is True
+
+    @pytest.mark.asyncio
+    async def test_on_tree_node_expanded_service_account(
+        self, resource_tree: ResourceTree, sample_service_account: ServiceAccount
+    ) -> None:
+        """Test node expansion for service accounts."""
+        node_data = ResourceTreeNode(
+            resource_type=ResourceType.IAM_SERVICE_ACCOUNT,
+            resource_id=sample_service_account.email,
+            resource_data=sample_service_account,
+            project_id="my-project",
+        )
+
+        node = resource_tree.root.add(
+            sample_service_account.email, data=node_data, allow_expand=True
+        )
+
+        # Mock the IAM service
+        mock_roles = [
+            IAMRoleBinding.from_api_response(
+                role="roles/viewer",
+                member=sample_service_account.email,
+            )
+        ]
+
+        with patch("sequel.widgets.resource_tree.get_iam_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.get_service_account_roles = AsyncMock(return_value=mock_roles)
+            mock_get_service.return_value = mock_service
+
+            # Create mock event
+            from unittest.mock import Mock
+            event = Mock()
+            event.node = node
+            await resource_tree._on_tree_node_expanded(event)
+
+        # Should have loaded roles
+        assert len(node.children) == 1
+        assert "viewer" in node.children[0].label.plain
+        assert node_data.loaded is True
+
+    @pytest.mark.asyncio
+    async def test_on_tree_node_expanded_error_handling(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that node expansion handles errors gracefully."""
+        group_data = {
+            "name": "error-group",
+            "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/us-central1-a",
+            "size": 1,
+            "creationTimestamp": "2023-01-01T00:00:00Z",
+        }
+        group = InstanceGroup.from_api_response(group_data)
+
+        node_data = ResourceTreeNode(
+            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
+            resource_id="error-group",
+            resource_data=group,
+            project_id="my-project",
+            zone="us-central1-a",
+        )
+
+        node = resource_tree.root.add(
+            "Error Group", data=node_data, allow_expand=True
+        )
+
+        # Mock the Compute service to raise an exception
+        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_instances_in_group = AsyncMock(
+                side_effect=Exception("API Error")
+            )
+            mock_get_service.return_value = mock_service
+
+            # Create mock event
+            from unittest.mock import Mock
+            event = Mock()
+            event.node = node
+            await resource_tree._on_tree_node_expanded(event)
+
+        # Should have error child node
+        assert len(node.children) == 1
+        assert "Error loading instances" in node.children[0].label.plain
+        # loaded flag should still be set to True to prevent re-trying
+        assert node_data.loaded is True
+
+    def test_add_resource_type_nodes_creates_categories(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that _add_resource_type_nodes creates all resource category nodes."""
+        project_node = resource_tree.root.add(
+            "Test Project", allow_expand=True
+        )
+
+        resource_tree._add_resource_type_nodes(project_node, "test-project")
+
+        # Should have 5 resource categories
+        assert len(project_node.children) == 5
+
+        # Check all categories exist
+        labels = [child.label.plain for child in project_node.children]
+        assert any("Cloud SQL" in label for label in labels)
+        assert any("Instance Groups" in label for label in labels)
+        assert any("GKE Clusters" in label for label in labels)
+        assert any("Secrets" in label for label in labels)
+        assert any("Service Accounts" in label for label in labels)
+
+    def test_add_resource_type_nodes_sets_correct_types(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that _add_resource_type_nodes sets correct resource types for categories."""
+        project_node = resource_tree.root.add(
+            "Test Project", allow_expand=True
+        )
+
+        resource_tree._add_resource_type_nodes(project_node, "test-project")
+
+        # Collect all resource types
+        resource_types = [
+            child.data.resource_type
+            for child in project_node.children
+            if child.data is not None
+        ]
+
+        # Should have all expected resource types
+        assert ResourceType.CLOUDSQL in resource_types
+        assert ResourceType.COMPUTE in resource_types
+        assert ResourceType.GKE in resource_types
+        assert ResourceType.SECRETS in resource_types
+        assert ResourceType.IAM in resource_types
+
+    def test_add_resource_type_nodes_sets_project_id(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test that _add_resource_type_nodes sets project_id for all categories."""
+        project_node = resource_tree.root.add(
+            "Test Project", allow_expand=True
+        )
+
+        resource_tree._add_resource_type_nodes(project_node, "my-test-project")
+
+        # All children should have the correct project_id
+        for child in project_node.children:
+            if child.data is not None:
+                assert child.data.project_id == "my-test-project"
