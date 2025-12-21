@@ -115,13 +115,13 @@ class MainScreen(Screen[None]):
         self.status_bar = StatusBar()
         yield self.status_bar
 
-        # Toast container for notifications (overlay, doesn't affect layout)
-        self.toast_container = ToastContainer()
-        yield self.toast_container
-
     async def on_mount(self) -> None:
         """Handle screen mount event."""
         logger.info("Main screen mounted")
+
+        # Mount toast container as overlay
+        self.toast_container = ToastContainer()
+        await self.mount(self.toast_container)
 
         # Load projects into tree
         if self.resource_tree:
