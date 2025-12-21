@@ -35,7 +35,7 @@ class CloudDNSService(BaseService):
             Cloud DNS API client
         """
         if self._client is not None:
-            return self._client
+            return self._client  # type: ignore[no-any-return]
 
         auth_manager = await get_auth_manager()
         credentials = auth_manager.credentials
@@ -49,7 +49,7 @@ class CloudDNSService(BaseService):
             cache_discovery=False,
         )
 
-        return self._client
+        return self._client  # type: ignore[return-value]
 
     async def list_zones(
         self, project_id: str, use_cache: bool = True
@@ -68,13 +68,13 @@ class CloudDNSService(BaseService):
         if use_cache:
             cached = await self._cache.get(cache_key)
             if cached is not None:
-                return cached  # type: ignore[return-value]
+                return cached  # type: ignore[no-any-return]
 
         try:
             client = await self._get_client()
 
             # List managed zones
-            request = client.managedZones().list(project=project_id)
+            request = client.managedZones().list(project=project_id)  # type: ignore[attr-defined]
             response = await asyncio.to_thread(request.execute)
 
             zones = []
@@ -109,13 +109,13 @@ class CloudDNSService(BaseService):
         if use_cache:
             cached = await self._cache.get(cache_key)
             if cached is not None:
-                return cached  # type: ignore[return-value]
+                return cached  # type: ignore[no-any-return]
 
         try:
             client = await self._get_client()
 
             # Get managed zone
-            request = client.managedZones().get(project=project_id, managedZone=zone_name)
+            request = client.managedZones().get(project=project_id, managedZone=zone_name)  # type: ignore[attr-defined]
             response = await asyncio.to_thread(request.execute)
 
             zone = ManagedZone.from_api_response(response)
@@ -148,13 +148,13 @@ class CloudDNSService(BaseService):
         if use_cache:
             cached = await self._cache.get(cache_key)
             if cached is not None:
-                return cached  # type: ignore[return-value]
+                return cached  # type: ignore[no-any-return]
 
         try:
             client = await self._get_client()
 
             # List resource record sets
-            request = client.resourceRecordSets().list(
+            request = client.resourceRecordSets().list(  # type: ignore[attr-defined]
                 project=project_id, managedZone=zone_name
             )
             response = await asyncio.to_thread(request.execute)
@@ -200,7 +200,7 @@ class CloudDNSService(BaseService):
         if use_cache:
             cached = await self._cache.get(cache_key)
             if cached is not None:
-                return cached  # type: ignore[return-value]
+                return cached  # type: ignore[no-any-return]
 
         # Get all records and filter (Cloud DNS API doesn't support get by name)
         records = await self.list_records(project_id, zone_name, use_cache=use_cache)

@@ -37,6 +37,8 @@ class ManagedZone(BaseModel):
         return cls(
             id=zone_name,
             name=zone_name,
+            project_id=None,  # Set by service layer when fetching
+            created_at=None,
             zone_name=zone_name,
             dns_name=dns_name,
             description=description,
@@ -76,6 +78,8 @@ class DNSRecord(BaseModel):
         return cls(
             id=record_id,
             name=record_name,
+            project_id=None,  # Set by service layer when fetching
+            created_at=None,
             record_name=record_name,
             record_type=record_type,
             ttl=ttl,

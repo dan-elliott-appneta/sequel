@@ -63,6 +63,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed AttributeError by switching from IAM API to Cloud Resource Manager API
   - Cloud Resource Manager API provides getIamPolicy() method for fetching project IAM policies
   - Service account role bindings now display correctly in the UI
+- JSON syntax highlighting rendering issue - removed CSS padding from DetailPane
+  - CSS padding was interfering with TextArea's internal rendering
+  - Monokai theme colors now display correctly (pink keys, yellow strings, purple numbers)
+- Type checking errors in CloudDNS models and service
+  - Added missing project_id and created_at fields to from_api_response methods
+  - Fixed type: ignore comments to cover correct mypy error codes
+  - All 38 source files now pass mypy --strict with zero errors
+- Linting error in resource tree cleanup task
+  - Store asyncio.create_task reference to prevent garbage collection
+  - Background cleanup task now properly managed
 
 ### Security
 - Credential scrubbing enforced in all logging

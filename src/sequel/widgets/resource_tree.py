@@ -132,7 +132,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
             logger.info(f"Loaded {len(projects)} projects")
 
             # Automatically cleanup empty nodes in the background (non-blocking)
-            asyncio.create_task(self.cleanup_empty_nodes())
+            # Store task reference to prevent garbage collection
+            self._cleanup_task = asyncio.create_task(self.cleanup_empty_nodes())
 
         except Exception as e:
             logger.error(f"Failed to load projects: {e}")
