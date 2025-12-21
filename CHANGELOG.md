@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **JSON details pane**: Displays syntax-highlighted, pretty-printed JSON from raw GCP API responses
+  - Tree-sitter powered JSON syntax highlighting with Monokai theme
+  - Line numbers enabled for easy reference
+  - Mouse text selection and copying support
+  - Scrollable view for long API responses
+  - Preserves all original API fields including custom/extra fields
+  - Falls back to model dict if raw API data unavailable
+- **Smart tree view**: Empty resource categories automatically removed
+  - Categories removed after lazy loading discovers no resources
+  - Only shows resource types that contain items (e.g., if no CloudSQL instances, node is removed after expansion)
+  - Lazy loading maintains fast initial tree population
+- **Hierarchical sub-nodes** for expanded resource details with real API data:
+  - Service Accounts → IAM role bindings (fetched from project IAM policy)
+  - GKE Clusters → Individual cluster nodes (fetched from node pools)
+  - Instance Groups → VM instances (fetched from instance group members)
+  - Sub-nodes display actual resource names instead of generic placeholders
+  - All sub-node resources include full JSON details in the detail pane
+  - Provides deeper inspection of resource composition with real data
 - JSON-based configuration file system at `~/.config/sequel/config.json`
 - Configuration precedence: Environment Variables > Config File > Defaults
 - Theme persistence - theme changes automatically saved to config file
@@ -15,13 +33,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for 14 Textual themes (catppuccin, dracula, gruvbox, monokai, nord, solarized, tokyo-night, etc.)
 - Project filtering by regex (configurable via config file or environment variable)
 - Comprehensive type checking with mypy strict mode (zero errors)
-- Test coverage at 97% across entire codebase
+- Test coverage at 97% across entire codebase (144 tests)
 - Full CI/CD with lint, type check, and test validation
+- Comprehensive test suite for hierarchical sub-nodes (18 new tests)
+  - Tests for service account role expansion
+  - Tests for GKE cluster node expansion
+  - Tests for instance group instance expansion
+  - Edge case coverage (empty groups, single items, over-limit scenarios)
+
+### Changed
+- Detail pane now displays raw API JSON instead of formatted table
+- Detail pane switched from Static to TextArea widget for text selection support
+- Syntax highlighting uses vibrant Monokai theme for colorful JSON display
+- All models now store raw API response data in `raw_data` field for inspection
+- Removed border between tree and details panes for cleaner interface
 
 ### Fixed
 - UI border gaps when expanding tree nodes (changed from solid to tall border style)
 - All mypy strict mode errors resolved using proper type casting
 - Proper handling of missing type stubs for third-party libraries
+- Tree clutter from empty resource categories - now automatically removed when expanded
+- Syntax highlighting not working - added missing tree-sitter dependencies
+  - Added tree-sitter, tree-sitter-languages, tree-sitter-json to requirements
+  - JSON syntax highlighting now works with colorful Monokai theme
+- Regional instance groups not loading instances correctly
+  - Now properly detects both zonal and regional instance groups
+  - Calls appropriate API method based on group type (regionInstanceGroups vs instanceGroups)
+- IAM roles not displaying for service accounts
+  - Fixed AttributeError by switching from IAM API to Cloud Resource Manager API
+  - Cloud Resource Manager API provides getIamPolicy() method for fetching project IAM policies
+  - Service account role bindings now display correctly in the UI
+- JSON syntax highlighting rendering issue - removed CSS padding from DetailPane
+  - CSS padding was interfering with TextArea's internal rendering
+  - Monokai theme colors now display correctly (pink keys, yellow strings, purple numbers)
+- Type checking errors in CloudDNS models and service
+  - Added missing project_id and created_at fields to from_api_response methods
+  - Fixed type: ignore comments to cover correct mypy error codes
+  - All 38 source files now pass mypy --strict with zero errors
+- Linting error in resource tree cleanup task
+  - Store asyncio.create_task reference to prevent garbage collection
+  - Background cleanup task now properly managed
 
 ### Security
 - Credential scrubbing enforced in all logging

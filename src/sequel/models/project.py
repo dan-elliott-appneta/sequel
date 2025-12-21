@@ -74,6 +74,7 @@ class Project(BaseModel):
             parent=parent,
             created_at=created_at,
             labels=data.get("labels", {}),
+            raw_data=data.copy(),
         )
 
     def is_active(self) -> bool:

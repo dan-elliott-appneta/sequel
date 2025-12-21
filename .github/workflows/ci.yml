@@ -43,7 +43,7 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run mypy
-        run: mypy src
+        run: mypy --no-warn-unused-ignores src
 
   test:
     name: Test

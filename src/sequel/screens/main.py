@@ -42,7 +42,6 @@ class MainScreen(Screen[None]):
     #tree-container {
         width: 40%;
         height: 100%;
-        border-right: tall $primary;
     }
 
     #detail-container {
@@ -58,7 +57,8 @@ class MainScreen(Screen[None]):
     DetailPane {
         height: 100%;
         width: 100%;
-        padding: 1 2;
+        overflow-y: auto;
+        scrollbar-size: 1 1;
     }
 
     StatusBar {

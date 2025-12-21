@@ -1,9 +1,8 @@
 """Detail pane widget for displaying resource details."""
 
-from typing import Any
+import json
 
-from rich.table import Table
-from textual.widgets import Static
+from textual.widgets import TextArea
 
 from sequel.models.base import BaseModel
 from sequel.utils.logging import get_logger
@@ -11,12 +10,21 @@ from sequel.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-class DetailPane(Static):
-    """Widget for displaying detailed information about a selected resource."""
+class DetailPane(TextArea):
+    """Widget for displaying detailed information about a selected resource.
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    This widget is scrollable and supports text selection for copying.
+    """
+
+    def __init__(self) -> None:
         """Initialize the detail pane."""
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            "",  # Initial empty text
+            language="json",
+            theme="monokai",
+            read_only=True,
+            show_line_numbers=True,
+        )
         self.current_resource: BaseModel | None = None
 
     def update_content(self, resource: BaseModel | None) -> None:
@@ -28,81 +36,42 @@ class DetailPane(Static):
         self.current_resource = resource
 
         if resource is None:
-            self.update("No resource selected")
+            self.load_text("No resource selected")
             return
 
         try:
             # Create a formatted display of the resource
             content = self._format_resource(resource)
-            self.update(content)
+            self.load_text(content)
 
         except Exception as e:
             logger.error(f"Failed to format resource details: {e}")
-            self.update(f"Error displaying resource: {e}")
+            self.load_text(f"Error displaying resource: {e}")
 
-    def _format_resource(self, resource: BaseModel) -> Table:
-        """Format a resource as a Rich table.
+    def _format_resource(self, resource: BaseModel) -> str:
+        """Format a resource as pretty-printed JSON.
 
         Args:
             resource: Resource to format
 
         Returns:
-            Rich Table with resource details
+            Pretty-printed JSON string
         """
-        # Create table
-        table = Table(
-            title=f"{resource.__class__.__name__}: {resource.name}",
-            show_header=True,
-            header_style="bold cyan",
-        )
-
-        table.add_column("Property", style="bold")
-        table.add_column("Value")
-
-        # Get resource data
-        data = resource.to_dict()
-
-        # Add rows for each property
-        for key, value in sorted(data.items()):
-            if value is None:
-                continue
-
-            # Format value
-            formatted_value = self._format_value(value)
-            table.add_row(key, formatted_value)
-
-        return table
-
-    def _format_value(self, value: Any) -> str:
-        """Format a value for display.
-
-        Args:
-            value: Value to format
-
-        Returns:
-            Formatted string
-        """
-        if isinstance(value, dict):
-            # Format dict as key=value pairs
-            if not value:
-                return "(empty)"
-            items = [f"{k}={v}" for k, v in value.items()]
-            return ", ".join(items)
-
-        elif isinstance(value, list):
-            # Format list
-            if not value:
-                return "(empty)"
-            return ", ".join(str(item) for item in value)
-
-        elif isinstance(value, bool):
-            # Format boolean with symbols
-            return "✓" if value else "✗"
-
+        # Get raw API response data if available, otherwise use model dict
+        if resource.raw_data:
+            data = resource.raw_data
         else:
-            return str(value)
+            # Fallback to model dict if raw_data is empty
+            data = resource.to_dict()
+            # Remove raw_data from display if it's empty
+            data.pop("raw_data", None)
+
+        # Pretty-print JSON with 2-space indentation
+        json_str = json.dumps(data, indent=2, sort_keys=True, default=str)
+
+        return json_str
 
     def clear_content(self) -> None:
         """Clear the detail pane."""
         self.current_resource = None
-        self.update("No resource selected")
+        self.load_text("No resource selected")

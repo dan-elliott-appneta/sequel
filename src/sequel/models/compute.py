@@ -1,10 +1,84 @@
-"""Google Compute Engine instance group model."""
+"""Google Compute Engine models."""
 
 from typing import Any
 
 from pydantic import Field
 
 from sequel.models.base import BaseModel
+
+
+class ComputeInstance(BaseModel):
+    """Model for a Google Compute Engine VM instance."""
+
+    instance_name: str = Field(..., description="Instance name")
+    instance_id: str | None = Field(None, description="Instance ID")
+    zone: str | None = Field(None, description="GCP zone")
+    machine_type: str | None = Field(None, description="Machine type")
+    status: str | None = Field(None, description="Instance status (RUNNING, TERMINATED, etc.)")
+    internal_ip: str | None = Field(None, description="Internal IP address")
+    external_ip: str | None = Field(None, description="External IP address")
+
+    @classmethod
+    def from_api_response(cls, data: dict[str, Any]) -> "ComputeInstance":
+        """Create ComputeInstance from Compute Engine API response.
+
+        Args:
+            data: API response data
+
+        Returns:
+            ComputeInstance instance
+        """
+        instance_name = data.get("name", "")
+        instance_id = data.get("id")
+
+        # Extract zone from URL
+        zone = None
+        zone_url = data.get("zone", "")
+        if zone_url:
+            parts = zone_url.split("/")
+            if len(parts) >= 2:
+                zone = parts[-1]
+
+        # Extract machine type
+        machine_type = None
+        machine_type_url = data.get("machineType", "")
+        if machine_type_url:
+            parts = machine_type_url.split("/")
+            if len(parts) >= 2:
+                machine_type = parts[-1]
+
+        # Get status
+        status = data.get("status")
+
+        # Extract IPs
+        internal_ip = None
+        external_ip = None
+        network_interfaces = data.get("networkInterfaces", [])
+        if network_interfaces:
+            first_interface = network_interfaces[0]
+            internal_ip = first_interface.get("networkIP")
+            access_configs = first_interface.get("accessConfigs", [])
+            if access_configs:
+                external_ip = access_configs[0].get("natIP")
+
+        return cls(
+            id=instance_name,
+            name=instance_name,
+            project_id=None,
+            created_at=data.get("creationTimestamp"),
+            instance_name=instance_name,
+            instance_id=str(instance_id) if instance_id else None,
+            zone=zone,
+            machine_type=machine_type,
+            status=status,
+            internal_ip=internal_ip,
+            external_ip=external_ip,
+            raw_data=data.copy(),
+        )
+
+    def is_running(self) -> bool:
+        """Check if the instance is in RUNNING state."""
+        return self.status == "RUNNING"
 
 
 class InstanceGroup(BaseModel):
@@ -90,4 +164,5 @@ class InstanceGroup(BaseModel):
             instance_template=data.get("instanceTemplate"),
             is_managed=is_managed,
             target_size=data.get("targetSize"),
+            raw_data=data.copy(),
         )

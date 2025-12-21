@@ -73,4 +73,5 @@ class Secret(BaseModel):
             replication_policy=replication_policy,
             created_at=created_at,
             labels=data.get("labels", {}),
+            raw_data=data.copy(),
         )

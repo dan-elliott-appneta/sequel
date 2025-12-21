@@ -10,8 +10,14 @@ Current version: **0.1.0** (Alpha)
 
 Sequel provides a keyboard-focused, responsive interface for exploring Google Cloud resources:
 
-- **Tree view** of projects and resources
-- **Detail pane** with resource-specific information
+- **Hierarchical tree view** with expandable sub-nodes showing real resource data:
+  - Cloud DNS Zones → DNS records (A, CNAME, MX, TXT, etc.)
+  - Service Accounts → IAM role bindings (with actual role names)
+  - GKE Clusters → Individual nodes (with actual node pool names)
+  - Instance Groups → VM instances (with actual instance names and status)
+  - Sub-resources display in JSON details pane when selected
+  - Automatic empty category removal
+- **JSON details pane** with tree-sitter syntax highlighting, pretty-printed API responses, and mouse text selection
 - **Lazy loading** for efficient API usage
 - **ADC authentication** using Google Cloud Application Default Credentials
 - **Comprehensive testing** with high code coverage
@@ -19,6 +25,7 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 ### Supported Resources (MVP)
 
 - Projects
+- Cloud DNS managed zones and DNS records
 - CloudSQL instances
 - Compute Engine Instance Groups
 - Google Kubernetes Engine (GKE) clusters and nodes
@@ -190,7 +197,15 @@ See `docs/architecture.md` for detailed architecture documentation.
 
 ## Project Status
 
-This project is in **alpha** stage. The MVP includes basic browsing functionality for the listed resource types. See the roadmap in `CLAUDE.md` for planned features.
+This project is in **alpha** stage. The MVP includes basic browsing functionality for the listed resource types.
+
+**Roadmap:**
+- [Phase 7: Performance Optimization](docs/phase-7-performance-plan.md) - Parallel API calls, cache optimization
+- [Phase 8: Error Handling & UX Polish](docs/phase-8-ux-plan.md) - Enhanced error recovery, progress indicators
+- [Phase 9: Testing & Documentation](docs/phase-9-testing-docs-plan.md) - Comprehensive docs, 95%+ coverage
+- [Phase 10: Packaging & Release](docs/phase-10-release-plan.md) - PyPI publishing, release automation
+
+See `CLAUDE.md` for development guidelines.
 
 ## Contributing
 
@@ -206,7 +221,7 @@ MIT License - See LICENSE file for details.
 - Secret values are never retrieved (only metadata)
 - All user data stays local (no telemetry)
 
-For security issues, please see SECURITY.md.
+For security issues and detailed security practices, please see [SECURITY.md](SECURITY.md).
 
 ## Support
 

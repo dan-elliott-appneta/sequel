@@ -40,34 +40,34 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Branch: `phases-3-6-implementation`
   - Combined implementation of data models, services, widgets, and application integration
   - Includes:
-    - Pydantic models for all resources (Project, CloudSQL, Compute, GKE, Secrets, IAM)
+    - Pydantic models for all resources (Project, CloudDNS, CloudSQL, Compute, GKE, Secrets, IAM)
     - Service layer for all GCP APIs with caching and retry logic
-    - Resource tree widget with lazy loading
-    - Detail pane for resource information
+    - Resource tree widget with lazy loading (includes CloudDNS zones → records hierarchy)
+    - Detail pane for resource information with JSON syntax highlighting
     - Main application with CLI entry point
     - Configuration file system (JSON-based)
     - Command palette with theme selection
     - Project filtering by regex
-  - Test coverage: 97%
+  - Test coverage: 94.61% (332 tests)
   - All CI checks passing (lint, type check, tests)
 
 ### Planned Phases
 
-- [ ] **Phase 7: Performance Optimization**
+- [ ] **Phase 7: Performance Optimization** - [Plan](docs/phase-7-performance-plan.md)
   - Branch: `phase-7-performance`
-  - Async optimization, lazy loading, caching strategy
+  - Parallel API calls, cache optimization, connection pooling, profiling
 
-- [ ] **Phase 8: Error Handling & UX Polish**
+- [ ] **Phase 8: Error Handling & UX Polish** - [Plan](docs/phase-8-ux-plan.md)
   - Branch: `phase-8-ux`
-  - Comprehensive error handling, UX enhancements
+  - Enhanced error recovery, progress indicators, toast notifications
 
-- [ ] **Phase 9: Testing & Documentation**
+- [ ] **Phase 9: Testing & Documentation** - [Plan](docs/phase-9-testing-docs-plan.md)
   - Branch: `phase-9-docs-tests`
-  - >90% coverage, complete documentation
+  - 95%+ coverage, comprehensive documentation, integration tests
 
-- [ ] **Phase 10: Packaging & Release**
+- [ ] **Phase 10: Packaging & Release** - [Plan](docs/phase-10-release-plan.md)
   - Branch: `phase-10-release`
-  - Release preparation, v0.1.0 tag
+  - PyPI publishing, release automation, v0.1.0 tag
 
 ## Development Workflow
 
@@ -118,10 +118,12 @@ All PRs must pass:
 - For secrets, only retrieve metadata, never values
 - Test credential scrubbing with unit tests
 
+See [SECURITY.md](../SECURITY.md) for detailed security practices and vulnerability reporting.
+
 ### Testing
 
 - Write tests alongside implementation
-- Target: >90% overall coverage (currently at 97%)
+- Target: >90% overall coverage (currently at 94.61%)
 - Test all error paths
 - Use fixtures from `tests/conftest.py`
 - All tests must pass in CI for Python 3.11 and 3.12
