@@ -21,7 +21,7 @@ class DetailPane(TextArea):
         super().__init__(
             "",  # Initial empty text
             language="json",
-            theme="dracula",
+            theme="monokai",
             read_only=True,
             show_line_numbers=True,
         )

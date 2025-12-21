@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **JSON details pane**: Displays syntax-highlighted, pretty-printed JSON from raw GCP API responses
-  - Tree-sitter powered JSON syntax highlighting with Dracula theme
+  - Tree-sitter powered JSON syntax highlighting with Monokai theme
   - Line numbers enabled for easy reference
   - Mouse text selection and copying support
   - Scrollable view for long API responses
@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Detail pane now displays raw API JSON instead of formatted table
 - Detail pane switched from Static to TextArea widget for text selection support
-- Syntax highlighting theme changed from Monokai to Dracula for better readability
+- Syntax highlighting uses vibrant Monokai theme for colorful JSON display
 - All models now store raw API response data in `raw_data` field for inspection
 - Removed border between tree and details panes for cleaner interface
 
