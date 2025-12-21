@@ -10,10 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Phase 8: Error Handling & UX Polish**
   - **VIM bindings** for keyboard navigation
-    - j/k for up/down movement
-    - h/l for collapse/expand (or move to parent/child)
-    - g/G for jumping to top/bottom of tree
+    - Tree navigation: j/k for up/down, h/l for collapse/expand (or parent/child), g/G for top/bottom
+    - Detail pane navigation: j/k (up/down), h/l (left/right), g/G (page up/down), 0/$ (line start/end)
+    - Yank (copy): y for selected text, Y for current line
     - Arrow keys also supported (←→↑↓)
+    - Cross-platform clipboard support via pyperclip
   - **Enhanced status bar** with live statistics
     - Current operation display (e.g., "⏳ Loading projects...")
     - Cache hit rate percentage (e.g., "Cache: 73% hit rate")
