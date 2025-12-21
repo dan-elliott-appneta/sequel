@@ -36,7 +36,7 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 
 ```bash
 # Clone the repository
-git clone https://github.com/parallels/sequel.git
+git clone https://github.com/dan-elliott-appneta/sequel.git
 cd sequel
 
 # Install in editable mode
@@ -157,5 +157,5 @@ For security issues, please see SECURITY.md.
 
 ## Support
 
-- Issues: https://github.com/parallels/sequel/issues
-- Documentation: https://github.com/parallels/sequel/tree/main/docs
+- Issues: https://github.com/dan-elliott-appneta/sequel/issues
+- Documentation: https://github.com/dan-elliott-appneta/sequel/tree/main/docs
