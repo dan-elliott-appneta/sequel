@@ -39,7 +39,7 @@ class Config:
     gcloud_quota_wait_time: int = 60  # seconds to wait on quota errors
 
     # Project Filtering
-    project_filter_regex: str | None = r"^s[d|v|p]ap[n|nc]gl.*$"  # Filter projects by regex (None = show all)
+    project_filter_regex: str | None = None  # Filter projects by regex (None = show all)
 
     # UI Configuration
     theme: str = "textual-dark"  # Textual theme name

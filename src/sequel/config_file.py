@@ -86,7 +86,7 @@ def get_default_config() -> dict[str, Any]:
             "theme": "textual-dark",
         },
         "filters": {
-            "project_regex": r"^s[d|v|p]ap[n|nc]gl.*$",
+            "project_regex": "",
         },
     }
 

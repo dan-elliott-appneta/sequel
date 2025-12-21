@@ -229,7 +229,7 @@ sequel/
 
 ### Project Filtering
 - Projects can be filtered by regex using `SEQUEL_PROJECT_FILTER_REGEX` environment variable
-- Default filter: `^s[d|v|p]ap[n|nc]gl.*$` (matches specific project naming patterns)
+- Default filter: `""` (empty string - shows all projects)
 - Filter matches against both `project_id` and `display_name`
 - Set to empty string (`""`) to disable filtering and show all projects
 - Invalid regex patterns are logged but don't crash the app
@@ -242,7 +242,7 @@ sequel/
 - Configuration precedence: Environment Variables > Config File > Defaults
 - Current supported settings:
   - `ui.theme`: Textual theme name (default: `"textual-dark"`)
-  - `filters.project_regex`: Project filter regex (default: `"^s[d|v|p]ap[n|nc]gl.*$"`)
+  - `filters.project_regex`: Project filter regex (default: `""`)
 - Implemented in `src/sequel/config_file.py` with helpers:
   - `load_config_file()`: Load config from JSON
   - `save_config_file()`: Save config to JSON

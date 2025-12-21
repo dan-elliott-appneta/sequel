@@ -25,7 +25,7 @@ The config file uses JSON format with the following structure:
     "theme": "textual-dark"
   },
   "filters": {
-    "project_regex": "^s[d|v|p]ap[n|nc]gl.*$"
+    "project_regex": "^my-project-prefix.*$"
   }
 }
 ```
@@ -68,7 +68,7 @@ The config file uses JSON format with the following structure:
 
 | Environment Variable | Config File | Default | Description |
 |---------------------|-------------|---------|-------------|
-| `SEQUEL_PROJECT_FILTER_REGEX` | `filters.project_regex` | `^s[d\|v\|p]ap[n\|nc]gl.*$` | Regex to filter projects (empty = show all) |
+| `SEQUEL_PROJECT_FILTER_REGEX` | `filters.project_regex` | `""` (empty, show all) | Regex to filter projects (empty = show all) |
 
 ### UI Configuration
 

@@ -78,7 +78,7 @@ class TestConfigFileHelpers:
         assert "ui" in config
         assert "filters" in config
         assert config["ui"]["theme"] == "textual-dark"
-        assert config["filters"]["project_regex"] == r"^s[d|v|p]ap[n|nc]gl.*$"
+        assert config["filters"]["project_regex"] == ""
 
 
 class TestConfigFileOperations:

@@ -81,7 +81,7 @@ Sequel stores user preferences in `~/.config/sequel/config.json`. This file is a
     "theme": "textual-dark"
   },
   "filters": {
-    "project_regex": "^s[d|v|p]ap[n|nc]gl.*$"
+    "project_regex": "^my-project-prefix.*$"
   }
 }
 ```
@@ -110,7 +110,7 @@ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
 Sequel can be configured using environment variables with the `SEQUEL_` prefix. These override config file values:
 
 ```bash
-# Project Filtering - Filter projects by regex (default: ^s[d|v|p]ap[n|nc]gl.*$)
+# Project Filtering - Filter projects by regex (default: empty, show all)
 export SEQUEL_PROJECT_FILTER_REGEX="^my-project-prefix.*$"
 
 # Disable project filtering (show all projects)
