@@ -15,7 +15,7 @@ setup(
     description="A TUI for browsing Google Cloud resources",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/parallels/sequel",
+    url="https://github.com/dan-elliott-appneta/sequel",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     classifiers=[
