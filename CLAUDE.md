@@ -188,6 +188,37 @@ sequel/
 - Never block the UI thread (always async)
 - Use `App.run_test()` for UI testing
 
+### Project Filtering
+- Projects can be filtered by regex using `SEQUEL_PROJECT_FILTER_REGEX` environment variable
+- Default filter: `^s[d|v|p]ap[n|nc]gl.*$` (matches specific project naming patterns)
+- Filter matches against both `project_id` and `display_name`
+- Set to empty string (`""`) to disable filtering and show all projects
+- Invalid regex patterns are logged but don't crash the app
+- Configured in `src/sequel/config.py`, applied in `src/sequel/widgets/resource_tree.py`
+
+### Configuration File System
+- User preferences stored in `~/.config/sequel/config.json` (JSON format)
+- File location follows XDG Base Directory spec (`XDG_CONFIG_HOME` or `~/.config`)
+- Can be overridden with `SEQUEL_CONFIG_DIR` environment variable
+- Configuration precedence: Environment Variables > Config File > Defaults
+- Current supported settings:
+  - `ui.theme`: Textual theme name (default: `"textual-dark"`)
+  - `filters.project_regex`: Project filter regex (default: `"^s[d|v|p]ap[n|nc]gl.*$"`)
+- Implemented in `src/sequel/config_file.py` with helpers:
+  - `load_config_file()`: Load config from JSON
+  - `save_config_file()`: Save config to JSON
+  - `update_config_value()`: Update single value and save
+  - `get_default_config()`: Get default configuration structure
+- Integrated with `Config.from_env()` in `src/sequel/config.py`
+
+### Command Palette & Theme Persistence
+- Press `Ctrl+P` to open the command palette
+- Textual's built-in "set-theme" command is available
+- Custom theme provider also available in `src/sequel/commands.py`
+- Available themes (Textual built-in): catppuccin-frappe, catppuccin-latte, catppuccin-macchiato, catppuccin-mocha, dracula, gruvbox, monokai, nord, solarized-dark, solarized-light, textual-ansi, textual-dark, textual-light, tokyo-night
+- **Theme persistence**: The `watch_theme()` method in `SequelApp` automatically saves any theme change to the config file, regardless of how the theme is changed (built-in command, custom provider, or programmatic change)
+- Command providers registered via `COMMAND_PROVIDERS` class variable in app
+
 ## Common Gotchas
 
 | Issue | Solution |

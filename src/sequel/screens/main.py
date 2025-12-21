@@ -41,19 +41,23 @@ class MainScreen(Screen[None]):
 
     #tree-container {
         width: 40%;
-        border-right: solid $primary;
+        height: 100%;
+        border-right: tall $primary;
     }
 
     #detail-container {
         width: 60%;
+        height: 100%;
     }
 
     ResourceTree {
-        height: 1fr;
+        height: 100%;
+        width: 100%;
     }
 
     DetailPane {
-        height: 1fr;
+        height: 100%;
+        width: 100%;
         padding: 1 2;
     }
 
@@ -69,7 +73,7 @@ class MainScreen(Screen[None]):
     def __init__(self, *args: any, **kwargs: any) -> None:  # type: ignore[valid-type]
         """Initialize the main screen."""
         super().__init__(*args, **kwargs)
-        self.tree: ResourceTree | None = None
+        self.resource_tree: ResourceTree | None = None
         self.detail_pane: DetailPane | None = None
         self.status_bar: StatusBar | None = None
 
@@ -83,8 +87,8 @@ class MainScreen(Screen[None]):
 
         with Horizontal(id="main-container"):
             with Vertical(id="tree-container"):
-                self.tree = ResourceTree()
-                yield self.tree
+                self.resource_tree = ResourceTree()
+                yield self.resource_tree
 
             with Vertical(id="detail-container"):
                 self.detail_pane = DetailPane()
@@ -98,12 +102,12 @@ class MainScreen(Screen[None]):
         logger.info("Main screen mounted")
 
         # Load projects into tree
-        if self.tree:
+        if self.resource_tree:
             try:
                 if self.status_bar:
                     self.status_bar.set_loading(True)
 
-                await self.tree.load_projects()
+                await self.resource_tree.load_projects()
 
                 if self.status_bar:
                     self.status_bar.set_loading(False)
@@ -134,7 +138,7 @@ class MainScreen(Screen[None]):
 
     async def refresh_tree(self) -> None:
         """Refresh the resource tree."""
-        if not self.tree:
+        if not self.resource_tree:
             return
 
         logger.info("Refreshing resource tree")
@@ -143,7 +147,7 @@ class MainScreen(Screen[None]):
             if self.status_bar:
                 self.status_bar.set_loading(True)
 
-            await self.tree.load_projects()
+            await self.resource_tree.load_projects()
 
             if self.status_bar:
                 self.status_bar.set_loading(False)

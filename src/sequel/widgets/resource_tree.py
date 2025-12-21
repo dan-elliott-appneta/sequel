@@ -1,10 +1,12 @@
 """Resource tree widget for displaying GCP resources in a hierarchical view."""
 
+import re
 from typing import Any
 
 from textual.widgets import Tree
 from textual.widgets.tree import TreeNode
 
+from sequel.config import get_config
 from sequel.services.cloudsql import get_cloudsql_service
 from sequel.services.compute import get_compute_service
 from sequel.services.gke import get_gke_service
@@ -75,6 +77,23 @@ class ResourceTree(Tree[ResourceTreeNode]):
             logger.info("Loading projects into tree")
             project_service = await get_project_service()
             projects = await project_service.list_projects()
+
+            # Apply project filter if configured
+            config = get_config()
+            if config.project_filter_regex:
+                try:
+                    pattern = re.compile(config.project_filter_regex)
+                    filtered_projects = [
+                        p for p in projects
+                        if pattern.match(p.project_id) or pattern.match(p.display_name)
+                    ]
+                    logger.info(
+                        f"Filtered {len(projects)} projects to {len(filtered_projects)} "
+                        f"using regex: {config.project_filter_regex}"
+                    )
+                    projects = filtered_projects
+                except re.error as e:
+                    logger.error(f"Invalid project filter regex: {e}")
 
             # Clear existing nodes
             self.root.remove_children()

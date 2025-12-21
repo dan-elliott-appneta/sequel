@@ -33,7 +33,7 @@ For more information, visit: https://github.com/dan-elliott-appneta/sequel
     parser.add_argument(
         "--log-file",
         type=str,
-        help="Path to log file (default: logs to stderr)",
+        help="Path to log file (default: logs are suppressed to avoid interfering with TUI)",
     )
 
     parser.add_argument(
@@ -52,7 +52,8 @@ For more information, visit: https://github.com/dan-elliott-appneta/sequel
 
     # Set up logging
     log_level = "DEBUG" if args.debug else get_config().log_level
-    setup_logging(level=log_level)
+    log_file = args.log_file if args.log_file else get_config().log_file
+    setup_logging(level=log_level, log_file=log_file)
 
     # Update config based on CLI args
     if args.no_cache:

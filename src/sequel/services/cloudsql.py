@@ -1,5 +1,6 @@
 """Google Cloud SQL service using Cloud SQL Admin API."""
 
+import asyncio
 from typing import Any
 
 from googleapiclient import discovery  # type: ignore[import-untyped]
@@ -76,7 +77,8 @@ class CloudSQLService(BaseService):
             try:
                 # Call the API
                 request = client.instances().list(project=project_id)  # type: ignore[no-untyped-call]
-                response = request.execute()  # type: ignore[no-untyped-call]
+                # Run blocking execute() in thread to avoid blocking event loop
+                response = await asyncio.to_thread(request.execute)  # type: ignore[no-untyped-call]
 
                 instances: list[CloudSQLInstance] = []
                 for item in response.get("items", []):

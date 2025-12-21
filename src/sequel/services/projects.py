@@ -68,23 +68,30 @@ class ProjectService(BaseService):
             """Internal function to list projects."""
             client = await self._get_client()
 
-            # Build request
-            request = resourcemanager_v3.ListProjectsRequest(
-                parent=parent or "",
-                page_size=100,
-            )
-
             logger.info(f"Listing projects{f' under {parent}' if parent else ''}")
 
             # Execute request with pagination
             projects: list[Project] = []
             try:
-                # The client.list_projects returns an iterator
-                for project_proto in client.list_projects(request=request):  # type: ignore[no-untyped-call]
-                    # Convert protobuf to dict
-                    project_dict = self._proto_to_dict(project_proto)
-                    project = Project.from_api_response(project_dict)
-                    projects.append(project)
+                if parent:
+                    # Use ListProjects when parent is specified
+                    request = resourcemanager_v3.ListProjectsRequest(
+                        parent=parent,
+                        page_size=100,
+                    )
+                    for project_proto in client.list_projects(request=request):  # type: ignore[no-untyped-call]
+                        project_dict = self._proto_to_dict(project_proto)
+                        project = Project.from_api_response(project_dict)
+                        projects.append(project)
+                else:
+                    # Use SearchProjects to get all accessible projects
+                    request = resourcemanager_v3.SearchProjectsRequest(
+                        page_size=100,
+                    )
+                    for project_proto in client.search_projects(request=request):  # type: ignore[no-untyped-call]
+                        project_dict = self._proto_to_dict(project_proto)
+                        project = Project.from_api_response(project_dict)
+                        projects.append(project)
 
                 logger.info(f"Found {len(projects)} projects")
                 return projects

@@ -1,5 +1,6 @@
 """Google Cloud IAM service using IAM API."""
 
+import asyncio
 from typing import Any
 
 from googleapiclient import discovery  # type: ignore[import-untyped]
@@ -79,7 +80,8 @@ class IAMService(BaseService):
 
                 # Call the API
                 request = client.projects().serviceAccounts().list(name=name)  # type: ignore[no-untyped-call]
-                response = request.execute()  # type: ignore[no-untyped-call]
+                # Run blocking execute() in thread to avoid blocking event loop
+                response = await asyncio.to_thread(request.execute)  # type: ignore[no-untyped-call]
 
                 service_accounts: list[ServiceAccount] = []
                 for item in response.get("accounts", []):

@@ -5,6 +5,8 @@ from typing import ClassVar
 from textual.app import App
 from textual.binding import Binding
 
+from sequel.commands import ThemeProvider
+from sequel.config import get_config
 from sequel.screens.main import MainScreen
 from sequel.services.auth import AuthError, get_auth_manager
 from sequel.utils.logging import get_logger
@@ -19,14 +21,18 @@ class SequelApp(App[None]):
     Key bindings:
     - q: Quit application
     - r: Refresh current view
+    - ctrl+p: Open command palette
     - ?: Show help
     """
 
     BINDINGS: ClassVar = [
         Binding("q", "quit", "Quit", priority=True),
         Binding("r", "refresh", "Refresh"),
+        Binding("ctrl+p", "command_palette", "Commands"),
         Binding("?", "help", "Help"),
     ]
+
+    COMMAND_PROVIDERS: ClassVar = [ThemeProvider]
 
     CSS: ClassVar[str] = """
     Screen {
@@ -63,6 +69,25 @@ class SequelApp(App[None]):
         super().__init__(*args, **kwargs)
         self.title = "Sequel - GCP Resource Browser"
         self.sub_title = "v0.1.0"
+
+        # Load theme from config
+        config = get_config()
+        self.theme = config.theme
+
+    def watch_theme(self, theme: str) -> None:
+        """Watch for theme changes and persist to config file.
+
+        This is called automatically when app.theme changes, including when
+        using Textual's built-in "set-theme" command.
+
+        Args:
+            theme: The new theme name
+        """
+        from sequel.config_file import update_config_value
+
+        # Persist theme change to config file
+        update_config_value("ui", "theme", theme)
+        logger.debug(f"Theme changed to {theme} and persisted to config")
 
     async def on_mount(self) -> None:
         """Handle application mount event."""
@@ -103,6 +128,7 @@ class SequelApp(App[None]):
 
         q - Quit application
         r - Refresh current view
+        Ctrl+P - Open command palette (theme selection)
         ? - Show this help
         ↑/↓ - Navigate tree
         Enter - Expand/collapse node

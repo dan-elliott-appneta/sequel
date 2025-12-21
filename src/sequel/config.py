@@ -1,10 +1,13 @@
 """Configuration management for Sequel.
 
-This module provides centralized configuration loaded from environment variables.
+This module provides centralized configuration loaded from config file and environment variables.
+Config file (~/.config/sequel/config.toml) takes precedence over environment variables.
 """
 
 import os
 from dataclasses import dataclass
+
+from sequel.config_file import get_default_config, load_config_file
 
 
 @dataclass
@@ -35,9 +38,20 @@ class Config:
     gcloud_project_id: str | None = None
     gcloud_quota_wait_time: int = 60  # seconds to wait on quota errors
 
+    # Project Filtering
+    project_filter_regex: str | None = r"^s[d|v|p]ap[n|nc]gl.*$"  # Filter projects by regex (None = show all)
+
+    # UI Configuration
+    theme: str = "textual-dark"  # Textual theme name
+
     @classmethod
     def from_env(cls) -> "Config":
-        """Create configuration from environment variables.
+        """Create configuration from environment variables and config file.
+
+        Configuration precedence (highest to lowest):
+            1. Environment variables
+            2. Config file (~/.config/sequel/config.json)
+            3. Default values
 
         Environment variables:
             SEQUEL_API_TIMEOUT: API request timeout in seconds
@@ -52,10 +66,47 @@ class Config:
             SEQUEL_ENABLE_CREDENTIAL_SCRUBBING: Enable credential scrubbing (true/false)
             SEQUEL_GCLOUD_PROJECT_ID: Default GCloud project ID
             SEQUEL_GCLOUD_QUOTA_WAIT_TIME: Seconds to wait on quota errors
+            SEQUEL_PROJECT_FILTER_REGEX: Regex to filter projects (empty string = show all)
+            SEQUEL_THEME: Textual theme name
 
         Returns:
-            Config instance with values from environment
+            Config instance with values from environment and config file
         """
+        # Load config file
+        file_config = load_config_file()
+
+        # Get default values
+        defaults = get_default_config()
+
+        # Helper to get value with precedence: env var > config file > default
+        def get_value(env_var: str, file_section: str, file_key: str, default: str | None) -> str | None:
+            env_val = os.getenv(env_var)
+            if env_val is not None:
+                return env_val
+
+            if file_section in file_config and file_key in file_config[file_section]:
+                return str(file_config[file_section][file_key])
+
+            return default
+
+        # Get project filter regex with special handling for empty string
+        project_filter = get_value(
+            "SEQUEL_PROJECT_FILTER_REGEX",
+            "filters",
+            "project_regex",
+            defaults["filters"]["project_regex"]
+        )
+        # Convert empty string to None to disable filtering
+        project_filter_regex = project_filter if project_filter else None
+
+        # Get theme from env > config file > default
+        theme = get_value(
+            "SEQUEL_THEME",
+            "ui",
+            "theme",
+            defaults["ui"]["theme"]
+        ) or "textual-dark"
+
         return cls(
             api_timeout=int(os.getenv("SEQUEL_API_TIMEOUT", "30")),
             api_max_retries=int(os.getenv("SEQUEL_API_MAX_RETRIES", "3")),
@@ -72,6 +123,8 @@ class Config:
             == "true",
             gcloud_project_id=os.getenv("SEQUEL_GCLOUD_PROJECT_ID"),
             gcloud_quota_wait_time=int(os.getenv("SEQUEL_GCLOUD_QUOTA_WAIT_TIME", "60")),
+            project_filter_regex=project_filter_regex,
+            theme=theme,
         )
 
 
