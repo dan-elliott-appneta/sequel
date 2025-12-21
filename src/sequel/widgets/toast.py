@@ -68,11 +68,11 @@ class ToastContainer(Vertical):
 
     CSS: ClassVar[str] = """
     ToastContainer {
-        width: auto;
-        height: auto;
+        width: 100%;
+        height: 0;
         align: center top;
         layer: notification;
-        dock: top;
+        offset: 1 0;
     }
 
     .toast {
