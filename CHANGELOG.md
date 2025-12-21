@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Performance profiling script (`scripts/profile.py`) for benchmarking API calls and cache performance
   - Debug script (`scripts/debug_mig.py`) for testing instance group API calls directly
   - Enhanced logging in resource tree widget for better debugging
+  - **Test coverage improvement**: 81% → 96.25% (added 7 comprehensive tests for compute.py)
 
 ### Added
 - **JSON details pane**: Displays syntax-highlighted, pretty-printed JSON from raw GCP API responses

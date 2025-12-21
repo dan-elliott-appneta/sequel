@@ -27,7 +27,7 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
   - Background cache cleanup every 5 minutes
 - **Lazy loading** for efficient API usage
 - **ADC authentication** using Google Cloud Application Default Credentials
-- **Comprehensive testing** with high code coverage (81%+)
+- **Comprehensive testing** with high code coverage (96%+)
 
 ### Supported Resources (MVP)
 

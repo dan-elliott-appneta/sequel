@@ -63,8 +63,9 @@ This project is being built in 10 phases. Each phase is implemented in its own b
     - Bug fix: Managed instance groups now use correct API (instanceGroupManagers vs instanceGroups)
     - Bug fix: Increased instance limit from 10 to 100 per group
     - Debug script (scripts/debug_mig.py) for testing instance group API calls
-  - Test coverage: 81.05% (355 tests)
+  - Test coverage: **96.25%** (362 tests) - exceeded 90% goal!
   - All tests passing
+  - PR: #6
 
 ### Planned Phases
 
