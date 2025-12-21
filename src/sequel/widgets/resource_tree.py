@@ -7,6 +7,7 @@ from textual.widgets import Tree
 from textual.widgets.tree import TreeNode
 
 from sequel.config import get_config
+from sequel.services.clouddns import get_clouddns_service
 from sequel.services.cloudsql import get_cloudsql_service
 from sequel.services.compute import get_compute_service
 from sequel.services.gke import get_gke_service
@@ -22,6 +23,9 @@ class ResourceType:
     """Constants for resource types."""
 
     PROJECT = "project"
+    CLOUDDNS = "clouddns"
+    CLOUDDNS_ZONE = "clouddns_zone"  # Expandable DNS zone
+    CLOUDDNS_RECORD = "clouddns_record"  # Individual DNS record (leaf)
     CLOUDSQL = "cloudsql"
     COMPUTE = "compute"
     COMPUTE_INSTANCE_GROUP = "compute_instance_group"  # Expandable instance group
@@ -136,6 +140,14 @@ class ResourceTree(Tree[ResourceTreeNode]):
             project_node: Parent project node
             project_id: Project ID
         """
+        # Add CloudDNS
+        clouddns_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDDNS,
+            resource_id=f"{project_id}:clouddns",
+            project_id=project_id,
+        )
+        project_node.add("🌐 Cloud DNS", data=clouddns_data, allow_expand=True)
+
         # Add CloudSQL
         cloudsql_data = ResourceTreeNode(
             resource_type=ResourceType.CLOUDSQL,
@@ -192,7 +204,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         try:
             # Load resources based on type
-            if node.data.resource_type == ResourceType.CLOUDSQL:
+            if node.data.resource_type == ResourceType.CLOUDDNS:
+                await self._load_dns_zones(node)
+            elif node.data.resource_type == ResourceType.CLOUDDNS_ZONE:
+                await self._load_dns_records(node)
+            elif node.data.resource_type == ResourceType.CLOUDSQL:
                 await self._load_cloudsql_instances(node)
             elif node.data.resource_type == ResourceType.COMPUTE:
                 await self._load_instance_groups(node)
@@ -214,6 +230,100 @@ class ResourceTree(Tree[ResourceTreeNode]):
         except Exception as e:
             logger.error(f"Failed to load resources: {e}")
             node.add_leaf(f"Error: {e}")
+
+    async def _load_dns_zones(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load Cloud DNS managed zones for a project."""
+        if parent_node.data is None or parent_node.data.project_id is None:
+            return
+
+        project_id = parent_node.data.project_id
+        logger.info(f"Loading DNS zones for {project_id}")
+
+        service = await get_clouddns_service()
+        zones = await service.list_zones(project_id)
+
+        parent_node.remove_children()
+
+        if not zones:
+            # Remove the parent node if there are no zones
+            parent_node.remove()
+            return
+
+        for zone in zones:
+            node_data = ResourceTreeNode(
+                resource_type=ResourceType.CLOUDDNS_ZONE,
+                resource_id=zone.zone_name,
+                resource_data=zone,
+                project_id=project_id,
+            )
+            visibility_icon = "🌍" if zone.visibility == "public" else "🔒"
+            # Make zones expandable to show DNS records
+            parent_node.add(
+                f"{visibility_icon} {zone.dns_name}",
+                data=node_data,
+                allow_expand=True,
+            )
+
+    async def _load_dns_records(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load DNS records for a managed zone."""
+        if parent_node.data is None or parent_node.data.resource_data is None:
+            return
+
+        zone = parent_node.data.resource_data
+        parent_node.remove_children()
+
+        if not parent_node.data.project_id:
+            parent_node.add(
+                "⚠️  Missing project ID",
+                allow_expand=False,
+            )
+            return
+
+        # Fetch DNS records from Cloud DNS API
+        try:
+            dns_service = await get_clouddns_service()
+            logger.info(
+                f"Fetching DNS records for zone {zone.zone_name} "
+                f"in project {parent_node.data.project_id}"
+            )
+            records = await dns_service.list_records(
+                project_id=parent_node.data.project_id,
+                zone_name=zone.zone_name,
+            )
+
+            logger.info(f"Retrieved {len(records)} DNS records for {zone.zone_name}")
+
+            if not records:
+                # Show message that no records exist instead of removing the node
+                parent_node.add(
+                    "📝 No DNS records",
+                    allow_expand=False,
+                )
+                return
+
+            # Add DNS record nodes
+            for record in records:
+                node_data = ResourceTreeNode(
+                    resource_type=ResourceType.CLOUDDNS_RECORD,
+                    resource_id=f"{record.record_name}:{record.record_type}",
+                    resource_data=record,
+                    project_id=parent_node.data.project_id,
+                )
+                # Show record name, type, and value
+                display_value = record.get_display_value()
+                parent_node.add(
+                    f"📝 {record.record_type}: {record.record_name} → {display_value}",
+                    data=node_data,
+                    allow_expand=False,
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to load DNS records: {e}")
+            # Show error message instead of removing the node
+            parent_node.add(
+                f"⚠️  Error loading records: {str(e)[:50]}",
+                allow_expand=False,
+            )
 
     async def _load_cloudsql_instances(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
         """Load Cloud SQL instances for a project."""

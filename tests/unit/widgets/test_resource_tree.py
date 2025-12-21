@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from sequel.models.clouddns import DNSRecord, ManagedZone
 from sequel.models.compute import ComputeInstance, InstanceGroup
 from sequel.models.gke import GKECluster, GKENode
 from sequel.models.iam import IAMRoleBinding, ServiceAccount
@@ -53,6 +54,19 @@ def sample_service_account() -> ServiceAccount:
     return ServiceAccount.from_api_response(api_data)
 
 
+@pytest.fixture
+def sample_dns_zone() -> ManagedZone:
+    """Create a sample DNS zone for testing."""
+    api_data = {
+        "name": "my-zone",
+        "dnsName": "example.com.",
+        "description": "Example zone",
+        "visibility": "public",
+        "nameServers": ["ns1.example.com", "ns2.example.com"],
+    }
+    return ManagedZone.from_api_response(api_data)
+
+
 class TestResourceTreeNode:
     """Test suite for ResourceTreeNode."""
 
@@ -90,6 +104,9 @@ class TestResourceTreeNode:
     def test_resource_types(self) -> None:
         """Test all resource type constants exist."""
         assert ResourceType.PROJECT == "project"
+        assert ResourceType.CLOUDDNS == "clouddns"
+        assert ResourceType.CLOUDDNS_ZONE == "clouddns_zone"
+        assert ResourceType.CLOUDDNS_RECORD == "clouddns_record"
         assert ResourceType.CLOUDSQL == "cloudsql"
         assert ResourceType.COMPUTE == "compute"
         assert ResourceType.COMPUTE_INSTANCE_GROUP == "compute_instance_group"
@@ -1071,6 +1088,185 @@ class TestResourceTree:
         # loaded flag should still be set to True to prevent re-trying
         assert node_data.loaded is True
 
+    @pytest.mark.asyncio
+    async def test_load_dns_zones_with_zones(
+        self, resource_tree: ResourceTree, sample_dns_zone: ManagedZone
+    ) -> None:
+        """Test loading DNS zones when zones exist."""
+        # Create mock zones to return
+        mock_zones = [
+            sample_dns_zone,
+            ManagedZone.from_api_response({
+                "name": "private-zone",
+                "dnsName": "internal.example.com.",
+                "visibility": "private",
+            }),
+        ]
+
+        # Create a parent node for DNS
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDDNS,
+            resource_id="my-project:clouddns",
+            project_id="my-project",
+        )
+        parent_node = resource_tree.root.add(
+            "Cloud DNS", data=parent_node_data, allow_expand=True
+        )
+
+        # Mock the CloudDNS service
+        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_zones = AsyncMock(return_value=mock_zones)
+            mock_get_service.return_value = mock_service
+
+            # Load the DNS zones
+            await resource_tree._load_dns_zones(parent_node)
+
+        # Should have 2 zones
+        assert len(parent_node.children) == 2
+        assert "example.com." in parent_node.children[0].label.plain
+        assert "internal.example.com." in parent_node.children[1].label.plain
+        # Public zone should have globe icon, private should have lock icon
+        assert "🌍" in parent_node.children[0].label.plain
+        assert "🔒" in parent_node.children[1].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_dns_zones_empty(
+        self, resource_tree: ResourceTree
+    ) -> None:
+        """Test loading DNS zones when none exist."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDDNS,
+            resource_id="my-project:clouddns",
+            project_id="my-project",
+        )
+        parent_node = resource_tree.root.add(
+            "Cloud DNS", data=parent_node_data, allow_expand=True
+        )
+
+        # Mock the CloudDNS service to return empty list
+        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_zones = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
+
+            # Load the DNS zones
+            await resource_tree._load_dns_zones(parent_node)
+
+        # Node should be removed if there are no zones
+        assert parent_node not in resource_tree.root.children
+
+    @pytest.mark.asyncio
+    async def test_load_dns_records_with_records(
+        self, resource_tree: ResourceTree, sample_dns_zone: ManagedZone
+    ) -> None:
+        """Test loading DNS records when records exist."""
+        # Create mock DNS records to return
+        mock_records = [
+            DNSRecord.from_api_response({
+                "name": "example.com.",
+                "type": "A",
+                "ttl": 300,
+                "rrdatas": ["192.0.2.1"],
+            }),
+            DNSRecord.from_api_response({
+                "name": "www.example.com.",
+                "type": "CNAME",
+                "ttl": 600,
+                "rrdatas": ["example.com."],
+            }),
+            DNSRecord.from_api_response({
+                "name": "example.com.",
+                "type": "MX",
+                "ttl": 3600,
+                "rrdatas": ["10 mail.example.com.", "20 mail2.example.com."],
+            }),
+        ]
+
+        # Create a parent node for the DNS zone
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDDNS_ZONE,
+            resource_id="my-zone",
+            resource_data=sample_dns_zone,
+            project_id="my-project",
+        )
+        parent_node = resource_tree.root.add(
+            "example.com.", data=parent_node_data, allow_expand=True
+        )
+
+        # Mock the CloudDNS service
+        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_records = AsyncMock(return_value=mock_records)
+            mock_get_service.return_value = mock_service
+
+            # Load the DNS records
+            await resource_tree._load_dns_records(parent_node)
+
+        # Should have 3 records
+        assert len(parent_node.children) == 3
+        # Check record types appear in labels
+        assert "A:" in parent_node.children[0].label.plain
+        assert "CNAME:" in parent_node.children[1].label.plain
+        assert "MX:" in parent_node.children[2].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_dns_records_empty(
+        self, resource_tree: ResourceTree, sample_dns_zone: ManagedZone
+    ) -> None:
+        """Test loading DNS records when none exist."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDDNS_ZONE,
+            resource_id="my-zone",
+            resource_data=sample_dns_zone,
+            project_id="my-project",
+        )
+        parent_node = resource_tree.root.add(
+            "example.com.", data=parent_node_data, allow_expand=True
+        )
+
+        # Mock the CloudDNS service to return empty list
+        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_records = AsyncMock(return_value=[])
+            mock_get_service.return_value = mock_service
+
+            # Load the DNS records
+            await resource_tree._load_dns_records(parent_node)
+
+        # Node should remain with a message instead of being removed
+        assert parent_node in resource_tree.root.children
+        assert len(parent_node.children) == 1
+        assert "No DNS records" in parent_node.children[0].label.plain
+
+    @pytest.mark.asyncio
+    async def test_load_dns_records_error(
+        self, resource_tree: ResourceTree, sample_dns_zone: ManagedZone
+    ) -> None:
+        """Test error handling when loading DNS records."""
+        parent_node_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDDNS_ZONE,
+            resource_id="my-zone",
+            resource_data=sample_dns_zone,
+            project_id="my-project",
+        )
+        parent_node = resource_tree.root.add(
+            "example.com.", data=parent_node_data, allow_expand=True
+        )
+
+        # Mock the CloudDNS service to raise an exception
+        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_records = AsyncMock(side_effect=Exception("API Error"))
+            mock_get_service.return_value = mock_service
+
+            # Load the DNS records
+            await resource_tree._load_dns_records(parent_node)
+
+        # Should have error child node
+        assert len(parent_node.children) == 1
+        assert "Error loading records" in parent_node.children[0].label.plain
+
     def test_add_resource_type_nodes_creates_categories(
         self, resource_tree: ResourceTree
     ) -> None:
@@ -1081,11 +1277,12 @@ class TestResourceTree:
 
         resource_tree._add_resource_type_nodes(project_node, "test-project")
 
-        # Should have 5 resource categories
-        assert len(project_node.children) == 5
+        # Should have 6 resource categories
+        assert len(project_node.children) == 6
 
         # Check all categories exist
         labels = [child.label.plain for child in project_node.children]
+        assert any("Cloud DNS" in label for label in labels)
         assert any("Cloud SQL" in label for label in labels)
         assert any("Instance Groups" in label for label in labels)
         assert any("GKE Clusters" in label for label in labels)
@@ -1110,6 +1307,7 @@ class TestResourceTree:
         ]
 
         # Should have all expected resource types
+        assert ResourceType.CLOUDDNS in resource_types
         assert ResourceType.CLOUDSQL in resource_types
         assert ResourceType.COMPUTE in resource_types
         assert ResourceType.GKE in resource_types
