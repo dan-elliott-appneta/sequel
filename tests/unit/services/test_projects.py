@@ -78,9 +78,9 @@ class TestProjectService:
             display_name="Project 2",
         )
 
-        # Mock client
+        # Mock client - use search_projects when no parent
         mock_client = MagicMock()
-        mock_client.list_projects.return_value = [mock_project1, mock_project2]
+        mock_client.search_projects.return_value = [mock_project1, mock_project2]
         mock_client_class.return_value = mock_client
 
         # List projects
@@ -136,7 +136,7 @@ class TestProjectService:
         mock_project = MockProjectProto(project_id="cached-project")
 
         mock_client = MagicMock()
-        mock_client.list_projects.return_value = [mock_project]
+        mock_client.search_projects.return_value = [mock_project]
         mock_client_class.return_value = mock_client
 
         # First call - should hit API
@@ -148,7 +148,7 @@ class TestProjectService:
         assert len(projects2) == 1
 
         # Client should only be called once
-        assert mock_client.list_projects.call_count == 1
+        assert mock_client.search_projects.call_count == 1
 
     @pytest.mark.asyncio
     @patch("sequel.services.projects.get_auth_manager")
