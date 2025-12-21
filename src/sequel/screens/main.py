@@ -12,7 +12,6 @@ from sequel.utils.logging import get_logger
 from sequel.widgets.detail_pane import DetailPane
 from sequel.widgets.resource_tree import ResourceTree, ResourceTreeNode
 from sequel.widgets.status_bar import StatusBar
-from sequel.widgets.toast import ToastContainer
 
 logger = get_logger(__name__)
 
@@ -93,7 +92,6 @@ class MainScreen(Screen[None]):
         self.resource_tree: ResourceTree | None = None
         self.detail_pane: DetailPane | None = None
         self.status_bar: StatusBar | None = None
-        self.toast_container: ToastContainer | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the screen layout.
@@ -119,9 +117,9 @@ class MainScreen(Screen[None]):
         """Handle screen mount event."""
         logger.info("Main screen mounted")
 
-        # Mount toast container as overlay
-        self.toast_container = ToastContainer()
-        await self.mount(self.toast_container)
+        # TODO: Toast container temporarily disabled due to layout issues
+        # self.toast_container = ToastContainer()
+        # await self.mount(self.toast_container)
 
         # Load projects into tree
         if self.resource_tree:
@@ -135,16 +133,10 @@ class MainScreen(Screen[None]):
                     self.status_bar.set_loading(False)
                     self.status_bar.update_last_refresh()
 
-                # Show welcome toast
-                self.show_toast("Projects loaded successfully", "info", 2.0)
-
             except Exception as e:
                 logger.error(f"Failed to load projects: {e}")
                 if self.status_bar:
                     self.status_bar.set_loading(False)
-
-                # Show error toast
-                self.show_toast(f"Failed to load projects: {e!s}", "warning")
 
     async def on_tree_node_highlighted(self, event: ResourceTree.NodeHighlighted[ResourceTreeNode]) -> None:
         """Handle tree node selection.
@@ -173,8 +165,10 @@ class MainScreen(Screen[None]):
             toast_type: Type of toast (info, success, warning)
             duration: Duration in seconds before auto-dismiss
         """
-        if self.toast_container:
-            self.toast_container.show_toast(message, toast_type, duration)
+        # TODO: Toasts temporarily disabled due to layout issues
+        # if self.toast_container:
+        #     self.toast_container.show_toast(message, toast_type, duration)
+        pass
 
     async def refresh_tree(self) -> None:
         """Refresh the resource tree."""
@@ -193,16 +187,10 @@ class MainScreen(Screen[None]):
                 self.status_bar.set_loading(False)
                 self.status_bar.update_last_refresh()
 
-            # Show success toast
-            self.show_toast("Resources refreshed successfully", "success")
-
         except Exception as e:
             logger.error(f"Failed to refresh tree: {e}")
             if self.status_bar:
                 self.status_bar.set_loading(False)
-
-            # Show error toast
-            self.show_toast(f"Failed to refresh: {e!s}", "warning")
 
     # VIM-style navigation actions
 
