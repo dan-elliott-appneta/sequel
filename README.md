@@ -10,10 +10,11 @@ Current version: **0.1.0** (Alpha)
 
 Sequel provides a keyboard-focused, responsive interface for exploring Google Cloud resources:
 
-- **Hierarchical tree view** with expandable sub-nodes:
-  - Service Accounts → IAM roles
-  - GKE Clusters → Individual nodes
-  - Instance Groups → Instances
+- **Hierarchical tree view** with expandable sub-nodes showing real resource data:
+  - Service Accounts → IAM role bindings (with actual role names)
+  - GKE Clusters → Individual nodes (with actual node pool names)
+  - Instance Groups → VM instances (with actual instance names and status)
+  - Sub-resources display in JSON details pane when selected
   - Automatic empty category removal
 - **JSON details pane** with tree-sitter syntax highlighting, pretty-printed API responses, and mouse text selection
 - **Lazy loading** for efficient API usage
