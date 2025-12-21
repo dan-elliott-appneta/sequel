@@ -289,7 +289,8 @@ class ComputeService(BaseService):
                 instance_refs = response.get("items", [])
 
                 # Fetch detailed information for each instance
-                for ref in instance_refs[:10]:  # Limit to 10 instances
+                # Limit to 100 instances (tree widget will apply virtual scrolling at 50)
+                for ref in instance_refs[:100]:
                     instance_url = ref.get("instance", "")
                     if instance_url:
                         # Extract instance name from URL
@@ -344,7 +345,7 @@ class ComputeService(BaseService):
             use_cache: Whether to use caching
 
         Returns:
-            List of ComputeInstance objects (limited to 10)
+            List of ComputeInstance objects (up to 100, tree widget applies virtual scrolling)
         """
         cache_key = f"instances_in_regional_group:{project_id}:{region}:{instance_group_name}"
 
@@ -379,7 +380,8 @@ class ComputeService(BaseService):
                 instance_refs = response.get("items", [])
 
                 # Fetch detailed information for each instance
-                for ref in instance_refs[:10]:  # Limit to 10 instances
+                # Limit to 100 instances (tree widget will apply virtual scrolling at 50)
+                for ref in instance_refs[:100]:
                     instance_url = ref.get("instance", "")
                     if instance_url:
                         # Extract instance name and zone from URL
