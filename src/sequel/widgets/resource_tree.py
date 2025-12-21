@@ -109,60 +109,92 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     f"📁 {project.display_name}",
                     data=node_data,
                 )
-                # Add placeholder children for lazy loading
-                self._add_resource_type_nodes(project_node, project.project_id)
+                # Add resource type nodes, checking for empty categories
+                await self._add_resource_type_nodes(project_node, project.project_id)
 
             logger.info(f"Loaded {len(projects)} projects")
 
         except Exception as e:
             logger.error(f"Failed to load projects: {e}")
 
-    def _add_resource_type_nodes(self, project_node: TreeNode[ResourceTreeNode], project_id: str) -> None:
+    async def _add_resource_type_nodes(self, project_node: TreeNode[ResourceTreeNode], project_id: str) -> None:
         """Add resource type category nodes to a project.
+
+        Only adds categories that have resources. Eagerly checks each resource type.
 
         Args:
             project_node: Parent project node
             project_id: Project ID
         """
-        # Add CloudSQL
-        cloudsql_data = ResourceTreeNode(
-            resource_type=ResourceType.CLOUDSQL,
-            resource_id=f"{project_id}:cloudsql",
-            project_id=project_id,
-        )
-        project_node.add("☁️  Cloud SQL", data=cloudsql_data, allow_expand=True)
+        # Check CloudSQL
+        try:
+            cloudsql_service = await get_cloudsql_service()
+            cloudsql_instances = await cloudsql_service.list_instances(project_id)
+            if cloudsql_instances:
+                cloudsql_data = ResourceTreeNode(
+                    resource_type=ResourceType.CLOUDSQL,
+                    resource_id=f"{project_id}:cloudsql",
+                    project_id=project_id,
+                )
+                project_node.add("☁️  Cloud SQL", data=cloudsql_data, allow_expand=True)
+        except Exception as e:
+            logger.debug(f"Failed to check CloudSQL instances for {project_id}: {e}")
 
-        # Add Compute (Instance Groups)
-        compute_data = ResourceTreeNode(
-            resource_type=ResourceType.COMPUTE,
-            resource_id=f"{project_id}:compute",
-            project_id=project_id,
-        )
-        project_node.add("💻 Instance Groups", data=compute_data, allow_expand=True)
+        # Check Compute (Instance Groups)
+        try:
+            compute_service = await get_compute_service()
+            instance_groups = await compute_service.list_instance_groups(project_id)
+            if instance_groups:
+                compute_data = ResourceTreeNode(
+                    resource_type=ResourceType.COMPUTE,
+                    resource_id=f"{project_id}:compute",
+                    project_id=project_id,
+                )
+                project_node.add("💻 Instance Groups", data=compute_data, allow_expand=True)
+        except Exception as e:
+            logger.debug(f"Failed to check instance groups for {project_id}: {e}")
 
-        # Add GKE
-        gke_data = ResourceTreeNode(
-            resource_type=ResourceType.GKE,
-            resource_id=f"{project_id}:gke",
-            project_id=project_id,
-        )
-        project_node.add("⎈  GKE Clusters", data=gke_data, allow_expand=True)
+        # Check GKE
+        try:
+            gke_service = await get_gke_service()
+            gke_clusters = await gke_service.list_clusters(project_id)
+            if gke_clusters:
+                gke_data = ResourceTreeNode(
+                    resource_type=ResourceType.GKE,
+                    resource_id=f"{project_id}:gke",
+                    project_id=project_id,
+                )
+                project_node.add("⎈  GKE Clusters", data=gke_data, allow_expand=True)
+        except Exception as e:
+            logger.debug(f"Failed to check GKE clusters for {project_id}: {e}")
 
-        # Add Secrets
-        secrets_data = ResourceTreeNode(
-            resource_type=ResourceType.SECRETS,
-            resource_id=f"{project_id}:secrets",
-            project_id=project_id,
-        )
-        project_node.add("🔐 Secrets", data=secrets_data, allow_expand=True)
+        # Check Secrets
+        try:
+            secrets_service = await get_secret_manager_service()
+            secrets = await secrets_service.list_secrets(project_id)
+            if secrets:
+                secrets_data = ResourceTreeNode(
+                    resource_type=ResourceType.SECRETS,
+                    resource_id=f"{project_id}:secrets",
+                    project_id=project_id,
+                )
+                project_node.add("🔐 Secrets", data=secrets_data, allow_expand=True)
+        except Exception as e:
+            logger.debug(f"Failed to check secrets for {project_id}: {e}")
 
-        # Add IAM
-        iam_data = ResourceTreeNode(
-            resource_type=ResourceType.IAM,
-            resource_id=f"{project_id}:iam",
-            project_id=project_id,
-        )
-        project_node.add("👤 Service Accounts", data=iam_data, allow_expand=True)
+        # Check IAM
+        try:
+            iam_service = await get_iam_service()
+            service_accounts = await iam_service.list_service_accounts(project_id)
+            if service_accounts:
+                iam_data = ResourceTreeNode(
+                    resource_type=ResourceType.IAM,
+                    resource_id=f"{project_id}:iam",
+                    project_id=project_id,
+                )
+                project_node.add("👤 Service Accounts", data=iam_data, allow_expand=True)
+        except Exception as e:
+            logger.debug(f"Failed to check service accounts for {project_id}: {e}")
 
     async def _on_tree_node_expanded(self, event: Tree.NodeExpanded[ResourceTreeNode]) -> None:
         """Handle tree node expansion with lazy loading.
@@ -210,11 +242,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         parent_node.remove_children()
 
-        if not instances:
-            # Remove the parent node if there are no instances
-            parent_node.remove()
-            return
-
         for instance in instances:
             node_data = ResourceTreeNode(
                 resource_type=ResourceType.CLOUDSQL,
@@ -240,11 +267,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
         groups = await service.list_instance_groups(project_id)
 
         parent_node.remove_children()
-
-        if not groups:
-            # Remove the parent node if there are no instance groups
-            parent_node.remove()
-            return
 
         for group in groups:
             node_data = ResourceTreeNode(
@@ -272,11 +294,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         parent_node.remove_children()
 
-        if not clusters:
-            # Remove the parent node if there are no clusters
-            parent_node.remove()
-            return
-
         for cluster in clusters:
             node_data = ResourceTreeNode(
                 resource_type=ResourceType.GKE,
@@ -303,11 +320,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         parent_node.remove_children()
 
-        if not secrets:
-            # Remove the parent node if there are no secrets
-            parent_node.remove()
-            return
-
         for secret in secrets:
             node_data = ResourceTreeNode(
                 resource_type=ResourceType.SECRETS,
@@ -332,11 +344,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
         accounts = await service.list_service_accounts(project_id)
 
         parent_node.remove_children()
-
-        if not accounts:
-            # Remove the parent node if there are no service accounts
-            parent_node.remove()
-            return
 
         for account in accounts:
             node_data = ResourceTreeNode(
