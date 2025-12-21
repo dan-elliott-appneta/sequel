@@ -4,9 +4,6 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
-
-import pytest
 
 from sequel.config_file import (
     get_config_dir,

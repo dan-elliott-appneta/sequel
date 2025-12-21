@@ -1,14 +1,12 @@
 """Tests for command palette providers."""
 
 import tempfile
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from textual.app import App
 
 from sequel.commands import AVAILABLE_THEMES, ThemeProvider
-from sequel.config_file import get_config_file, load_config_file, save_config_file
 
 
 class TestAvailableThemes:
@@ -29,7 +27,7 @@ class TestAvailableThemes:
     def test_available_themes_sorted(self) -> None:
         """Test AVAILABLE_THEMES is sorted alphabetically."""
         sorted_themes = sorted(AVAILABLE_THEMES)
-        assert AVAILABLE_THEMES == sorted_themes
+        assert sorted_themes == AVAILABLE_THEMES
 
     def test_available_themes_unique(self) -> None:
         """Test AVAILABLE_THEMES has no duplicates."""
