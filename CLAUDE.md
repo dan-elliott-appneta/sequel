@@ -72,13 +72,16 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Implemented:
     - VIM bindings (j/k for up/down, h/l for collapse/expand, g/G for top/bottom)
     - Smart collapse/expand (h/← collapses or moves to parent, l/→ expands or moves to child)
-    - Toast notification system (auto-dismissing, 3 types: info/success/warning)
     - Enhanced status bar with live stats (operation, cache hit rate, API calls, last refresh)
     - Resource counts in tree node labels with proper pluralization
     - Enhanced error recovery (credential refresh, quota wait/retry)
-  - Test coverage: **96.25%** (362 tests) maintained
+  - Not Implemented:
+    - Toast notifications (removed due to Textual layout issues - will revisit in future)
+    - Progress indicators (status bar serves this purpose)
+  - Test coverage: **96.02%** (362 tests) maintained
   - All tests passing
   - All linting and type checking passing
+  - PR: #7
 
 ### Planned Phases
 

@@ -14,11 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - h/l for collapse/expand (or move to parent/child)
     - g/G for jumping to top/bottom of tree
     - Arrow keys also supported (←→↑↓)
-  - **Toast notification system** for non-blocking user feedback
-    - Auto-dismissing toasts (3 second default)
-    - Three types: info (blue), success (green), warning (yellow)
-    - Stack multiple toasts
-    - Shows notifications for: project loading, refresh completion, errors
   - **Enhanced status bar** with live statistics
     - Current operation display (e.g., "⏳ Loading projects...")
     - Cache hit rate percentage (e.g., "Cache: 73% hit rate")
@@ -33,7 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Automatic credential refresh on authentication errors
     - Quota exceeded errors now wait and retry with configurable delay
     - Intelligent retry-after time extraction from API error messages
-  - All Phase 8 features pass linting and type checking (96.25% test coverage maintained)
+  - All Phase 8 features pass linting and type checking (96.02% test coverage maintained)
+
+### Removed
+- **Toast notification system** - Removed due to layout issues with Textual framework
+  - Initial implementation caused UI to only display in half the screen
+  - Will be reimplemented in future update with different approach
 
 - **Phase 7: Performance Optimization**
   - Parallel API operations using `asyncio.gather()` for simultaneous resource loading across all resource types
