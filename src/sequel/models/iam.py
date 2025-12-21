@@ -52,6 +52,7 @@ class ServiceAccount(BaseModel):
             id=email,
             name=name,
             project_id=project_id,
+            created_at=None,  # IAM service accounts don't have creation timestamps in API
             email=email,
             display_name=data.get("displayName"),
             description=data.get("description"),

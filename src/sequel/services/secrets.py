@@ -1,8 +1,8 @@
 """Google Secret Manager service using Secret Manager API."""
 
-from typing import Any
+from typing import Any, cast
 
-from google.cloud import secretmanager_v1  # type: ignore[import-untyped]
+from google.cloud import secretmanager_v1
 
 from sequel.cache.memory import get_cache
 from sequel.config import get_config
@@ -68,7 +68,7 @@ class SecretManagerService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} secrets from cache")
-                return cached
+                return cast(list[Secret], cached)
 
         async def _list_secrets() -> list[Secret]:
             """Internal function to list secrets."""
@@ -85,7 +85,7 @@ class SecretManagerService(BaseService):
 
                 secrets: list[Secret] = []
                 # The client.list_secrets returns an iterator
-                for secret_proto in client.list_secrets(request=request):  # type: ignore[no-untyped-call]
+                for secret_proto in client.list_secrets(request=request):
                     secret_dict = self._proto_to_dict(secret_proto)
                     secret = Secret.from_api_response(secret_dict)
                     secrets.append(secret)
@@ -141,7 +141,7 @@ class SecretManagerService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning secret {secret_name} from cache")
-                return cached
+                return cast(Secret, cached)
 
         async def _get_secret() -> Secret | None:
             """Internal function to get secret."""
@@ -154,7 +154,7 @@ class SecretManagerService(BaseService):
                 name = f"projects/{project_id}/secrets/{secret_name}"
 
                 request = secretmanager_v1.GetSecretRequest(name=name)
-                secret_proto = client.get_secret(request=request)  # type: ignore[no-untyped-call]
+                secret_proto = client.get_secret(request=request)
 
                 secret_dict = self._proto_to_dict(secret_proto)
                 secret = Secret.from_api_response(secret_dict)
@@ -194,7 +194,7 @@ class SecretManagerService(BaseService):
             result["name"] = proto_message.name
         if hasattr(proto_message, "replication"):
             # Convert replication to dict
-            replication = {}
+            replication: dict[str, Any] = {}
             repl = proto_message.replication
             if hasattr(repl, "automatic"):
                 replication["automatic"] = {}

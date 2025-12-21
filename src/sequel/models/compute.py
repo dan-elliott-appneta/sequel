@@ -82,6 +82,7 @@ class InstanceGroup(BaseModel):
             id=group_name,
             name=group_name,
             project_id=project_id,
+            created_at=None,  # Compute API doesn't provide creation time in list response
             group_name=group_name,
             zone=zone,
             region=region,

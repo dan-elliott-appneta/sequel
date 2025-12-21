@@ -1,8 +1,8 @@
 """Google Cloud Project service using Resource Manager API."""
 
-from typing import Any
+from typing import Any, cast
 
-from google.cloud import resourcemanager_v3  # type: ignore[import-untyped]
+from google.cloud import resourcemanager_v3
 
 from sequel.cache.memory import get_cache
 from sequel.config import get_config
@@ -62,7 +62,7 @@ class ProjectService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} projects from cache")
-                return cached
+                return cast(list[Project], cached)
 
         async def _list_projects() -> list[Project]:
             """Internal function to list projects."""
@@ -79,7 +79,7 @@ class ProjectService(BaseService):
                         parent=parent,
                         page_size=100,
                     )
-                    for project_proto in client.list_projects(request=request):  # type: ignore[no-untyped-call]
+                    for project_proto in client.list_projects(request=request):
                         project_dict = self._proto_to_dict(project_proto)
                         project = Project.from_api_response(project_dict)
                         projects.append(project)
@@ -88,7 +88,7 @@ class ProjectService(BaseService):
                     request = resourcemanager_v3.SearchProjectsRequest(
                         page_size=100,
                     )
-                    for project_proto in client.search_projects(request=request):  # type: ignore[no-untyped-call]
+                    for project_proto in client.search_projects(request=request):
                         project_dict = self._proto_to_dict(project_proto)
                         project = Project.from_api_response(project_dict)
                         projects.append(project)
@@ -139,7 +139,7 @@ class ProjectService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning project {project_id} from cache")
-                return cached
+                return cast(Project, cached)
 
         async def _get_project() -> Project | None:
             """Internal function to get project."""
@@ -152,7 +152,7 @@ class ProjectService(BaseService):
             logger.info(f"Getting project: {project_id}")
 
             try:
-                project_proto = client.get_project(request=request)  # type: ignore[no-untyped-call]
+                project_proto = client.get_project(request=request)
                 project_dict = self._proto_to_dict(project_proto)
                 project = Project.from_api_response(project_dict)
                 logger.info(f"Retrieved project: {project_id}")

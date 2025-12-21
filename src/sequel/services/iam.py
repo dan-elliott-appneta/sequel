@@ -1,9 +1,9 @@
 """Google Cloud IAM service using IAM API."""
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
-from googleapiclient import discovery  # type: ignore[import-untyped]
+from googleapiclient import discovery
 
 from sequel.cache.memory import get_cache
 from sequel.config import get_config
@@ -66,7 +66,7 @@ class IAMService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} service accounts from cache")
-                return cached
+                return cast(list[ServiceAccount], cached)
 
         async def _list_service_accounts() -> list[ServiceAccount]:
             """Internal function to list service accounts."""
@@ -79,9 +79,9 @@ class IAMService(BaseService):
                 name = f"projects/{project_id}"
 
                 # Call the API
-                request = client.projects().serviceAccounts().list(name=name)  # type: ignore[no-untyped-call]
+                request = client.projects().serviceAccounts().list(name=name)
                 # Run blocking execute() in thread to avoid blocking event loop
-                response = await asyncio.to_thread(request.execute)  # type: ignore[no-untyped-call]
+                response = await asyncio.to_thread(request.execute)
 
                 service_accounts: list[ServiceAccount] = []
                 for item in response.get("accounts", []):
@@ -136,7 +136,7 @@ class IAMService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning service account {email} from cache")
-                return cached
+                return cast(ServiceAccount, cached)
 
         async def _get_service_account() -> ServiceAccount | None:
             """Internal function to get service account."""
@@ -148,8 +148,8 @@ class IAMService(BaseService):
                 # Build resource name
                 name = f"projects/{project_id}/serviceAccounts/{email}"
 
-                request = client.projects().serviceAccounts().get(name=name)  # type: ignore[no-untyped-call]
-                response = request.execute()  # type: ignore[no-untyped-call]
+                request = client.projects().serviceAccounts().get(name=name)
+                response = request.execute()
 
                 sa = ServiceAccount.from_api_response(response)
                 logger.info(f"Retrieved service account: {email}")

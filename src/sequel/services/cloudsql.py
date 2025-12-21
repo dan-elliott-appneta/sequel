@@ -1,9 +1,9 @@
 """Google Cloud SQL service using Cloud SQL Admin API."""
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
-from googleapiclient import discovery  # type: ignore[import-untyped]
+from googleapiclient import discovery
 
 from sequel.cache.memory import get_cache
 from sequel.config import get_config
@@ -66,7 +66,7 @@ class CloudSQLService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} Cloud SQL instances from cache")
-                return cached
+                return cast(list[CloudSQLInstance], cached)
 
         async def _list_instances() -> list[CloudSQLInstance]:
             """Internal function to list instances."""
@@ -76,9 +76,9 @@ class CloudSQLService(BaseService):
 
             try:
                 # Call the API
-                request = client.instances().list(project=project_id)  # type: ignore[no-untyped-call]
+                request = client.instances().list(project=project_id)
                 # Run blocking execute() in thread to avoid blocking event loop
-                response = await asyncio.to_thread(request.execute)  # type: ignore[no-untyped-call]
+                response = await asyncio.to_thread(request.execute)
 
                 instances: list[CloudSQLInstance] = []
                 for item in response.get("items", []):
@@ -134,7 +134,7 @@ class CloudSQLService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning Cloud SQL instance {instance_name} from cache")
-                return cached
+                return cast(CloudSQLInstance, cached)
 
         async def _get_instance() -> CloudSQLInstance | None:
             """Internal function to get instance."""
@@ -143,11 +143,11 @@ class CloudSQLService(BaseService):
             logger.info(f"Getting Cloud SQL instance: {project_id}/{instance_name}")
 
             try:
-                request = client.instances().get(  # type: ignore[no-untyped-call]
+                request = client.instances().get(
                     project=project_id,
                     instance=instance_name,
                 )
-                response = request.execute()  # type: ignore[no-untyped-call]
+                response = request.execute()
 
                 instance = CloudSQLInstance.from_api_response(response)
                 logger.info(f"Retrieved Cloud SQL instance: {instance_name}")

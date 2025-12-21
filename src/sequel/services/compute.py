@@ -1,9 +1,9 @@
 """Google Compute Engine service using Compute Engine API."""
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
-from googleapiclient import discovery  # type: ignore[import-untyped]
+from googleapiclient import discovery
 
 from sequel.cache.memory import get_cache
 from sequel.config import get_config
@@ -68,7 +68,7 @@ class ComputeService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} instance groups from cache")
-                return cached
+                return cast(list[InstanceGroup], cached)
 
         async def _list_instance_groups() -> list[InstanceGroup]:
             """Internal function to list instance groups."""
@@ -126,8 +126,8 @@ class ComputeService(BaseService):
 
         try:
             # List managed instance groups across all zones
-            request = client.instanceGroupManagers().aggregatedList(project=project_id)  # type: ignore[no-untyped-call]
-            response = await asyncio.to_thread(request.execute)  # type: ignore[no-untyped-call]
+            request = client.instanceGroupManagers().aggregatedList(project=project_id)
+            response = await asyncio.to_thread(request.execute)
 
             for _zone_name, zone_data in response.get("items", {}).items():
                 for item in zone_data.get("instanceGroupManagers", []):
@@ -139,8 +139,8 @@ class ComputeService(BaseService):
 
         try:
             # List unmanaged instance groups across all zones
-            request = client.instanceGroups().aggregatedList(project=project_id)  # type: ignore[no-untyped-call]
-            response = await asyncio.to_thread(request.execute)  # type: ignore[no-untyped-call]
+            request = client.instanceGroups().aggregatedList(project=project_id)
+            response = await asyncio.to_thread(request.execute)
 
             for _zone_name, zone_data in response.get("items", {}).items():
                 for item in zone_data.get("instanceGroups", []):
@@ -165,9 +165,9 @@ class ComputeService(BaseService):
             List of zone names
         """
         try:
-            request = client.zones().list(project=project_id)  # type: ignore[no-untyped-call]
+            request = client.zones().list(project=project_id)
             # Run blocking execute() in thread to avoid blocking event loop
-            response = await asyncio.to_thread(request.execute)  # type: ignore[no-untyped-call]
+            response = await asyncio.to_thread(request.execute)
 
             zones = []
             for item in response.get("items", []):
@@ -199,12 +199,12 @@ class ComputeService(BaseService):
 
         try:
             # List managed instance groups
-            request = client.instanceGroupManagers().list(  # type: ignore[no-untyped-call]
+            request = client.instanceGroupManagers().list(
                 project=project_id,
                 zone=zone,
             )
             # Run blocking execute() in thread to avoid blocking event loop
-            response = await asyncio.to_thread(request.execute)  # type: ignore[no-untyped-call]
+            response = await asyncio.to_thread(request.execute)
 
             for item in response.get("items", []):
                 group = InstanceGroup.from_api_response(item, is_managed=True)
@@ -215,12 +215,12 @@ class ComputeService(BaseService):
 
         try:
             # List unmanaged instance groups
-            request = client.instanceGroups().list(  # type: ignore[no-untyped-call]
+            request = client.instanceGroups().list(
                 project=project_id,
                 zone=zone,
             )
             # Run blocking execute() in thread to avoid blocking event loop
-            response = await asyncio.to_thread(request.execute)  # type: ignore[no-untyped-call]
+            response = await asyncio.to_thread(request.execute)
 
             for item in response.get("items", []):
                 # Skip if already added as managed group

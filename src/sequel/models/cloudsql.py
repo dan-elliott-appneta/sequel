@@ -65,6 +65,7 @@ class CloudSQLInstance(BaseModel):
             id=instance_name,
             name=instance_name,
             project_id=project_id,
+            created_at=None,  # CloudSQL API doesn't provide creation time in list response
             instance_name=instance_name,
             database_version=data.get("databaseVersion", "UNKNOWN"),
             tier=tier,

@@ -1,8 +1,8 @@
 """Google Kubernetes Engine service using Container API."""
 
-from typing import Any
+from typing import Any, cast
 
-from google.cloud import container_v1  # type: ignore[import-untyped]
+from google.cloud import container_v1
 
 from sequel.cache.memory import get_cache
 from sequel.config import get_config
@@ -64,7 +64,7 @@ class GKEService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} GKE clusters from cache")
-                return cached
+                return cast(list[GKECluster], cached)
 
         async def _list_clusters() -> list[GKECluster]:
             """Internal function to list clusters."""
@@ -78,10 +78,10 @@ class GKEService(BaseService):
 
                 # Call the API
                 request = container_v1.ListClustersRequest(parent=parent)
-                response = client.list_clusters(request=request)  # type: ignore[no-untyped-call]
+                response = client.list_clusters(request=request)
 
                 clusters: list[GKECluster] = []
-                for cluster_proto in response.clusters:  # type: ignore[attr-defined]
+                for cluster_proto in response.clusters:
                     cluster_dict = self._proto_to_dict(cluster_proto)
                     cluster = GKECluster.from_api_response(cluster_dict)
                     clusters.append(cluster)
@@ -136,7 +136,7 @@ class GKEService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning GKE cluster {cluster_name} from cache")
-                return cached
+                return cast(GKECluster, cached)
 
         async def _get_cluster() -> GKECluster | None:
             """Internal function to get cluster."""
@@ -149,7 +149,7 @@ class GKEService(BaseService):
                 name = f"projects/{project_id}/locations/{location}/clusters/{cluster_name}"
 
                 request = container_v1.GetClusterRequest(name=name)
-                cluster_proto = client.get_cluster(request=request)  # type: ignore[no-untyped-call]
+                cluster_proto = client.get_cluster(request=request)
 
                 cluster_dict = self._proto_to_dict(cluster_proto)
                 cluster = GKECluster.from_api_response(cluster_dict)

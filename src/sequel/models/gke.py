@@ -52,6 +52,7 @@ class GKECluster(BaseModel):
             id=cluster_name,
             name=cluster_name,
             project_id=project_id,
+            created_at=None,  # GKE API doesn't provide creation time in basic cluster info
             cluster_name=cluster_name,
             location=data.get("location"),
             status=data.get("status", "UNKNOWN"),
@@ -79,8 +80,11 @@ class GKENode(BaseModel):
     version: str | None = Field(None, description="Kubernetes version")
 
     @classmethod
-    def from_api_response(cls, data: dict[str, Any], cluster_name: str) -> "GKENode":
+    def from_api_response(cls, data: dict[str, Any], cluster_name: str) -> "GKENode":  # type: ignore[override]
         """Create GKENode from node data.
+
+        Note: This method requires cluster_name as context, which is why it has
+        a different signature than the base class.
 
         Args:
             data: Node data
@@ -94,6 +98,8 @@ class GKENode(BaseModel):
         return cls(
             id=node_name,
             name=node_name,
+            project_id=None,  # Node doesn't have direct project_id reference
+            created_at=None,  # Node creation time not in basic API response
             node_name=node_name,
             cluster_name=cluster_name,
             machine_type=data.get("machineType"),
