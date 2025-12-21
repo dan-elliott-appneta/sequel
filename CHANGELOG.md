@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-12-21
+
+### Changed
+- **Default project filter removed**: Changed default `project_regex` from `^s[d|v|p]ap[n|nc]gl.*$` to `""` (empty string)
+  - Application now shows **all Google Cloud projects by default** instead of filtering to a specific naming pattern
+  - Users can still apply custom filters via:
+    - Environment variable: `SEQUEL_PROJECT_FILTER_REGEX`
+    - Config file: `~/.config/sequel/config.json` (`filters.project_regex`)
+  - Updated default configuration in `src/sequel/config_file.py`
+  - Updated `Config` class default in `src/sequel/config.py`
+  - Updated documentation in `README.md` and `CLAUDE.md`
+
 ## [1.0.0] - 2025-12-21
 
 ### Added
@@ -172,5 +184,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mypy for strict type checking
 - GitHub Actions CI/CD
 
+[1.1.0]: https://github.com/dan-elliott-appneta/sequel/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/dan-elliott-appneta/sequel/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/dan-elliott-appneta/sequel/releases/tag/v0.1.0

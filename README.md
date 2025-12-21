@@ -4,7 +4,7 @@ A Terminal User Interface (TUI) for browsing and inspecting Google Cloud resourc
 
 ## Version
 
-Current version: **0.1.0** (Alpha)
+Current version: **1.1.0**
 
 ## Features
 
@@ -81,7 +81,7 @@ Sequel stores user preferences in `~/.config/sequel/config.json`. This file is a
     "theme": "textual-dark"
   },
   "filters": {
-    "project_regex": "^s[d|v|p]ap[n|nc]gl.*$"
+    "project_regex": ""
   }
 }
 ```
@@ -110,10 +110,10 @@ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
 Sequel can be configured using environment variables with the `SEQUEL_` prefix. These override config file values:
 
 ```bash
-# Project Filtering - Filter projects by regex (default: ^s[d|v|p]ap[n|nc]gl.*$)
+# Project Filtering - Filter projects by regex (default: "" - shows all projects)
 export SEQUEL_PROJECT_FILTER_REGEX="^my-project-prefix.*$"
 
-# Disable project filtering (show all projects)
+# Default behavior (show all projects)
 export SEQUEL_PROJECT_FILTER_REGEX=""
 
 # Caching
