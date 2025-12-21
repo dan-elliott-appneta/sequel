@@ -1,11 +1,20 @@
 """Detail pane widget for displaying resource details."""
 
 import json
+from typing import ClassVar
 
+from textual.binding import Binding
 from textual.widgets import TextArea
 
 from sequel.models.base import BaseModel
 from sequel.utils.logging import get_logger
+
+try:
+    import pyperclip  # type: ignore[import-untyped]
+
+    HAS_PYPERCLIP = True
+except ImportError:
+    HAS_PYPERCLIP = False
 
 logger = get_logger(__name__)
 
@@ -14,7 +23,23 @@ class DetailPane(TextArea):
     """Widget for displaying detailed information about a selected resource.
 
     This widget is scrollable and supports text selection for copying.
+    VIM-style navigation and yanking supported.
     """
+
+    BINDINGS: ClassVar = [
+        # VIM navigation (when not in selection mode)
+        Binding("j", "cursor_down", "Move down", show=False),
+        Binding("k", "cursor_up", "Move up", show=False),
+        Binding("h", "cursor_left", "Move left", show=False),
+        Binding("l", "cursor_right", "Move right", show=False),
+        Binding("g", "cursor_page_up", "Page up", show=False),
+        Binding("G", "cursor_page_down", "Page down", show=False),
+        Binding("0", "cursor_line_start", "Line start", show=False),
+        Binding("$", "cursor_line_end", "Line end", show=False),
+        # VIM yanking (copy)
+        Binding("y", "yank_selection", "Yank (copy)", show=False),
+        Binding("Y", "yank_line", "Yank line", show=False),
+    ]
 
     def __init__(self) -> None:
         """Initialize the detail pane."""
@@ -75,3 +100,35 @@ class DetailPane(TextArea):
         """Clear the detail pane."""
         self.current_resource = None
         self.load_text("No resource selected")
+
+    def action_yank_selection(self) -> None:
+        """Yank (copy) the current selection to clipboard (VIM 'y' command)."""
+        if self.selection:
+            # Get the selected text
+            selected_text = self.selected_text
+            # Copy to system clipboard
+            if HAS_PYPERCLIP:
+                pyperclip.copy(selected_text)
+                logger.debug(f"Yanked {len(selected_text)} characters to clipboard")
+            else:
+                logger.warning(
+                    "pyperclip not available. Install with: pip install pyperclip"
+                )
+                logger.info(f"Would have yanked: {selected_text[:50]}...")
+
+    def action_yank_line(self) -> None:
+        """Yank (copy) the current line to clipboard (VIM 'Y' command)."""
+        # Get the current line
+        cursor_row, _ = self.cursor_location
+        text_lines = self.text.split("\n")
+
+        if 0 <= cursor_row < len(text_lines):
+            line_text = text_lines[cursor_row]
+            if HAS_PYPERCLIP:
+                pyperclip.copy(line_text)
+                logger.debug(f"Yanked line {cursor_row + 1} to clipboard")
+            else:
+                logger.warning(
+                    "pyperclip not available. Install with: pip install pyperclip"
+                )
+                logger.info(f"Would have yanked line: {line_text[:50]}...")
