@@ -6,7 +6,7 @@ Sequel is a Python TUI application for browsing Google Cloud resources. It uses 
 
 ## Version Management
 
-**Current Version: 1.0.0**
+**Current Version: 1.0.4**
 
 We follow [Semantic Versioning](https://semver.org/) (SemVer):
 - **MAJOR** version: Incompatible API changes
@@ -17,7 +17,7 @@ We follow [Semantic Versioning](https://semver.org/) (SemVer):
 
 When updating the version, change it in **both** locations:
 1. `src/sequel/__init__.py` - `__version__ = "X.Y.Z"`
-2. `setup.py` - `version="X.Y.Z"`
+2. `pyproject.toml` - `version = "X.Y.Z"`
 3. `pyproject.toml` - `version = "X.Y.Z"`
 4. Update `README.md` to reflect the new version
 5. Update `CHANGELOG.md` with changes

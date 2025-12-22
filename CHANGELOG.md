@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2025-12-22
+
+### Added
+- **Comprehensive Filtering System**
+  - State layer filtering for projects and DNS zones (applied before storage)
+  - UI filtering for all resource types (CloudSQL, Compute, GKE, Secrets, IAM, DNS)
+  - Debounced filter input (400ms delay) for smooth typing experience
+  - Filter toggle with 'f' key, clear with 'Esc'
+  - Resource state singleton for centralized filtering
+  - Dynamic version display in app banner and CLI
+
+- **Security Enhancements**
+  - **Regex validation & ReDoS prevention** (`src/sequel/utils/regex_validator.py`)
+    - Validates all user-provided regex patterns at config load time
+    - Detects and blocks dangerous ReDoS patterns (nested quantifiers, overlapping alternations)
+    - Prevents catastrophic backtracking attacks
+    - Gracefully handles invalid patterns (logs warning, disables filtering)
+    - 31 comprehensive tests with 100% coverage
+  - **Timer lifecycle management** (`src/sequel/screens/main.py`)
+    - Added `on_unmount()` handler to cancel pending filter timers
+    - Prevents callbacks executing on destroyed widgets
+    - Fixes potential memory leaks on screen unmount
+
+### Changed
+- Improved JSON syntax highlighting with monokai theme for better readability
+- Enhanced test coverage from 77% to 93.70% (477 tests)
+- Clarified toast notification status in documentation (stubs only, not fully implemented)
+
+### Fixed
+- Fixed syntax highlighting in detail pane
+- Fixed variable name conflict causing type errors
+- Fixed test state leakage with singleton reset
+- Fixed ambiguous character in comment (× → x)
+
+### Security
+- User-provided regex patterns are now validated to prevent ReDoS attacks
+- Invalid regex patterns are rejected gracefully without crashing the application
+- Patterns with nested quantifiers or excessive complexity are blocked
+
 ## [1.0.0] - 2025-12-21
 
 ### Added
