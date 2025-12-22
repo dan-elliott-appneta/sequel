@@ -172,7 +172,7 @@ class TestDetailPane:
 
         # Verify configuration
         assert detail_pane.language == "json"
-        # Theme is not hardcoded anymore - it uses the default/app theme
+        assert detail_pane.theme == "monokai"  # Colorful syntax highlighting
         assert detail_pane.read_only is True
         assert detail_pane.show_line_numbers is True
         assert detail_pane.soft_wrap is False
