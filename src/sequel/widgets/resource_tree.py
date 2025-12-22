@@ -436,11 +436,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 )
                 return
 
-            # Add DNS record nodes (with limit)
-            total_records = len(records)
-            records_to_show = records[:MAX_CHILDREN_PER_NODE] if self._should_limit_children(total_records) else records
-
-            for record in records_to_show:
+            # Add all DNS record nodes (no limit)
+            for record in records:
                 node_data = ResourceTreeNode(
                     resource_type=ResourceType.CLOUDDNS_RECORD,
                     resource_id=f"{record.record_name}:{record.record_type}",
@@ -454,11 +451,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     data=node_data,
                     allow_expand=False,
                 )
-
-            # Add "... and N more" indicator if we hit the limit
-            if self._should_limit_children(total_records):
-                remaining = total_records - MAX_CHILDREN_PER_NODE
-                self._add_more_indicator(parent_node, remaining)
 
         except Exception as e:
             logger.error(f"Failed to load DNS records: {e}")
