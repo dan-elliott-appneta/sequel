@@ -147,9 +147,10 @@ class SequelApp(App[None]):
         Actions:
           q           - Quit application
           r           - Refresh current view
+          f           - Toggle filter input
+          Esc         - Clear filter and hide filter input
           Ctrl+P      - Open command palette (themes)
           ?           - Show this help
-          Esc         - Dismiss modal
         """
 
         await self.show_error("Help", help_text)

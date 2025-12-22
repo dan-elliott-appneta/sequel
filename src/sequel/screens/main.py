@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Header
+from textual.widgets import Header, Input
 
 from sequel.utils.logging import get_logger
 from sequel.widgets.detail_pane import DetailPane
@@ -45,11 +45,31 @@ class MainScreen(Screen[None]):
         Binding("down", "cursor_down", "Move down", show=False),
         Binding("left", "collapse_node", "Collapse/Parent", show=False),
         Binding("right", "expand_node", "Expand/Child", show=False),
+        # Filter
+        Binding("f", "toggle_filter", "Filter", show=False),
+        Binding("escape", "clear_filter", "Clear filter", show=False),
     ]
 
     CSS = """
     MainScreen {
         layout: vertical;
+    }
+
+    #filter-container {
+        height: auto;
+        background: $panel;
+        padding: 0 1;
+        display: none;
+    }
+
+    #filter-container.visible {
+        display: block;
+    }
+
+    #filter-input {
+        width: 100%;
+        height: 1;
+        border: none;
     }
 
     #main-container {
@@ -94,6 +114,8 @@ class MainScreen(Screen[None]):
         self.resource_tree: ResourceTree | None = None
         self.detail_pane: DetailPane | None = None
         self.status_bar: StatusBar | None = None
+        self.filter_input: Input | None = None
+        self.filter_active: bool = False
 
     def compose(self) -> ComposeResult:
         """Compose the screen layout.
@@ -102,6 +124,14 @@ class MainScreen(Screen[None]):
             Widget components
         """
         yield Header()
+
+        # Filter input (hidden by default)
+        with Vertical(id="filter-container"):
+            self.filter_input = Input(
+                placeholder="Filter resources... (type to filter, Esc to clear)",
+                id="filter-input",
+            )
+            yield self.filter_input
 
         with Horizontal(id="main-container"):
             with Vertical(id="tree-container"):
@@ -289,3 +319,57 @@ class MainScreen(Screen[None]):
             return self._get_last_visible_node(node.children[-1])  # type: ignore[attr-defined]
         # Otherwise, this is the last visible node
         return node
+
+    async def action_toggle_filter(self) -> None:
+        """Toggle the filter input visibility (triggered by 'f' key)."""
+        if not self.filter_input:
+            return
+
+        filter_container = self.query_one("#filter-container")
+
+        if self.filter_active:
+            # Hide filter
+            filter_container.remove_class("visible")
+            self.filter_active = False
+            # Clear filter and refocus tree
+            self.filter_input.value = ""
+            if self.resource_tree:
+                self.resource_tree.apply_filter("")
+                self.resource_tree.focus()
+            logger.debug("Filter hidden")
+        else:
+            # Show filter
+            filter_container.add_class("visible")
+            self.filter_active = True
+            self.filter_input.focus()
+            logger.debug("Filter shown")
+
+    async def action_clear_filter(self) -> None:
+        """Clear the filter (triggered by Esc key)."""
+        if not self.filter_input or not self.filter_active:
+            return
+
+        # Clear the input
+        self.filter_input.value = ""
+        # Clear filter in tree
+        if self.resource_tree:
+            self.resource_tree.apply_filter("")
+        # Hide filter container
+        filter_container = self.query_one("#filter-container")
+        filter_container.remove_class("visible")
+        self.filter_active = False
+        # Refocus tree
+        if self.resource_tree:
+            self.resource_tree.focus()
+        logger.debug("Filter cleared and hidden")
+
+    async def on_input_changed(self, event: Input.Changed) -> None:
+        """Handle filter input changes.
+
+        Args:
+            event: Input changed event
+        """
+        if event.input.id == "filter-input" and self.resource_tree:
+            filter_text = event.value.strip()
+            self.resource_tree.apply_filter(filter_text)
+            logger.debug(f"Applied filter: '{filter_text}'")

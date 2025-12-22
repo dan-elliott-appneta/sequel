@@ -91,6 +91,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
         """Initialize the resource tree."""
         super().__init__("GCP Resources", *args, **kwargs)
         self.root.expand()
+        self._filter_text: str = ""
 
     def _should_limit_children(self, count: int) -> bool:
         """Check if we should limit the number of children displayed.
@@ -919,3 +920,62 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 f"⚠️  Error loading instances: {str(e)[:50]}",
                 allow_expand=False,
             )
+
+    def apply_filter(self, filter_text: str) -> None:
+        """Apply a text filter to the tree nodes.
+
+        Shows only nodes that match the filter text (case-insensitive) or have
+        descendants that match. Ancestors of matching nodes are also shown.
+
+        Args:
+            filter_text: Text to filter by (empty string clears filter)
+        """
+        self._filter_text = filter_text.lower()
+        logger.info(f"Applying filter: '{filter_text}'")
+
+        # If filter is empty, show all nodes
+        if not self._filter_text:
+            self._show_all_nodes(self.root)
+            return
+
+        # Filter nodes recursively
+        self._apply_filter_recursive(self.root)
+
+    def _show_all_nodes(self, node: TreeNode[ResourceTreeNode]) -> None:
+        """Recursively show all nodes in the tree.
+
+        Args:
+            node: Starting node
+        """
+        node.display = True
+        for child in node.children:
+            self._show_all_nodes(child)
+
+    def _apply_filter_recursive(self, node: TreeNode[ResourceTreeNode]) -> bool:
+        """Recursively apply filter to nodes.
+
+        A node is visible if:
+        1. Its label matches the filter text, OR
+        2. Any of its descendants match the filter text
+
+        Args:
+            node: Node to check
+
+        Returns:
+            True if this node or any descendant matches the filter
+        """
+        # Check if this node's label matches
+        node_matches = self._filter_text in str(node.label).lower()
+
+        # Check if any children match (recursively)
+        has_matching_child = False
+        for child in node.children:
+            child_matches = self._apply_filter_recursive(child)
+            if child_matches:
+                has_matching_child = True
+
+        # Show this node if it matches or has matching children
+        should_show = node_matches or has_matching_child
+        node.display = should_show
+
+        return should_show
