@@ -8,6 +8,10 @@ from textual.widgets import Tree
 from textual.widgets.tree import TreeNode
 
 from sequel.config import get_config
+from sequel.services.clouddns import get_clouddns_service
+from sequel.services.compute import get_compute_service
+from sequel.services.gke import get_gke_service
+from sequel.services.iam import get_iam_service
 from sequel.state.resource_state import get_resource_state
 from sequel.utils.logging import get_logger
 
@@ -920,3 +924,274 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 f"⚠️  Error loading instances: {str(e)[:50]}",
                 allow_expand=False,
             )
+
+    async def apply_filter(self, filter_text: str) -> None:
+        """Apply filter by querying state and rebuilding tree.
+
+        Args:
+            filter_text: Text to filter by (empty string clears filter)
+        """
+        self._filter_text = filter_text.strip().lower()
+        logger.info(f"Applying filter: '{filter_text}'")
+
+        if not self._filter_text:
+            # No filter - reload projects normally
+            await self.load_projects()
+            return
+
+        # Show notification
+        if self.app:
+            self.app.notify(f"Filtering for '{filter_text}'...", severity="information", timeout=2)
+
+        # Get all projects from state
+        projects = self._state.get_projects()
+
+        # Apply project filter regex if configured
+        config = get_config()
+        if config.project_filter_regex:
+            try:
+                pattern = re.compile(config.project_filter_regex)
+                projects = [
+                    p for p in projects
+                    if pattern.match(p.project_id) or pattern.match(p.display_name)
+                ]
+            except re.error as e:
+                logger.error(f"Invalid project filter regex: {e}")
+
+        # Rebuild tree with only matching resources
+        self.root.remove_children()
+
+        for project in projects:
+            # Check if project name matches
+            project_matches = (
+                self._matches_filter(project.display_name)
+                or self._matches_filter(project.project_id)
+            )
+
+            # Get all resources from state for this project
+            matching_resources: dict[str, list[Any]] = {}
+
+            # Check CloudSQL (if loaded)
+            if self._state.is_loaded(project.project_id, "cloudsql"):
+                instances = self._state.get_cloudsql_instances(project.project_id)
+                matching_sql = [
+                    i for i in instances if self._matches_filter(i.instance_name)
+                ]
+                if matching_sql:
+                    matching_resources["cloudsql"] = matching_sql
+
+            # Check Compute Groups (if loaded)
+            if self._state.is_loaded(project.project_id, "compute_groups"):
+                groups = self._state.get_compute_groups(project.project_id)
+                matching_groups = [g for g in groups if self._matches_filter(g.group_name)]
+                if matching_groups:
+                    matching_resources["compute_groups"] = matching_groups
+
+            # Check GKE Clusters (if loaded)
+            if self._state.is_loaded(project.project_id, "gke_clusters"):
+                clusters = self._state.get_gke_clusters(project.project_id)
+                matching_clusters = [
+                    c for c in clusters if self._matches_filter(c.cluster_name)
+                ]
+                if matching_clusters:
+                    matching_resources["gke_clusters"] = matching_clusters
+
+            # Check Secrets (if loaded)
+            if self._state.is_loaded(project.project_id, "secrets"):
+                secrets = self._state.get_secrets(project.project_id)
+                matching_secrets = [s for s in secrets if self._matches_filter(s.secret_name)]
+                if matching_secrets:
+                    matching_resources["secrets"] = matching_secrets
+
+            # Check IAM Accounts (if loaded)
+            if self._state.is_loaded(project.project_id, "iam_accounts"):
+                accounts = self._state.get_iam_accounts(project.project_id)
+                matching_accounts = [
+                    a
+                    for a in accounts
+                    if self._matches_filter(a.email)
+                    or (a.display_name and self._matches_filter(a.display_name))
+                ]
+                if matching_accounts:
+                    matching_resources["iam_accounts"] = matching_accounts
+
+            # Only add project if it matches or has matching resources
+            if project_matches or matching_resources:
+                project_data = ResourceTreeNode(
+                    resource_type=ResourceType.PROJECT,
+                    resource_id=project.project_id,
+                    resource_data=project,
+                )
+                project_node = self.root.add(
+                    f"📁 {project.display_name or project.project_id}",
+                    data=project_data,
+                    allow_expand=True,
+                )
+
+                # Add matching CloudSQL instances
+                if "cloudsql" in matching_resources:
+                    instances = matching_resources["cloudsql"]
+                    sql_data = ResourceTreeNode(
+                        resource_type=ResourceType.CLOUDSQL,
+                        resource_id=f"{project.project_id}:cloudsql",
+                        project_id=project.project_id,
+                    )
+                    instance_word = "instance" if len(instances) == 1 else "instances"
+                    sql_node = project_node.add(
+                        f"🗄️  Cloud SQL ({len(instances)} {instance_word})",
+                        data=sql_data,
+                        allow_expand=True,
+                    )
+                    for instance in instances:
+                        inst_data = ResourceTreeNode(
+                            resource_type=ResourceType.CLOUDSQL,
+                            resource_id=instance.instance_name,
+                            resource_data=instance,
+                            project_id=project.project_id,
+                        )
+                        status_icon = "✓" if instance.is_running() else "✗"
+                        sql_node.add_leaf(
+                            f"{status_icon} {instance.instance_name} ({instance.database_version})",
+                            data=inst_data,
+                        )
+
+                # Add matching Compute Groups
+                if "compute_groups" in matching_resources:
+                    groups = matching_resources["compute_groups"]
+                    compute_data = ResourceTreeNode(
+                        resource_type=ResourceType.COMPUTE,
+                        resource_id=f"{project.project_id}:compute",
+                        project_id=project.project_id,
+                    )
+                    group_word = "group" if len(groups) == 1 else "groups"
+                    compute_node = project_node.add(
+                        f"💻 Instance Groups ({len(groups)} {group_word})",
+                        data=compute_data,
+                        allow_expand=True,
+                    )
+                    for group in groups:
+                        zone = None
+                        region = None
+                        if hasattr(group, 'zone') and group.zone:
+                            zone_parts = group.zone.split('/')
+                            if len(zone_parts) > 0:
+                                zone = zone_parts[-1]
+                        elif hasattr(group, 'region') and group.region:
+                            region_parts = group.region.split('/')
+                            if len(region_parts) > 0:
+                                region = region_parts[-1]
+
+                        group_data = ResourceTreeNode(
+                            resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
+                            resource_id=group.group_name,
+                            resource_data=group,
+                            project_id=project.project_id,
+                            zone=zone,
+                            location=region,
+                        )
+                        type_icon = "M" if group.is_managed else "U"
+                        zone_or_region = zone if zone else region
+                        compute_node.add(
+                            f"[{type_icon}] {group.group_name} ({zone_or_region}, size: {group.size})",
+                            data=group_data,
+                            allow_expand=True,
+                        )
+
+                # Add matching GKE Clusters
+                if "gke_clusters" in matching_resources:
+                    clusters = matching_resources["gke_clusters"]
+                    gke_data = ResourceTreeNode(
+                        resource_type=ResourceType.GKE,
+                        resource_id=f"{project.project_id}:gke",
+                        project_id=project.project_id,
+                    )
+                    cluster_word = "cluster" if len(clusters) == 1 else "clusters"
+                    gke_node = project_node.add(
+                        f"⎈  GKE Clusters ({len(clusters)} {cluster_word})",
+                        data=gke_data,
+                        allow_expand=True,
+                    )
+                    for cluster in clusters:
+                        location = cluster.location if hasattr(cluster, 'location') else None
+                        cluster_data = ResourceTreeNode(
+                            resource_type=ResourceType.GKE_CLUSTER,
+                            resource_id=cluster.cluster_name,
+                            resource_data=cluster,
+                            project_id=project.project_id,
+                            location=location,
+                        )
+                        status_icon = "✓" if cluster.is_running() else "✗"
+                        gke_node.add(
+                            f"{status_icon} {cluster.cluster_name} (nodes: {cluster.node_count})",
+                            data=cluster_data,
+                            allow_expand=True,
+                        )
+
+                # Add matching Secrets
+                if "secrets" in matching_resources:
+                    secrets = matching_resources["secrets"]
+                    secrets_data = ResourceTreeNode(
+                        resource_type=ResourceType.SECRETS,
+                        resource_id=f"{project.project_id}:secrets",
+                        project_id=project.project_id,
+                    )
+                    secret_word = "secret" if len(secrets) == 1 else "secrets"
+                    secrets_node = project_node.add(
+                        f"🔐 Secrets ({len(secrets)} {secret_word})",
+                        data=secrets_data,
+                        allow_expand=True,
+                    )
+                    for secret in secrets:
+                        secret_data = ResourceTreeNode(
+                            resource_type=ResourceType.SECRETS,
+                            resource_id=secret.secret_name,
+                            resource_data=secret,
+                            project_id=project.project_id,
+                        )
+                        secrets_node.add_leaf(
+                            f"🔑 {secret.secret_name}",
+                            data=secret_data,
+                        )
+
+                # Add matching IAM Accounts
+                if "iam_accounts" in matching_resources:
+                    accounts = matching_resources["iam_accounts"]
+                    iam_data = ResourceTreeNode(
+                        resource_type=ResourceType.IAM,
+                        resource_id=f"{project.project_id}:iam",
+                        project_id=project.project_id,
+                    )
+                    account_word = "account" if len(accounts) == 1 else "accounts"
+                    iam_node = project_node.add(
+                        f"👤 Service Accounts ({len(accounts)} {account_word})",
+                        data=iam_data,
+                        allow_expand=True,
+                    )
+                    for account in accounts:
+                        account_data = ResourceTreeNode(
+                            resource_type=ResourceType.IAM_SERVICE_ACCOUNT,
+                            resource_id=account.email,
+                            resource_data=account,
+                            project_id=project.project_id,
+                        )
+                        status_icon = "✓" if account.is_enabled() else "✗"
+                        iam_node.add(
+                            f"{status_icon} {account.email}",
+                            data=account_data,
+                            allow_expand=True,
+                        )
+
+        logger.info(f"Filter applied: showing {len(self.root.children)} matching projects")
+
+    def _matches_filter(self, text: str) -> bool:
+        """Check if text matches the current filter.
+
+        Args:
+            text: Text to check
+
+        Returns:
+            True if text matches filter (case-insensitive)
+        """
+        if not self._filter_text or not text:
+            return False
+        return self._filter_text in text.lower()

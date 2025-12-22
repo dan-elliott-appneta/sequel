@@ -1,8 +1,7 @@
 """Main application screen with tree and detail pane layout."""
 
-from typing import ClassVar
-
 import asyncio
+from typing import ClassVar
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -47,11 +46,31 @@ class MainScreen(Screen[None]):
         Binding("down", "cursor_down", "Move down", show=False),
         Binding("left", "collapse_node", "Collapse/Parent", show=False),
         Binding("right", "expand_node", "Expand/Child", show=False),
+        # Filter
+        Binding("f", "toggle_filter", "Filter", show=False),
+        Binding("escape", "clear_filter", "Clear filter", show=False),
     ]
 
     CSS = """
     MainScreen {
         layout: vertical;
+    }
+
+    #filter-container {
+        height: 0;
+        background: $panel;
+        padding: 0 1;
+        overflow: hidden;
+    }
+
+    #filter-container.visible {
+        height: 3;
+    }
+
+    #filter-input {
+        width: 100%;
+        height: 1;
+        border: none;
     }
 
     #main-container {
@@ -96,6 +115,8 @@ class MainScreen(Screen[None]):
         self.resource_tree: ResourceTree | None = None
         self.detail_pane: DetailPane | None = None
         self.status_bar: StatusBar | None = None
+        self.filter_input: Input | None = None
+        self._filter_timer: asyncio.TimerHandle | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the screen layout.
@@ -104,6 +125,14 @@ class MainScreen(Screen[None]):
             Widget components
         """
         yield Header()
+
+        # Filter input (hidden by default)
+        with Vertical(id="filter-container"):
+            self.filter_input = Input(
+                placeholder="Filter resources... (type to filter, Esc to clear)",
+                id="filter-input",
+            )
+            yield self.filter_input
 
         with Horizontal(id="main-container"):
             with Vertical(id="tree-container"):
@@ -291,3 +320,71 @@ class MainScreen(Screen[None]):
             return self._get_last_visible_node(node.children[-1])  # type: ignore[attr-defined]
         # Otherwise, this is the last visible node
         return node
+    async def action_toggle_filter(self) -> None:
+        """Toggle filter input visibility (triggered by 'f' key)."""
+        if not self.filter_input:
+            return
+
+        filter_container = self.query_one("#filter-container")
+
+        if filter_container.has_class("visible"):
+            # Hide filter
+            filter_container.remove_class("visible")
+            if self.resource_tree:
+                self.resource_tree.focus()
+            logger.debug("Filter hidden")
+        else:
+            # Show filter
+            filter_container.add_class("visible")
+            self.filter_input.focus()
+            logger.debug("Filter shown")
+
+    async def action_clear_filter(self) -> None:
+        """Clear filter and hide input (triggered by Esc key)."""
+        if not self.filter_input or not self.resource_tree:
+            return
+
+        # Clear filter text
+        self.filter_input.value = ""
+
+        # Hide filter container
+        filter_container = self.query_one("#filter-container")
+        filter_container.remove_class("visible")
+
+        # Clear filter in tree (rebuild from full state)
+        await self.resource_tree.apply_filter("")
+
+        # Focus back on tree
+        self.resource_tree.focus()
+        logger.debug("Filter cleared and hidden")
+
+    async def on_input_changed(self, event: Input.Changed) -> None:
+        """Handle filter input changes with debouncing.
+
+        Args:
+            event: Input changed event
+        """
+        if event.input.id == "filter-input" and self.resource_tree:
+            # Cancel any pending filter operation
+            if self._filter_timer:
+                self._filter_timer.cancel()
+
+            filter_text = event.value.strip()
+
+            # Debounce: wait 400ms after user stops typing before filtering
+            # This prevents UI hangs when typing quickly
+            loop = asyncio.get_event_loop()
+            self._filter_timer = loop.call_later(
+                0.4,  # 400ms delay
+                lambda: asyncio.create_task(self._apply_filter_debounced(filter_text))
+            )
+
+    async def _apply_filter_debounced(self, filter_text: str) -> None:
+        """Apply filter after debounce delay.
+
+        Args:
+            filter_text: Text to filter by
+        """
+        if self.resource_tree:
+            await self.resource_tree.apply_filter(filter_text)
+            logger.debug(f"Applied filter: '{filter_text}'")
