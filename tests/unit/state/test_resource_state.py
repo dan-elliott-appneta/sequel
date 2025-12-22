@@ -289,3 +289,337 @@ class TestResourceState:
         state1 = get_resource_state()
         state2 = get_resource_state()
         assert state1 is state2
+
+    @pytest.mark.asyncio
+    async def test_load_dns_zones_first_time(
+        self, resource_state: ResourceState, mock_config: MagicMock
+    ) -> None:
+        """Test loading DNS zones for the first time."""
+        from sequel.models.clouddns import ManagedZone
+
+        zones = [
+            ManagedZone(
+                id="zone-1",
+                name="zone-1",
+                project_id="proj-1",
+                zone_name="zone-1",
+                dns_name="example.com.",
+                description="Test zone",
+                name_servers=["ns1.example.com"],
+            ),
+        ]
+
+        with (
+            patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service,
+            patch("sequel.state.resource_state.get_config", return_value=mock_config),
+        ):
+            mock_service = AsyncMock()
+            mock_service.list_zones.return_value = zones
+            mock_get_service.return_value = mock_service
+
+            result = await resource_state.load_dns_zones("proj-1")
+
+            assert len(result) == 1
+            assert result[0].zone_name == "zone-1"
+            mock_service.list_zones.assert_called_once_with("proj-1", use_cache=True)
+
+    @pytest.mark.asyncio
+    async def test_load_dns_zones_with_filter(
+        self, resource_state: ResourceState
+    ) -> None:
+        """Test loading DNS zones with dns_zone_filter."""
+        from sequel.models.clouddns import ManagedZone
+
+        zones = [
+            ManagedZone(
+                id="zone-1",
+                name="zone-1",
+                project_id="proj-1",
+                zone_name="zone-1",
+                dns_name="example.com.",
+                description="Test zone",
+                name_servers=["ns1.example.com"],
+            ),
+            ManagedZone(
+                id="zone-2",
+                name="zone-2",
+                project_id="proj-1",
+                zone_name="zone-2",
+                dns_name="appneta.com.",
+                description="Appneta zone",
+                name_servers=["ns1.appneta.com"],
+            ),
+        ]
+
+        with (
+            patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service,
+            patch("sequel.state.resource_state.get_config") as mock_get_config,
+        ):
+            mock_config = MagicMock()
+            mock_config.dns_zone_filter = "appneta"
+            mock_get_config.return_value = mock_config
+
+            mock_service = AsyncMock()
+            mock_service.list_zones.return_value = zones
+            mock_get_service.return_value = mock_service
+
+            result = await resource_state.load_dns_zones("proj-1")
+
+            # Should only return zones matching the filter
+            assert len(result) == 1
+            assert result[0].dns_name == "appneta.com."
+
+    @pytest.mark.asyncio
+    async def test_load_dns_records_first_time(
+        self, resource_state: ResourceState
+    ) -> None:
+        """Test loading DNS records for the first time."""
+        from sequel.models.clouddns import DNSRecord
+
+        records = [
+            DNSRecord(
+                id="record-1",
+                name="record-1",
+                project_id="proj-1",
+                zone_name="zone-1",
+                record_name="www.example.com.",
+                record_type="A",
+                ttl=300,
+                rrdatas=["1.2.3.4"],
+            ),
+        ]
+
+        with patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_records.return_value = records
+            mock_get_service.return_value = mock_service
+
+            result = await resource_state.load_dns_records("proj-1", "zone-1")
+
+            assert len(result) == 1
+            assert result[0].record_name == "www.example.com."
+            mock_service.list_records.assert_called_once_with(
+                project_id="proj-1", zone_name="zone-1", use_cache=True
+            )
+
+    @pytest.mark.asyncio
+    async def test_load_dns_records_from_cache(
+        self, resource_state: ResourceState
+    ) -> None:
+        """Test loading DNS records from state cache."""
+        from sequel.models.clouddns import DNSRecord
+
+        records = [
+            DNSRecord(
+                id="record-1",
+                name="record-1",
+                project_id="proj-1",
+                zone_name="zone-1",
+                record_name="www.example.com.",
+                record_type="A",
+                ttl=300,
+                rrdatas=["1.2.3.4"],
+            ),
+        ]
+
+        with patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_records.return_value = records
+            mock_get_service.return_value = mock_service
+
+            # First load
+            await resource_state.load_dns_records("proj-1", "zone-1")
+
+            # Second load (should return from cache)
+            result = await resource_state.load_dns_records("proj-1", "zone-1")
+
+            assert len(result) == 1
+            # Service should only be called once (first time)
+            mock_service.list_records.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_load_cloudsql_instances_from_cache(
+        self, resource_state: ResourceState
+    ) -> None:
+        """Test loading CloudSQL instances from state cache."""
+        instances = [
+            CloudSQLInstance(
+                id="sql-1",
+                name="sql-1",
+                project_id="proj-1",
+                instance_name="sql-1",
+                database_version="POSTGRES_14",
+                region="us-central1",
+                tier="db-f1-micro",
+                state="RUNNABLE",
+                ip_addresses=[],
+            ),
+        ]
+
+        with patch("sequel.state.resource_state.get_cloudsql_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_instances.return_value = instances
+            mock_get_service.return_value = mock_service
+
+            # First load
+            await resource_state.load_cloudsql_instances("proj-1")
+
+            # Second load (should return from cache)
+            result = await resource_state.load_cloudsql_instances("proj-1")
+
+            assert len(result) == 1
+            # Service should only be called once
+            mock_service.list_instances.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_load_compute_groups_from_cache(
+        self, resource_state: ResourceState
+    ) -> None:
+        """Test loading compute groups from state cache."""
+        groups = [
+            InstanceGroup(
+                id="group-1",
+                name="group-1",
+                project_id="proj-1",
+                group_name="group-1",
+                zone="us-central1-a",
+                size=3,
+                is_managed=True,
+                template_url="https://...",
+            ),
+        ]
+
+        with patch("sequel.state.resource_state.get_compute_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_instance_groups.return_value = groups
+            mock_get_service.return_value = mock_service
+
+            # First load
+            await resource_state.load_compute_groups("proj-1")
+
+            # Second load (should return from cache)
+            result = await resource_state.load_compute_groups("proj-1")
+
+            assert len(result) == 1
+            # Service should only be called once
+            mock_service.list_instance_groups.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_load_gke_clusters_from_cache(
+        self, resource_state: ResourceState
+    ) -> None:
+        """Test loading GKE clusters from state cache."""
+        clusters = [
+            GKECluster(
+                id="cluster-1",
+                name="cluster-1",
+                project_id="proj-1",
+                cluster_name="cluster-1",
+                location="us-central1-a",
+                status="RUNNING",
+                endpoint="1.2.3.4",
+                node_count=3,
+            ),
+        ]
+
+        with patch("sequel.state.resource_state.get_gke_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_clusters.return_value = clusters
+            mock_get_service.return_value = mock_service
+
+            # First load
+            await resource_state.load_gke_clusters("proj-1")
+
+            # Second load (should return from cache)
+            result = await resource_state.load_gke_clusters("proj-1")
+
+            assert len(result) == 1
+            # Service should only be called once
+            mock_service.list_clusters.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_load_secrets_from_cache(
+        self, resource_state: ResourceState
+    ) -> None:
+        """Test loading secrets from state cache."""
+        secrets = [
+            Secret(
+                id="secret-1",
+                name="secret-1",
+                project_id="proj-1",
+                secret_name="secret-1",
+                replication_policy="automatic",
+                create_time="2024-01-01T00:00:00Z",
+            ),
+        ]
+
+        with patch("sequel.state.resource_state.get_secret_manager_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_secrets.return_value = secrets
+            mock_get_service.return_value = mock_service
+
+            # First load
+            await resource_state.load_secrets("proj-1")
+
+            # Second load (should return from cache)
+            result = await resource_state.load_secrets("proj-1")
+
+            assert len(result) == 1
+            # Service should only be called once
+            mock_service.list_secrets.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_load_iam_accounts_from_cache(
+        self, resource_state: ResourceState
+    ) -> None:
+        """Test loading IAM accounts from state cache."""
+        accounts = [
+            ServiceAccount(
+                id="sa@project.iam.gserviceaccount.com",
+                name="Service Account",
+                project_id="proj-1",
+                email="sa@project.iam.gserviceaccount.com",
+                display_name="Service Account",
+                disabled=False,
+            ),
+        ]
+
+        with patch("sequel.state.resource_state.get_iam_service") as mock_get_service:
+            mock_service = AsyncMock()
+            mock_service.list_service_accounts.return_value = accounts
+            mock_get_service.return_value = mock_service
+
+            # First load
+            await resource_state.load_iam_accounts("proj-1")
+
+            # Second load (should return from cache)
+            result = await resource_state.load_iam_accounts("proj-1")
+
+            assert len(result) == 1
+            # Service should only be called once
+            mock_service.list_service_accounts.assert_called_once()
+
+    def test_get_dns_zones_empty(self, resource_state: ResourceState) -> None:
+        """Test getting DNS zones when none loaded."""
+        zones = resource_state.get_dns_zones("proj-1")
+        assert zones == []
+
+    def test_get_dns_records_empty(self, resource_state: ResourceState) -> None:
+        """Test getting DNS records when none loaded."""
+        records = resource_state.get_dns_records("proj-1", "zone-1")
+        assert records == []
+
+    def test_get_gke_clusters_empty(self, resource_state: ResourceState) -> None:
+        """Test getting GKE clusters when none loaded."""
+        clusters = resource_state.get_gke_clusters("proj-1")
+        assert clusters == []
+
+    def test_get_secrets_empty(self, resource_state: ResourceState) -> None:
+        """Test getting secrets when none loaded."""
+        secrets = resource_state.get_secrets("proj-1")
+        assert secrets == []
+
+    def test_get_iam_accounts_empty(self, resource_state: ResourceState) -> None:
+        """Test getting IAM accounts when none loaded."""
+        accounts = resource_state.get_iam_accounts("proj-1")
+        assert accounts == []
