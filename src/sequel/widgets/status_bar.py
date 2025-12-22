@@ -124,3 +124,5 @@ class StatusBar(Static):
         # Combine all parts
         status_text = "  |  ".join(parts) if parts else "Ready"
         self.update(status_text)
+        # Force immediate refresh so status changes are visible
+        self.refresh()

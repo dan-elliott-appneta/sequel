@@ -322,8 +322,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         if status_bar:
             status_bar.set_operation("Cleaning up empty nodes...")
-            # Yield to event loop to allow UI update
-            await asyncio.sleep(0.1)
+            # Force screen refresh and yield to event loop to allow UI update
+            if self.screen:
+                self.screen.refresh()
+            await asyncio.sleep(0.2)
 
         projects_to_check = list(self.root.children)
 
@@ -1009,7 +1011,9 @@ class ResourceTree(Tree[ResourceTreeNode]):
             # No filter - show all loaded data from state
             if status_bar:
                 status_bar.set_operation("Rebuilding tree...")
-                # Yield to event loop to allow UI update
+                # Force screen refresh and yield to event loop to allow UI update
+                if self.screen:
+                    self.screen.refresh()
                 await asyncio.sleep(0.1)
             await self._rebuild_tree_from_state()
             if status_bar:
@@ -1021,7 +1025,9 @@ class ResourceTree(Tree[ResourceTreeNode]):
             logger.info("Resources not yet loaded - loading all resources before filtering")
             if status_bar:
                 status_bar.set_operation("Loading all resources for filtering...")
-                # Yield to event loop to allow UI update
+                # Force screen refresh and yield to event loop to allow UI update
+                if self.screen:
+                    self.screen.refresh()
                 await asyncio.sleep(0.1)
 
             # Load all projects and their resources
@@ -1032,8 +1038,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
         # With filter - show only matching resources from state
         if status_bar:
             status_bar.set_operation(f"Filtering for '{filter_text}'...")
-            # Yield to event loop to allow UI update
-            await asyncio.sleep(0.1)
+            # Force screen refresh and yield to event loop to allow UI update
+            if self.screen:
+                self.screen.refresh()
+            await asyncio.sleep(0.2)
         await self._rebuild_filtered_tree()
         if status_bar:
             status_bar.set_operation(None)
