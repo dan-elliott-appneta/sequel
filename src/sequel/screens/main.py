@@ -2,11 +2,13 @@
 
 from typing import ClassVar
 
+import asyncio
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Header
+from textual.widgets import Header, Input
 
 from sequel.utils.logging import get_logger
 from sequel.widgets.detail_pane import DetailPane

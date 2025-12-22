@@ -8,13 +8,7 @@ from textual.widgets import Tree
 from textual.widgets.tree import TreeNode
 
 from sequel.config import get_config
-from sequel.services.clouddns import get_clouddns_service
-from sequel.services.cloudsql import get_cloudsql_service
-from sequel.services.compute import get_compute_service
-from sequel.services.gke import get_gke_service
-from sequel.services.iam import get_iam_service
-from sequel.services.projects import get_project_service
-from sequel.services.secrets import get_secret_manager_service
+from sequel.state.resource_state import get_resource_state
 from sequel.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -91,6 +85,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
         """Initialize the resource tree."""
         super().__init__("GCP Resources", *args, **kwargs)
         self.root.expand()
+        self._state = get_resource_state()  # Reference to centralized state
+        self._filter_text: str = ""  # Current filter text
 
     def _should_limit_children(self, count: int) -> bool:
         """Check if we should limit the number of children displayed.
@@ -119,12 +115,17 @@ class ResourceTree(Tree[ResourceTreeNode]):
             allow_expand=False,
         )
 
-    async def load_projects(self) -> None:
-        """Load all projects as root-level nodes."""
+    async def load_projects(self, force_refresh: bool = False) -> None:
+        """Load all projects as root-level nodes.
+
+        Args:
+            force_refresh: If True, bypass state cache and reload from API
+        """
         try:
-            logger.info("Loading projects into tree")
-            project_service = await get_project_service()
-            projects = await project_service.list_projects()
+            logger.info(f"Loading projects into tree (force_refresh={force_refresh})")
+
+            # Load projects into state (uses cache if not force_refresh)
+            projects = await self._state.load_projects(force_refresh)
 
             # Apply project filter if configured
             config = get_config()
@@ -358,15 +359,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
             node.add_leaf(f"Error: {e}")
 
     async def _load_dns_zones(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
-        """Load Cloud DNS managed zones for a project."""
+        """Load Cloud DNS managed zones for a project from state."""
         if parent_node.data is None or parent_node.data.project_id is None:
             return
 
         project_id = parent_node.data.project_id
-        logger.info(f"Loading DNS zones for {project_id}")
+        logger.info(f"Loading DNS zones for {project_id} from state")
 
-        service = await get_clouddns_service()
-        zones = await service.list_zones(project_id)
+        # Load into state (uses cache from service layer)
+        zones = await self._state.load_dns_zones(project_id)
 
         parent_node.remove_children()
 
@@ -468,15 +469,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
             )
 
     async def _load_cloudsql_instances(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
-        """Load Cloud SQL instances for a project."""
+        """Load Cloud SQL instances for a project from state."""
         if parent_node.data is None or parent_node.data.project_id is None:
             return
 
         project_id = parent_node.data.project_id
-        logger.info(f"Loading Cloud SQL instances for {project_id}")
+        logger.info(f"Loading Cloud SQL instances for {project_id} from state")
 
-        service = await get_cloudsql_service()
-        instances = await service.list_instances(project_id)
+        # Load into state (uses cache from service layer)
+        instances = await self._state.load_cloudsql_instances(project_id)
 
         parent_node.remove_children()
 
@@ -507,15 +508,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
             )
 
     async def _load_instance_groups(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
-        """Load Compute Engine instance groups for a project."""
+        """Load Compute Engine instance groups for a project from state."""
         if parent_node.data is None or parent_node.data.project_id is None:
             return
 
         project_id = parent_node.data.project_id
-        logger.info(f"Loading instance groups for {project_id}")
+        logger.info(f"Loading instance groups for {project_id} from state")
 
-        service = await get_compute_service()
-        groups = await service.list_instance_groups(project_id)
+        # Load into state (uses cache from service layer)
+        groups = await self._state.load_compute_groups(project_id)
 
         parent_node.remove_children()
 
@@ -566,15 +567,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
             )
 
     async def _load_gke_clusters(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
-        """Load GKE clusters for a project."""
+        """Load GKE clusters for a project from state."""
         if parent_node.data is None or parent_node.data.project_id is None:
             return
 
         project_id = parent_node.data.project_id
-        logger.info(f"Loading GKE clusters for {project_id}")
+        logger.info(f"Loading GKE clusters for {project_id} from state")
 
-        service = await get_gke_service()
-        clusters = await service.list_clusters(project_id)
+        # Load into state (uses cache from service layer)
+        clusters = await self._state.load_gke_clusters(project_id)
 
         parent_node.remove_children()
 
@@ -611,15 +612,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
             )
 
     async def _load_secrets(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
-        """Load secrets for a project."""
+        """Load secrets for a project from state."""
         if parent_node.data is None or parent_node.data.project_id is None:
             return
 
         project_id = parent_node.data.project_id
-        logger.info(f"Loading secrets for {project_id}")
+        logger.info(f"Loading secrets for {project_id} from state")
 
-        service = await get_secret_manager_service()
-        secrets = await service.list_secrets(project_id)
+        # Load into state (uses cache from service layer)
+        secrets = await self._state.load_secrets(project_id)
 
         parent_node.remove_children()
 
@@ -649,15 +650,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
             )
 
     async def _load_service_accounts(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
-        """Load service accounts for a project."""
+        """Load service accounts for a project from state."""
         if parent_node.data is None or parent_node.data.project_id is None:
             return
 
         project_id = parent_node.data.project_id
-        logger.info(f"Loading service accounts for {project_id}")
+        logger.info(f"Loading service accounts for {project_id} from state")
 
-        service = await get_iam_service()
-        accounts = await service.list_service_accounts(project_id)
+        # Load into state (uses cache from service layer)
+        accounts = await self._state.load_iam_accounts(project_id)
 
         parent_node.remove_children()
 

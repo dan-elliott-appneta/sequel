@@ -1,0 +1,261 @@
+"""Centralized state manager for in-memory GCP resource data."""
+
+from sequel.models.clouddns import DNSRecord, ManagedZone
+from sequel.models.cloudsql import CloudSQLInstance
+from sequel.models.compute import ComputeInstance, InstanceGroup
+from sequel.models.gke import GKECluster, GKENode
+from sequel.models.iam import IAMRoleBinding, ServiceAccount
+from sequel.models.project import Project
+from sequel.models.secrets import Secret
+from sequel.services.clouddns import get_clouddns_service
+from sequel.services.cloudsql import get_cloudsql_service
+from sequel.services.compute import get_compute_service
+from sequel.services.gke import get_gke_service
+from sequel.services.iam import get_iam_service
+from sequel.services.projects import get_project_service
+from sequel.services.secrets import get_secret_manager_service
+from sequel.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+class ResourceState:
+    """Centralized state manager for GCP resources.
+
+    This class maintains an in-memory cache of all loaded GCP resources.
+    Resources are loaded from services on-demand and cached here. The tree
+    widget renders from this state rather than calling APIs directly.
+
+    The state tracks what has been loaded to avoid redundant API calls.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the resource state manager."""
+        # Resource storage by type
+        self._projects: dict[str, Project] = {}
+        self._dns_zones: dict[str, list[ManagedZone]] = {}
+        self._dns_records: dict[tuple[str, str], list[DNSRecord]] = {}
+        self._cloudsql: dict[str, list[CloudSQLInstance]] = {}
+        self._compute_groups: dict[str, list[InstanceGroup]] = {}
+        self._compute_instances: dict[tuple[str, str], list[ComputeInstance]] = {}
+        self._gke_clusters: dict[str, list[GKECluster]] = {}
+        self._gke_nodes: dict[tuple[str, str], list[GKENode]] = {}
+        self._secrets: dict[str, list[Secret]] = {}
+        self._iam_accounts: dict[str, list[ServiceAccount]] = {}
+        self._iam_roles: dict[tuple[str, str], list[IAMRoleBinding]] = {}
+
+        # Track what's been loaded - set of tuple keys
+        self._loaded: set[tuple[str, ...]] = set()
+
+    async def load_projects(self, force_refresh: bool = False) -> list[Project]:
+        """Load projects into state from API.
+
+        Args:
+            force_refresh: If True, bypass state cache and reload from API
+
+        Returns:
+            List of Project instances
+        """
+        key = ("projects",)
+
+        # Return from state if already loaded and not forcing refresh
+        if not force_refresh and key in self._loaded:
+            logger.info(f"Returning {len(self._projects)} projects from state")
+            return list(self._projects.values())
+
+        # Load from service (service has its own cache layer)
+        service = await get_project_service()
+        projects = await service.list_projects(use_cache=not force_refresh)
+
+        # Store in state
+        self._projects = {p.project_id: p for p in projects}
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(projects)} projects into state")
+        return projects
+
+    async def load_dns_zones(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[ManagedZone]:
+        """Load DNS zones for a project.
+
+        Args:
+            project_id: GCP project ID
+            force_refresh: If True, bypass state cache and reload from API
+
+        Returns:
+            List of ManagedZone instances
+        """
+        key = (project_id, "dns_zones")
+
+        # Return from state if already loaded and not forcing refresh
+        if not force_refresh and key in self._loaded:
+            zones = self._dns_zones.get(project_id, [])
+            logger.info(f"Returning {len(zones)} DNS zones from state for {project_id}")
+            return zones
+
+        # Load from service
+        service = await get_clouddns_service()
+        zones = await service.list_zones(project_id, use_cache=not force_refresh)
+
+        # Store in state
+        self._dns_zones[project_id] = zones
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(zones)} DNS zones into state for {project_id}")
+        return zones
+
+    async def load_cloudsql_instances(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[CloudSQLInstance]:
+        """Load CloudSQL instances for a project."""
+        key = (project_id, "cloudsql")
+
+        if not force_refresh and key in self._loaded:
+            instances = self._cloudsql.get(project_id, [])
+            logger.info(f"Returning {len(instances)} CloudSQL instances from state")
+            return instances
+
+        service = await get_cloudsql_service()
+        instances = await service.list_instances(project_id, use_cache=not force_refresh)
+
+        self._cloudsql[project_id] = instances
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(instances)} CloudSQL instances into state")
+        return instances
+
+    async def load_compute_groups(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[InstanceGroup]:
+        """Load compute instance groups for a project."""
+        key = (project_id, "compute_groups")
+
+        if not force_refresh and key in self._loaded:
+            groups = self._compute_groups.get(project_id, [])
+            logger.info(f"Returning {len(groups)} compute groups from state")
+            return groups
+
+        service = await get_compute_service()
+        groups = await service.list_instance_groups(project_id, use_cache=not force_refresh)
+
+        self._compute_groups[project_id] = groups
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(groups)} compute groups into state")
+        return groups
+
+    async def load_gke_clusters(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[GKECluster]:
+        """Load GKE clusters for a project."""
+        key = (project_id, "gke_clusters")
+
+        if not force_refresh and key in self._loaded:
+            clusters = self._gke_clusters.get(project_id, [])
+            logger.info(f"Returning {len(clusters)} GKE clusters from state")
+            return clusters
+
+        service = await get_gke_service()
+        clusters = await service.list_clusters(project_id, use_cache=not force_refresh)
+
+        self._gke_clusters[project_id] = clusters
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(clusters)} GKE clusters into state")
+        return clusters
+
+    async def load_secrets(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[Secret]:
+        """Load secrets for a project."""
+        key = (project_id, "secrets")
+
+        if not force_refresh and key in self._loaded:
+            secrets = self._secrets.get(project_id, [])
+            logger.info(f"Returning {len(secrets)} secrets from state")
+            return secrets
+
+        service = await get_secret_manager_service()
+        secrets = await service.list_secrets(project_id, use_cache=not force_refresh)
+
+        self._secrets[project_id] = secrets
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(secrets)} secrets into state")
+        return secrets
+
+    async def load_iam_accounts(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[ServiceAccount]:
+        """Load IAM service accounts for a project."""
+        key = (project_id, "iam_accounts")
+
+        if not force_refresh and key in self._loaded:
+            accounts = self._iam_accounts.get(project_id, [])
+            logger.info(f"Returning {len(accounts)} IAM accounts from state")
+            return accounts
+
+        service = await get_iam_service()
+        accounts = await service.list_service_accounts(project_id, use_cache=not force_refresh)
+
+        self._iam_accounts[project_id] = accounts
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(accounts)} IAM accounts into state")
+        return accounts
+
+    def is_loaded(self, *key_parts: str) -> bool:
+        """Check if a resource type has been loaded into state.
+
+        Args:
+            *key_parts: Variable parts of the key (e.g., project_id, "dns_zones")
+
+        Returns:
+            True if the resource has been loaded, False otherwise
+        """
+        return tuple(key_parts) in self._loaded
+
+    def get_projects(self) -> list[Project]:
+        """Get all projects from state."""
+        return list(self._projects.values())
+
+    def get_dns_zones(self, project_id: str) -> list[ManagedZone]:
+        """Get DNS zones from state (returns empty list if not loaded)."""
+        return self._dns_zones.get(project_id, [])
+
+    def get_cloudsql_instances(self, project_id: str) -> list[CloudSQLInstance]:
+        """Get CloudSQL instances from state."""
+        return self._cloudsql.get(project_id, [])
+
+    def get_compute_groups(self, project_id: str) -> list[InstanceGroup]:
+        """Get compute groups from state."""
+        return self._compute_groups.get(project_id, [])
+
+    def get_gke_clusters(self, project_id: str) -> list[GKECluster]:
+        """Get GKE clusters from state."""
+        return self._gke_clusters.get(project_id, [])
+
+    def get_secrets(self, project_id: str) -> list[Secret]:
+        """Get secrets from state."""
+        return self._secrets.get(project_id, [])
+
+    def get_iam_accounts(self, project_id: str) -> list[ServiceAccount]:
+        """Get IAM accounts from state."""
+        return self._iam_accounts.get(project_id, [])
+
+
+# Global singleton instance
+_resource_state: ResourceState | None = None
+
+
+def get_resource_state() -> ResourceState:
+    """Get the global resource state singleton.
+
+    Returns:
+        ResourceState instance
+    """
+    global _resource_state
+    if _resource_state is None:
+        _resource_state = ResourceState()
+    return _resource_state
