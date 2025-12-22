@@ -41,6 +41,8 @@ class MainScreen(Screen[None]):
         Binding("g", "cursor_top", "Go to top", show=False),
         Binding("G", "cursor_bottom", "Go to bottom", show=False),
         # Arrow keys for tree navigation
+        Binding("up", "cursor_up", "Move up", show=False),
+        Binding("down", "cursor_down", "Move down", show=False),
         Binding("left", "collapse_node", "Collapse/Parent", show=False),
         Binding("right", "expand_node", "Expand/Child", show=False),
     ]
