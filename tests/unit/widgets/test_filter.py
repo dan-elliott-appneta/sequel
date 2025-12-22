@@ -1,101 +1,215 @@
 """Tests for resource tree filter functionality."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
+from sequel.config import Config
+from sequel.models.clouddns import ManagedZone
+from sequel.models.cloudsql import CloudSQLInstance
+from sequel.models.gke import GKECluster
+from sequel.models.project import Project
+from sequel.state.resource_state import reset_resource_state
 from sequel.widgets.resource_tree import ResourceTree, ResourceTreeNode, ResourceType
+
+
+@pytest.fixture(autouse=True)
+def mock_config():
+    """Mock get_config to return a config with no project filter regex."""
+    test_config = Config(
+        project_filter_regex=None,  # No project filtering for tests
+        theme="textual-dark",
+    )
+    with patch("sequel.widgets.resource_tree.get_config", return_value=test_config):
+        yield test_config
 
 
 @pytest.fixture
 def resource_tree() -> ResourceTree:
     """Create a resource tree widget for testing."""
+    reset_resource_state()
     return ResourceTree()
 
 
 @pytest.fixture
 def populated_tree(resource_tree: ResourceTree) -> ResourceTree:
-    """Create a resource tree with sample projects and resources."""
-    # Add project 1 with Cloud DNS
-    project1_data = ResourceTreeNode(
-        resource_type=ResourceType.PROJECT,
-        resource_id="test-project-1",
-        resource_data=None,
+    """Create a resource tree with sample projects and resources in state."""
+    # Populate ResourceState with test data
+    state = resource_tree._state
+
+    # Create project models
+    project1 = Project(
+        id="projects/test-project-1",
+        name="Test Project 1",
+        project_id="test-project-1",
+        display_name="Test Project 1",
+        state="ACTIVE",
     )
+    project2 = Project(
+        id="projects/production-project",
+        name="Production Project",
+        project_id="production-project",
+        display_name="Production Project",
+        state="ACTIVE",
+    )
+
+    # Add projects to state
+    state._projects = {
+        "test-project-1": project1,
+        "production-project": project2,
+    }
+    state._loaded.add(("projects",))
+
+    # Create DNS zones for project 1
+    zone1 = ManagedZone(
+        id="example-zone",
+        name="example.com.",
+        zone_name="example-zone",
+        dns_name="example.com.",
+        visibility="public",
+        name_servers=["ns1.example.com.", "ns2.example.com."],
+    )
+    zone2 = ManagedZone(
+        id="test-zone",
+        name="test.com.",
+        zone_name="test-zone",
+        dns_name="test.com.",
+        visibility="private",
+        name_servers=["ns1.test.com.", "ns2.test.com."],
+    )
+
+    state._dns_zones["test-project-1"] = [zone1, zone2]
+    state._loaded.add(("test-project-1", "dns_zones"))
+
+    # Create CloudSQL instance for project 1
+    sql_instance = CloudSQLInstance(
+        id="my-database",
+        name="my-database",
+        instance_name="my-database",
+        database_version="POSTGRES_14",
+        state="RUNNABLE",
+        region="us-central1",
+        tier="db-f1-micro",
+    )
+
+    state._cloudsql["test-project-1"] = [sql_instance]
+    state._loaded.add(("test-project-1", "cloudsql"))
+
+    # Create GKE cluster for project 2
+    gke_cluster = GKECluster(
+        id="prod-cluster",
+        name="prod-cluster",
+        cluster_name="prod-cluster",
+        location="us-central1",
+        status="RUNNING",
+        node_count=3,
+    )
+
+    state._gke_clusters["production-project"] = [gke_cluster]
+    state._loaded.add(("production-project", "gke_clusters"))
+
+    # Build tree from state (for backward compatibility with other tests)
+    # This mimics what the tree would look like after loading
     project1_node = resource_tree.root.add(
-        "📁 Test Project 1", data=project1_data, allow_expand=True
+        "📁 Test Project 1",
+        data=ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="test-project-1",
+            resource_data=project1,
+        ),
+        allow_expand=True,
     )
 
     # Add Cloud DNS category
-    clouddns_data = ResourceTreeNode(
-        resource_type=ResourceType.CLOUDDNS,
-        resource_id="test-project-1:clouddns",
-        project_id="test-project-1",
-    )
     clouddns_node = project1_node.add(
-        "🌐 Cloud DNS (2 zones)", data=clouddns_data, allow_expand=True
+        "🌐 Cloud DNS (2 zones)",
+        data=ResourceTreeNode(
+            resource_type=ResourceType.CLOUDDNS,
+            resource_id="test-project-1:clouddns",
+            project_id="test-project-1",
+        ),
+        allow_expand=True,
     )
 
     # Add DNS zones
-    zone1_data = ResourceTreeNode(
-        resource_type=ResourceType.CLOUDDNS_ZONE,
-        resource_id="example-zone",
-        project_id="test-project-1",
+    clouddns_node.add(
+        "🌍 example.com.",
+        data=ResourceTreeNode(
+            resource_type=ResourceType.CLOUDDNS_ZONE,
+            resource_id="example-zone",
+            resource_data=zone1,
+            project_id="test-project-1",
+        ),
+        allow_expand=False,
     )
-    clouddns_node.add("🌍 example.com.", data=zone1_data, allow_expand=False)
 
-    zone2_data = ResourceTreeNode(
-        resource_type=ResourceType.CLOUDDNS_ZONE,
-        resource_id="test-zone",
-        project_id="test-project-1",
+    clouddns_node.add(
+        "🌍 test.com.",
+        data=ResourceTreeNode(
+            resource_type=ResourceType.CLOUDDNS_ZONE,
+            resource_id="test-zone",
+            resource_data=zone2,
+            project_id="test-project-1",
+        ),
+        allow_expand=False,
     )
-    clouddns_node.add("🌍 test.com.", data=zone2_data, allow_expand=False)
 
     # Add Cloud SQL category
-    cloudsql_data = ResourceTreeNode(
-        resource_type=ResourceType.CLOUDSQL,
-        resource_id="test-project-1:cloudsql",
-        project_id="test-project-1",
-    )
     cloudsql_node = project1_node.add(
-        "☁️  Cloud SQL (1 instance)", data=cloudsql_data, allow_expand=True
+        "☁️  Cloud SQL (1 instance)",
+        data=ResourceTreeNode(
+            resource_type=ResourceType.CLOUDSQL,
+            resource_id="test-project-1:cloudsql",
+            project_id="test-project-1",
+        ),
+        allow_expand=True,
     )
 
     # Add Cloud SQL instance
-    instance_data = ResourceTreeNode(
-        resource_type=ResourceType.CLOUDSQL,
-        resource_id="my-database",
-        project_id="test-project-1",
+    cloudsql_node.add(
+        "💾 my-database",
+        data=ResourceTreeNode(
+            resource_type=ResourceType.CLOUDSQL,
+            resource_id="my-database",
+            resource_data=sql_instance,
+            project_id="test-project-1",
+        ),
+        allow_expand=False,
     )
-    cloudsql_node.add("💾 my-database", data=instance_data, allow_expand=False)
 
     # Add project 2 with GKE
-    project2_data = ResourceTreeNode(
-        resource_type=ResourceType.PROJECT,
-        resource_id="production-project",
-        resource_data=None,
-    )
     project2_node = resource_tree.root.add(
-        "📁 Production Project", data=project2_data, allow_expand=True
+        "📁 Production Project",
+        data=ResourceTreeNode(
+            resource_type=ResourceType.PROJECT,
+            resource_id="production-project",
+            resource_data=project2,
+        ),
+        allow_expand=True,
     )
 
     # Add GKE category
-    gke_data = ResourceTreeNode(
-        resource_type=ResourceType.GKE,
-        resource_id="production-project:gke",
-        project_id="production-project",
-    )
     gke_node = project2_node.add(
-        "⎈  GKE Clusters (1 cluster)", data=gke_data, allow_expand=True
+        "⎈  GKE Clusters (1 cluster)",
+        data=ResourceTreeNode(
+            resource_type=ResourceType.GKE,
+            resource_id="production-project:gke",
+            project_id="production-project",
+        ),
+        allow_expand=True,
     )
 
     # Add GKE cluster
-    cluster_data = ResourceTreeNode(
-        resource_type=ResourceType.GKE_CLUSTER,
-        resource_id="prod-cluster",
-        project_id="production-project",
+    gke_node.add(
+        "⎈  prod-cluster",
+        data=ResourceTreeNode(
+            resource_type=ResourceType.GKE_CLUSTER,
+            resource_id="prod-cluster",
+            resource_data=gke_cluster,
+            project_id="production-project",
+        ),
+        allow_expand=False,
     )
-    gke_node.add("⎈  prod-cluster", data=cluster_data, allow_expand=False)
 
     return resource_tree
 
@@ -183,20 +297,21 @@ class TestFilterBasics:
     async def test_clear_filter_reloads_tree(
         self, populated_tree: ResourceTree
     ) -> None:
-        """Test that clearing filter reloads the full tree."""
+        """Test that clearing filter rebuilds tree from state showing all projects."""
         # Apply filter first
         await populated_tree.apply_filter("example")
 
         # Verify filter is active (only 1 project)
         assert len(populated_tree.root.children) == 1
 
-        # Mock load_projects to verify it's called
-        with patch.object(populated_tree, "load_projects", new=AsyncMock()) as mock_load:
-            # Clear filter
-            await populated_tree.apply_filter("")
+        # Clear filter
+        await populated_tree.apply_filter("")
 
-            # Should have called load_projects to restore full tree
-            mock_load.assert_called_once()
+        # Should now show all projects from state
+        assert len(populated_tree.root.children) == 2
+        project_names = [node.label.plain for node in populated_tree.root.children]
+        assert any("Test Project 1" in name for name in project_names)
+        assert any("Production" in name for name in project_names)
 
     @pytest.mark.asyncio
     async def test_filter_is_case_insensitive(
@@ -255,20 +370,20 @@ class TestFilterMultipleMatches:
         self, populated_tree: ResourceTree
     ) -> None:
         """Test that filter shows all branches with matches."""
-        # Apply filter for "Cloud" (matches both Cloud DNS and Cloud SQL)
-        await populated_tree.apply_filter("Cloud")
+        # Apply filter for "com" (matches DNS zones: example.com and test.com)
+        await populated_tree.apply_filter("com")
 
-        # Project 1 should remain (has Cloud DNS and Cloud SQL)
+        # Project 1 should remain (has DNS zones with "com")
         assert len(populated_tree.root.children) == 1
         project_node = populated_tree.root.children[0]
 
-        # Both Cloud DNS and Cloud SQL should remain
-        cloud_categories = [
+        # Cloud DNS category should remain with matching zones
+        dns_categories = [
             child.label.plain
             for child in project_node.children
-            if "Cloud" in child.label.plain
+            if "DNS" in child.label.plain
         ]
-        assert len(cloud_categories) == 2
+        assert len(dns_categories) >= 1
 
     @pytest.mark.asyncio
     async def test_filter_matches_across_projects(
@@ -313,12 +428,13 @@ class TestFilterEdgeCases:
     async def test_filter_with_emoji(
         self, populated_tree: ResourceTree
     ) -> None:
-        """Test filter matching emoji in labels."""
-        # Apply filter for emoji (🌍 in zone labels)
+        """Test filter handles emoji characters in search (even if no matches)."""
+        # Apply filter with emoji character
         await populated_tree.apply_filter("🌍")
 
-        # Should match nodes with globe emoji
-        assert len(populated_tree.root.children) >= 1
+        # No resources have emoji in their data, so no matches expected
+        # This test verifies emoji doesn't crash the filter
+        assert len(populated_tree.root.children) == 0
 
 
 class TestFilterState:

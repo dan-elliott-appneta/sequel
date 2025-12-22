@@ -8,12 +8,14 @@ from sequel.models.clouddns import DNSRecord, ManagedZone
 from sequel.models.compute import ComputeInstance, InstanceGroup
 from sequel.models.gke import GKECluster, GKENode
 from sequel.models.iam import IAMRoleBinding, ServiceAccount
+from sequel.state.resource_state import reset_resource_state
 from sequel.widgets.resource_tree import ResourceTree, ResourceTreeNode, ResourceType
 
 
 @pytest.fixture
 def resource_tree() -> ResourceTree:
     """Create a resource tree widget for testing."""
+    reset_resource_state()
     return ResourceTree()
 
 
@@ -155,7 +157,7 @@ class TestResourceTree:
         )
 
         # Mock the GKE service
-        with patch("sequel.widgets.resource_tree.get_gke_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_gke_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_nodes = AsyncMock(return_value=mock_nodes)
             mock_get_service.return_value = mock_service
@@ -195,7 +197,7 @@ class TestResourceTree:
         )
 
         # Mock the GKE service to return empty list
-        with patch("sequel.widgets.resource_tree.get_gke_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_gke_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_nodes = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -236,7 +238,7 @@ class TestResourceTree:
         )
 
         # Mock the Compute service
-        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_compute_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_instances_in_group = AsyncMock(return_value=mock_instances)
             mock_get_service.return_value = mock_service
@@ -288,7 +290,7 @@ class TestResourceTree:
         )
 
         # Mock the Compute service
-        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_compute_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_instances_in_group = AsyncMock(return_value=mock_instances)
             mock_get_service.return_value = mock_service
@@ -327,7 +329,7 @@ class TestResourceTree:
         )
 
         # Mock the Compute service to return empty list
-        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_compute_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_instances_in_group = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -365,7 +367,7 @@ class TestResourceTree:
         )
 
         # Mock the IAM service
-        with patch("sequel.widgets.resource_tree.get_iam_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_iam_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.get_service_account_roles = AsyncMock(return_value=mock_roles)
             mock_get_service.return_value = mock_service
@@ -491,7 +493,7 @@ class TestResourceTree:
         )
 
         # Mock the Compute service
-        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_compute_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_instances_in_group = AsyncMock(return_value=mock_instances)
             mock_get_service.return_value = mock_service
@@ -536,7 +538,7 @@ class TestResourceTree:
         )
 
         # Mock the GKE service
-        with patch("sequel.widgets.resource_tree.get_gke_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_gke_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_nodes = AsyncMock(return_value=mock_nodes)
             mock_get_service.return_value = mock_service
@@ -576,7 +578,7 @@ class TestResourceTree:
         )
 
         # Mock the IAM service to return empty list
-        with patch("sequel.widgets.resource_tree.get_iam_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_iam_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.get_service_account_roles = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -627,7 +629,7 @@ class TestResourceTree:
         )
 
         # Mock the IAM service to raise an exception
-        with patch("sequel.widgets.resource_tree.get_iam_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_iam_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.get_service_account_roles = AsyncMock(
                 side_effect=Exception("API Error")
@@ -705,7 +707,7 @@ class TestResourceTree:
         )
 
         # Mock the GKE service to raise an exception
-        with patch("sequel.widgets.resource_tree.get_gke_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_gke_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_nodes = AsyncMock(side_effect=Exception("API Error"))
             mock_get_service.return_value = mock_service
@@ -806,7 +808,7 @@ class TestResourceTree:
         ]
 
         # Mock the Compute service
-        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_compute_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_instances_in_regional_group = AsyncMock(return_value=mock_instances)
             mock_get_service.return_value = mock_service
@@ -836,7 +838,7 @@ class TestResourceTree:
         )
 
         # Mock the Compute service to raise an exception
-        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_compute_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_instances_in_group = AsyncMock(
                 side_effect=Exception("API Error")
@@ -940,7 +942,7 @@ class TestResourceTree:
             })
         ]
 
-        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_compute_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_instances_in_group = AsyncMock(return_value=mock_instances)
             mock_get_service.return_value = mock_service
@@ -990,7 +992,7 @@ class TestResourceTree:
             )
         ]
 
-        with patch("sequel.widgets.resource_tree.get_gke_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_gke_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_nodes = AsyncMock(return_value=mock_nodes)
             mock_get_service.return_value = mock_service
@@ -1030,7 +1032,7 @@ class TestResourceTree:
             )
         ]
 
-        with patch("sequel.widgets.resource_tree.get_iam_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_iam_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.get_service_account_roles = AsyncMock(return_value=mock_roles)
             mock_get_service.return_value = mock_service
@@ -1072,7 +1074,7 @@ class TestResourceTree:
         )
 
         # Mock the Compute service to raise an exception
-        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_compute_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_instances_in_group = AsyncMock(
                 side_effect=Exception("API Error")
@@ -1117,7 +1119,7 @@ class TestResourceTree:
         )
 
         # Mock the CloudDNS service
-        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_zones = AsyncMock(return_value=mock_zones)
             mock_get_service.return_value = mock_service
@@ -1148,7 +1150,7 @@ class TestResourceTree:
         )
 
         # Mock the CloudDNS service to return empty list
-        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_zones = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -1198,7 +1200,7 @@ class TestResourceTree:
         )
 
         # Mock the CloudDNS service
-        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_records = AsyncMock(return_value=mock_records)
             mock_get_service.return_value = mock_service
@@ -1229,7 +1231,7 @@ class TestResourceTree:
         )
 
         # Mock the CloudDNS service to return empty list
-        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_records = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -1258,7 +1260,7 @@ class TestResourceTree:
         )
 
         # Mock the CloudDNS service to raise an exception
-        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_records = AsyncMock(side_effect=Exception("API Error"))
             mock_get_service.return_value = mock_service
@@ -1362,7 +1364,7 @@ class TestEmptyProjectCleanup:
         )
 
         # Mock the CloudDNS service to return empty list
-        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_zones = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -1400,7 +1402,7 @@ class TestEmptyProjectCleanup:
         )
 
         # Mock the CloudSQL service to return empty list
-        with patch("sequel.widgets.resource_tree.get_cloudsql_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_cloudsql_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_instances = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -1438,7 +1440,7 @@ class TestEmptyProjectCleanup:
         )
 
         # Mock the Compute service to return empty list
-        with patch("sequel.widgets.resource_tree.get_compute_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_compute_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_instance_groups = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -1476,7 +1478,7 @@ class TestEmptyProjectCleanup:
         )
 
         # Mock the GKE service to return empty list
-        with patch("sequel.widgets.resource_tree.get_gke_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_gke_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_clusters = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -1514,7 +1516,7 @@ class TestEmptyProjectCleanup:
         )
 
         # Mock the Secrets service to return empty list
-        with patch("sequel.widgets.resource_tree.get_secret_manager_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_secret_manager_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_secrets = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -1552,7 +1554,7 @@ class TestEmptyProjectCleanup:
         )
 
         # Mock the IAM service to return empty list
-        with patch("sequel.widgets.resource_tree.get_iam_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_iam_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_service_accounts = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -1600,7 +1602,7 @@ class TestEmptyProjectCleanup:
         )
 
         # Mock CloudDNS service to return zones
-        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_zones = AsyncMock(return_value=[sample_dns_zone])
             mock_get_service.return_value = mock_service
@@ -1609,7 +1611,7 @@ class TestEmptyProjectCleanup:
             await resource_tree._load_dns_zones(clouddns_node)
 
         # Mock CloudSQL service to return empty list
-        with patch("sequel.widgets.resource_tree.get_cloudsql_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_cloudsql_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_instances = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -1652,7 +1654,7 @@ class TestEmptyProjectCleanup:
         assert clouddns_node is not None
 
         # Mock CloudDNS service to return empty list
-        with patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_get_service:
+        with patch("sequel.state.resource_state.get_clouddns_service") as mock_get_service:
             mock_service = AsyncMock()
             mock_service.list_zones = AsyncMock(return_value=[])
             mock_get_service.return_value = mock_service
@@ -1698,12 +1700,12 @@ class TestAutomaticCleanup:
 
         # Mock all services to return empty lists
         with (
-            patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_dns,
-            patch("sequel.widgets.resource_tree.get_cloudsql_service") as mock_sql,
-            patch("sequel.widgets.resource_tree.get_compute_service") as mock_compute,
-            patch("sequel.widgets.resource_tree.get_gke_service") as mock_gke,
-            patch("sequel.widgets.resource_tree.get_secret_manager_service") as mock_secrets,
-            patch("sequel.widgets.resource_tree.get_iam_service") as mock_iam,
+            patch("sequel.state.resource_state.get_clouddns_service") as mock_dns,
+            patch("sequel.state.resource_state.get_cloudsql_service") as mock_sql,
+            patch("sequel.state.resource_state.get_compute_service") as mock_compute,
+            patch("sequel.state.resource_state.get_gke_service") as mock_gke,
+            patch("sequel.state.resource_state.get_secret_manager_service") as mock_secrets,
+            patch("sequel.state.resource_state.get_iam_service") as mock_iam,
         ):
             # All services return empty lists
             for mock_service in [mock_dns, mock_sql, mock_compute, mock_gke, mock_secrets, mock_iam]:
@@ -1742,12 +1744,12 @@ class TestAutomaticCleanup:
 
         # Mock services: CloudDNS has zones, everything else is empty
         with (
-            patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_dns,
-            patch("sequel.widgets.resource_tree.get_cloudsql_service") as mock_sql,
-            patch("sequel.widgets.resource_tree.get_compute_service") as mock_compute,
-            patch("sequel.widgets.resource_tree.get_gke_service") as mock_gke,
-            patch("sequel.widgets.resource_tree.get_secret_manager_service") as mock_secrets,
-            patch("sequel.widgets.resource_tree.get_iam_service") as mock_iam,
+            patch("sequel.state.resource_state.get_clouddns_service") as mock_dns,
+            patch("sequel.state.resource_state.get_cloudsql_service") as mock_sql,
+            patch("sequel.state.resource_state.get_compute_service") as mock_compute,
+            patch("sequel.state.resource_state.get_gke_service") as mock_gke,
+            patch("sequel.state.resource_state.get_secret_manager_service") as mock_secrets,
+            patch("sequel.state.resource_state.get_iam_service") as mock_iam,
         ):
             # CloudDNS returns zones
             dns_service = AsyncMock()
@@ -1791,12 +1793,12 @@ class TestAutomaticCleanup:
 
         # Mock services: CloudDNS throws error, everything else is empty
         with (
-            patch("sequel.widgets.resource_tree.get_clouddns_service") as mock_dns,
-            patch("sequel.widgets.resource_tree.get_cloudsql_service") as mock_sql,
-            patch("sequel.widgets.resource_tree.get_compute_service") as mock_compute,
-            patch("sequel.widgets.resource_tree.get_gke_service") as mock_gke,
-            patch("sequel.widgets.resource_tree.get_secret_manager_service") as mock_secrets,
-            patch("sequel.widgets.resource_tree.get_iam_service") as mock_iam,
+            patch("sequel.state.resource_state.get_clouddns_service") as mock_dns,
+            patch("sequel.state.resource_state.get_cloudsql_service") as mock_sql,
+            patch("sequel.state.resource_state.get_compute_service") as mock_compute,
+            patch("sequel.state.resource_state.get_gke_service") as mock_gke,
+            patch("sequel.state.resource_state.get_secret_manager_service") as mock_secrets,
+            patch("sequel.state.resource_state.get_iam_service") as mock_iam,
         ):
             # CloudDNS throws error
             dns_service = AsyncMock()

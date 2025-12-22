@@ -8,8 +8,11 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Header, Input
 
+from sequel.state.resource_state import get_resource_state
 from sequel.utils.logging import get_logger
 from sequel.widgets.detail_pane import DetailPane
+from sequel.widgets.loading_progress import LoadingProgress
+from sequel.widgets.refresh_modal import RefreshModal
 from sequel.widgets.resource_tree import ResourceTree, ResourceTreeNode
 from sequel.widgets.status_bar import StatusBar
 
@@ -48,6 +51,8 @@ class MainScreen(Screen[None]):
         # Filter
         Binding("f", "toggle_filter", "Filter", show=False),
         Binding("escape", "clear_filter", "Clear filter", show=False),
+        # Refresh
+        Binding("r", "show_refresh_modal", "Refresh", show=False),
     ]
 
     CSS = """
@@ -106,6 +111,15 @@ class MainScreen(Screen[None]):
         color: $text;
         padding: 0 1;
     }
+
+    LoadingProgress {
+        layer: overlay;
+        display: none;
+    }
+
+    LoadingProgress.visible {
+        display: block;
+    }
     """
 
     def __init__(self, *args: any, **kwargs: any) -> None:  # type: ignore[valid-type]
@@ -116,6 +130,7 @@ class MainScreen(Screen[None]):
         self.status_bar: StatusBar | None = None
         self.filter_input: Input | None = None
         self.filter_active: bool = False
+        self.loading_progress: LoadingProgress | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the screen layout.
@@ -145,30 +160,85 @@ class MainScreen(Screen[None]):
         self.status_bar = StatusBar()
         yield self.status_bar
 
+        # Loading progress overlay (hidden by default)
+        self.loading_progress = LoadingProgress()
+        yield self.loading_progress
+
     async def on_mount(self) -> None:
         """Handle screen mount event."""
+        import asyncio
+        import os
+
         logger.info("Main screen mounted")
 
-        # TODO: Toast container temporarily disabled due to layout issues
-        # self.toast_container = ToastContainer()
-        # await self.mount(self.toast_container)
+        # Check if eager loading is enabled (default: False for better UX)
+        eager_load = os.getenv("SEQUEL_EAGER_LOAD", "false").lower() == "true"
 
-        # Load projects into tree
-        if self.resource_tree:
+        if eager_load and self.resource_tree and self.loading_progress:
+            # Eager load all projects and resources with progress indicator
             try:
-                if self.status_bar:
-                    self.status_bar.set_loading(True, "Loading projects...")
+                logger.info("Eager loading enabled - loading all projects and resources")
 
-                await self.resource_tree.load_projects()
+                # Show loading progress
+                self.loading_progress.show_loading("Loading all resources...")
+                self.loading_progress.add_class("visible")
+
+                # Yield to let the UI update
+                await asyncio.sleep(0.1)
+
+                # Define progress callback
+                def update_progress(current: int, total: int, message: str) -> None:
+                    if self.loading_progress:
+                        logger.debug(f"Progress update: {current}/{total} - {message}")
+                        self.loading_progress.update_progress(current, total, message)
+
+                # Eagerly load all projects and their resources
+                await self.resource_tree.load_all_projects_with_resources(
+                    force_refresh=False,
+                    progress_callback=update_progress,
+                )
+
+                # Hide loading progress
+                self.loading_progress.remove_class("visible")
+                self.loading_progress.hide_loading()
 
                 if self.status_bar:
-                    self.status_bar.set_loading(False)
                     self.status_bar.update_last_refresh()
 
+                logger.info("Eager load complete - UI ready")
+
             except Exception as e:
-                logger.error(f"Failed to load projects: {e}")
-                if self.status_bar:
-                    self.status_bar.set_loading(False)
+                logger.error(f"Failed to load projects and resources: {e}", exc_info=True)
+                if self.loading_progress:
+                    self.loading_progress.remove_class("visible")
+                    self.loading_progress.hide_loading()
+                raise
+
+        else:
+            # Lazy loading mode (default) - just load projects
+            if self.resource_tree:
+                try:
+                    logger.info("Lazy loading mode - loading projects only")
+
+                    if self.status_bar:
+                        self.status_bar.set_loading(True, "Loading projects...")
+
+                    # Yield to let the UI update and show loading indicator
+                    await asyncio.sleep(0.1)
+
+                    await self.resource_tree.load_projects()
+
+                    if self.status_bar:
+                        self.status_bar.set_loading(False)
+                        self.status_bar.update_last_refresh()
+
+                    logger.info("Project list loaded - resources will load on demand")
+
+                except Exception as e:
+                    logger.error(f"Failed to load projects: {e}", exc_info=True)
+                    if self.status_bar:
+                        self.status_bar.set_loading(False)
+                    raise
 
     async def on_tree_node_highlighted(self, event: ResourceTree.NodeHighlighted[ResourceTreeNode]) -> None:
         """Handle tree node selection.
@@ -322,7 +392,15 @@ class MainScreen(Screen[None]):
 
     async def action_toggle_filter(self) -> None:
         """Toggle the filter input visibility (triggered by 'f' key)."""
-        if not self.filter_input:
+        import os
+
+        if not self.filter_input or not self.resource_tree:
+            return
+
+        # Only check if initial load is complete in eager load mode
+        eager_load = os.getenv("SEQUEL_EAGER_LOAD", "false").lower() == "true"
+        if eager_load and not self.resource_tree._initial_load_complete:
+            logger.warning("Filter disabled until eager load completes")
             return
 
         filter_container = self.query_one("#filter-container")
@@ -373,3 +451,107 @@ class MainScreen(Screen[None]):
             filter_text = event.value.strip()
             await self.resource_tree.apply_filter(filter_text)
             logger.debug(f"Applied filter: '{filter_text}'")
+
+    async def action_show_refresh_modal(self) -> None:
+        """Show refresh confirmation modal (triggered by 'r' key)."""
+        logger.info("Showing refresh modal")
+
+        # Show modal and get user choice
+        result = await self.app.push_screen_wait(RefreshModal())
+
+        if result == "all":
+            logger.info("User chose to refresh all projects")
+            await self.refresh_all()
+        elif result == "visible":
+            logger.info("User chose to refresh visible resources")
+            await self.refresh_visible()
+        else:
+            logger.info("User canceled refresh")
+
+    async def refresh_all(self) -> None:
+        """Refresh all projects and resources from API."""
+        if not self.resource_tree or not self.loading_progress:
+            return
+
+        logger.info("Refreshing all projects and resources")
+
+        try:
+            # Show loading progress
+            self.loading_progress.show_loading("Refreshing all resources...")
+            self.loading_progress.add_class("visible")
+
+            # Define progress callback
+            def update_progress(current: int, total: int, message: str) -> None:
+                if self.loading_progress:
+                    self.loading_progress.update_progress(current, total, message)
+
+            # Invalidate all state
+            state = get_resource_state()
+            state.invalidate_all()
+
+            # Reload all projects and resources
+            await self.resource_tree.load_all_projects_with_resources(
+                force_refresh=True,
+                progress_callback=update_progress,
+            )
+
+            # Hide loading progress
+            self.loading_progress.remove_class("visible")
+            self.loading_progress.hide_loading()
+
+            if self.status_bar:
+                self.status_bar.update_last_refresh()
+
+            logger.info("Refresh complete")
+
+        except Exception as e:
+            logger.error(f"Failed to refresh all resources: {e}")
+            if self.loading_progress:
+                self.loading_progress.remove_class("visible")
+                self.loading_progress.hide_loading()
+
+    async def refresh_visible(self) -> None:
+        """Refresh only currently visible resources."""
+        if not self.resource_tree or not self.loading_progress:
+            return
+
+        logger.info("Refreshing visible resources")
+
+        try:
+            # Get currently visible project IDs from tree
+            visible_project_ids = set()
+            for child in self.resource_tree.root.children:
+                if child.data and child.data.resource_id:
+                    visible_project_ids.add(child.data.resource_id)
+
+            if not visible_project_ids:
+                logger.warning("No visible projects to refresh")
+                return
+
+            # Show loading progress
+            self.loading_progress.show_loading("Refreshing visible resources...")
+            self.loading_progress.add_class("visible")
+
+            # Invalidate state for visible projects
+            state = get_resource_state()
+            for project_id in visible_project_ids:
+                state.invalidate_project(project_id)
+
+            # Reload projects (will include only visible ones)
+            await self.resource_tree.load_projects(force_refresh=True)
+
+            # Hide loading progress
+            self.loading_progress.remove_class("visible")
+            self.loading_progress.hide_loading()
+
+            if self.status_bar:
+                self.status_bar.update_last_refresh()
+
+            logger.info(f"Refreshed {len(visible_project_ids)} visible projects")
+
+        except Exception as e:
+            logger.error(f"Failed to refresh visible resources: {e}")
+            if self.loading_progress:
+                self.loading_progress.remove_class("visible")
+                self.loading_progress.hide_loading()
+
