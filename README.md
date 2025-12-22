@@ -82,6 +82,10 @@ Sequel stores user preferences in `~/.config/sequel/config.json`. This file is a
   },
   "filters": {
     "project_regex": "^my-project-prefix.*$"
+  },
+  "logging": {
+    "log_file": "~/.config/sequel/sequel.log",
+    "log_level": "INFO"
   }
 }
 ```
@@ -125,9 +129,9 @@ export SEQUEL_CACHE_TTL_RESOURCES="300"           # Resource cache TTL in second
 export SEQUEL_API_TIMEOUT="30"                    # API timeout in seconds (default: 30)
 export SEQUEL_API_MAX_RETRIES="3"                 # Max retry attempts (default: 3)
 
-# Logging
+# Logging (defaults to ~/.config/sequel/sequel.log)
 export SEQUEL_LOG_LEVEL="INFO"                    # Log level: DEBUG, INFO, WARNING, ERROR
-export SEQUEL_LOG_FILE="/path/to/sequel.log"      # Log file path (optional)
+export SEQUEL_LOG_FILE="/path/to/sequel.log"      # Log file path (default: ~/.config/sequel/sequel.log)
 
 # UI Settings
 export SEQUEL_THEME="textual-dark"                # Textual theme name
