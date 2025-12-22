@@ -1189,7 +1189,149 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     data=inst_data,
                 )
 
-        # Add other resource types similarly (compute_groups, gke_clusters, secrets, iam_accounts)
+        # Add compute groups
+        if "compute_groups" in matching_resources:
+            groups = matching_resources["compute_groups"]
+            compute_data = ResourceTreeNode(
+                resource_type=ResourceType.COMPUTE,
+                resource_id=f"{project.project_id}:compute",
+                project_id=project.project_id,
+            )
+            group_word = "group" if len(groups) == 1 else "groups"
+            compute_node = project_node.add(
+                f"💻 Instance Groups ({len(groups)} {group_word})",
+                data=compute_data,
+                allow_expand=True,
+            )
+            if compute_node.data:
+                compute_node.data.loaded = True
+
+            # Add matching groups
+            for group in groups:
+                # Extract zone or region from the group
+                zone = None
+                region = None
+
+                if hasattr(group, 'zone') and group.zone:
+                    zone_parts = group.zone.split('/')
+                    if len(zone_parts) > 0:
+                        zone = zone_parts[-1]
+                elif hasattr(group, 'region') and group.region:
+                    region_parts = group.region.split('/')
+                    if len(region_parts) > 0:
+                        region = region_parts[-1]
+
+                group_data = ResourceTreeNode(
+                    resource_type=ResourceType.COMPUTE_INSTANCE_GROUP,
+                    resource_id=group.group_name,
+                    resource_data=group,
+                    project_id=project.project_id,
+                    zone=zone,
+                    location=region,
+                )
+                type_icon = "M" if group.is_managed else "U"
+                zone_or_region = zone if zone else region
+                compute_node.add(
+                    f"[{type_icon}] {group.group_name} ({zone_or_region}, size: {group.size})",
+                    data=group_data,
+                    allow_expand=True,
+                )
+
+        # Add GKE clusters
+        if "gke_clusters" in matching_resources:
+            clusters = matching_resources["gke_clusters"]
+            gke_data = ResourceTreeNode(
+                resource_type=ResourceType.GKE,
+                resource_id=f"{project.project_id}:gke",
+                project_id=project.project_id,
+            )
+            cluster_word = "cluster" if len(clusters) == 1 else "clusters"
+            gke_node = project_node.add(
+                f"⎈  GKE Clusters ({len(clusters)} {cluster_word})",
+                data=gke_data,
+                allow_expand=True,
+            )
+            if gke_node.data:
+                gke_node.data.loaded = True
+
+            # Add matching clusters
+            for cluster in clusters:
+                location = cluster.location if hasattr(cluster, 'location') else None
+                cluster_data = ResourceTreeNode(
+                    resource_type=ResourceType.GKE_CLUSTER,
+                    resource_id=cluster.cluster_name,
+                    resource_data=cluster,
+                    project_id=project.project_id,
+                    location=location,
+                )
+                status_icon = "✓" if cluster.is_running() else "✗"
+                gke_node.add(
+                    f"{status_icon} {cluster.cluster_name} (nodes: {cluster.node_count})",
+                    data=cluster_data,
+                    allow_expand=True,
+                )
+
+        # Add secrets
+        if "secrets" in matching_resources:
+            secrets = matching_resources["secrets"]
+            secrets_data = ResourceTreeNode(
+                resource_type=ResourceType.SECRETS,
+                resource_id=f"{project.project_id}:secrets",
+                project_id=project.project_id,
+            )
+            secret_word = "secret" if len(secrets) == 1 else "secrets"
+            secrets_node = project_node.add(
+                f"🔐 Secrets ({len(secrets)} {secret_word})",
+                data=secrets_data,
+                allow_expand=True,
+            )
+            if secrets_node.data:
+                secrets_node.data.loaded = True
+
+            # Add matching secrets
+            for secret in secrets:
+                secret_data = ResourceTreeNode(
+                    resource_type=ResourceType.SECRETS,
+                    resource_id=secret.secret_name,
+                    resource_data=secret,
+                    project_id=project.project_id,
+                )
+                secrets_node.add_leaf(
+                    f"🔑 {secret.secret_name}",
+                    data=secret_data,
+                )
+
+        # Add IAM service accounts
+        if "iam_accounts" in matching_resources:
+            accounts = matching_resources["iam_accounts"]
+            iam_data = ResourceTreeNode(
+                resource_type=ResourceType.IAM,
+                resource_id=f"{project.project_id}:iam",
+                project_id=project.project_id,
+            )
+            account_word = "account" if len(accounts) == 1 else "accounts"
+            iam_node = project_node.add(
+                f"👤 Service Accounts ({len(accounts)} {account_word})",
+                data=iam_data,
+                allow_expand=True,
+            )
+            if iam_node.data:
+                iam_node.data.loaded = True
+
+            # Add matching accounts
+            for account in accounts:
+                account_data = ResourceTreeNode(
+                    resource_type=ResourceType.IAM_SERVICE_ACCOUNT,
+                    resource_id=account.email,
+                    resource_data=account,
+                    project_id=project.project_id,
+                )
+                status_icon = "✓" if account.is_enabled() else "✗"
+                iam_node.add(
+                    f"{status_icon} {account.email}",
+                    data=account_data,
+                    allow_expand=True,
+                )
 
     async def _expand_all_nodes(self, node: TreeNode[ResourceTreeNode]) -> None:
         """Recursively expand visible nodes to load their children.
