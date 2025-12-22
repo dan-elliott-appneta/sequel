@@ -1,6 +1,6 @@
 """Tests for resource tree widget."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -1674,8 +1674,12 @@ class TestAutomaticCleanup:
         )
         resource_tree._add_resource_type_nodes(project2_node, "empty-project-2")
 
+        # Mock app for notifications
+        mock_app = MagicMock()
+
         # Mock ResourceState to return empty lists for all resource types
         with (
+            patch.object(type(resource_tree), "app", new_callable=lambda: property(lambda self: mock_app)),
             patch.object(resource_tree._state, "load_dns_zones", new_callable=AsyncMock) as mock_dns,
             patch.object(resource_tree._state, "load_cloudsql_instances", new_callable=AsyncMock) as mock_sql,
             patch.object(resource_tree._state, "load_compute_groups", new_callable=AsyncMock) as mock_compute,
@@ -1715,8 +1719,12 @@ class TestAutomaticCleanup:
         )
         resource_tree._add_resource_type_nodes(project_node, "mixed-project")
 
+        # Mock app for notifications
+        mock_app = MagicMock()
+
         # Mock ResourceState: CloudDNS has zones, everything else is empty
         with (
+            patch.object(type(resource_tree), "app", new_callable=lambda: property(lambda self: mock_app)),
             patch.object(resource_tree._state, "load_dns_zones", new_callable=AsyncMock) as mock_dns,
             patch.object(resource_tree._state, "load_cloudsql_instances", new_callable=AsyncMock) as mock_sql,
             patch.object(resource_tree._state, "load_compute_groups", new_callable=AsyncMock) as mock_compute,
@@ -1759,8 +1767,12 @@ class TestAutomaticCleanup:
         )
         resource_tree._add_resource_type_nodes(project_node, "error-project")
 
+        # Mock app for notifications
+        mock_app = MagicMock()
+
         # Mock ResourceState: CloudDNS throws error, everything else is empty
         with (
+            patch.object(type(resource_tree), "app", new_callable=lambda: property(lambda self: mock_app)),
             patch.object(resource_tree._state, "load_dns_zones", new_callable=AsyncMock) as mock_dns,
             patch.object(resource_tree._state, "load_cloudsql_instances", new_callable=AsyncMock) as mock_sql,
             patch.object(resource_tree._state, "load_compute_groups", new_callable=AsyncMock) as mock_compute,

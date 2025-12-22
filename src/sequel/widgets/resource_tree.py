@@ -359,6 +359,18 @@ class ResourceTree(Tree[ResourceTreeNode]):
         project simultaneously using asyncio.gather().
         """
         logger.info("Starting automatic cleanup of empty nodes with parallel loading")
+
+        # Show starting notification
+        if self.app:
+            self.app.notify(
+                "Cleaning up empty projects...",
+                severity="information",
+                timeout=3,
+            )
+
+        # Track initial counts
+        initial_project_count = len(self.root.children)
+
         projects_to_check = list(self.root.children)
 
         for project_node in projects_to_check:
@@ -368,7 +380,27 @@ class ResourceTree(Tree[ResourceTreeNode]):
             # Load all resource types in parallel for this project
             await self._load_all_resources_parallel(project_node)
 
-        logger.info("Completed automatic cleanup of empty nodes")
+        # Calculate how many projects were removed
+        final_project_count = len(self.root.children)
+        removed_count = initial_project_count - final_project_count
+
+        logger.info(f"Completed automatic cleanup of empty nodes: removed {removed_count} empty projects")
+
+        # Show completion notification
+        if self.app:
+            if removed_count > 0:
+                project_word = "project" if removed_count == 1 else "projects"
+                self.app.notify(
+                    f"Cleanup complete: removed {removed_count} empty {project_word}",
+                    severity="information",
+                    timeout=5,
+                )
+            else:
+                self.app.notify(
+                    "Cleanup complete: no empty projects found",
+                    severity="information",
+                    timeout=3,
+                )
 
     async def _load_all_resources_parallel(self, project_node: TreeNode[ResourceTreeNode]) -> None:
         """Load all resource types for a project in parallel.
@@ -1125,7 +1157,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         # Show notification
         if self.app:
-            self.app.notify(f"Filtering for '{filter_text}'...", severity="information", timeout=2)
+            self.app.notify(f"Filtering for '{filter_text}'...", severity="information", timeout=3)
 
         # Get all projects from state
         # Note: Projects are already filtered by project_filter_regex in the state layer
@@ -1416,7 +1448,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
             self.app.notify(
                 f"Filter complete: {project_count} {project_word} match '{filter_text}'",
                 severity="information",
-                timeout=3,
+                timeout=5,
             )
 
     def _matches_filter(self, text: str) -> bool:
