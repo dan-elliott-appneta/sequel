@@ -334,7 +334,7 @@ class MainScreen(Screen[None]):
             # Clear filter and refocus tree
             self.filter_input.value = ""
             if self.resource_tree:
-                self.resource_tree.apply_filter("")
+                await self.resource_tree.apply_filter("")
                 self.resource_tree.focus()
             logger.debug("Filter hidden")
         else:
@@ -353,7 +353,7 @@ class MainScreen(Screen[None]):
         self.filter_input.value = ""
         # Clear filter in tree
         if self.resource_tree:
-            self.resource_tree.apply_filter("")
+            await self.resource_tree.apply_filter("")
         # Hide filter container
         filter_container = self.query_one("#filter-container")
         filter_container.remove_class("visible")
@@ -371,5 +371,5 @@ class MainScreen(Screen[None]):
         """
         if event.input.id == "filter-input" and self.resource_tree:
             filter_text = event.value.strip()
-            self.resource_tree.apply_filter(filter_text)
+            await self.resource_tree.apply_filter(filter_text)
             logger.debug(f"Applied filter: '{filter_text}'")

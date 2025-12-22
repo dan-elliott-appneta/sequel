@@ -921,44 +921,51 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 allow_expand=False,
             )
 
-    def apply_filter(self, filter_text: str) -> None:
+    async def apply_filter(self, filter_text: str) -> None:
         """Apply a text filter to the tree nodes.
 
-        Filters the tree to show only nodes that match the filter text (case-insensitive).
-        Parent nodes of matching nodes are also shown for context.
+        Shows only nodes that match the filter text (case-insensitive) or are
+        ancestors of matching nodes. All other nodes are hidden.
 
         Args:
             filter_text: Text to filter by (empty string clears filter)
         """
-        self._filter_text = filter_text.lower()
+        self._filter_text = filter_text.strip().lower()
         logger.info(f"Applying filter: '{filter_text}'")
 
-        # If filter is empty, ensure all nodes are visible (no filtering)
-        # We don't need to do anything special - just let the tree display normally
-        # The filter only affects how we traverse/highlight, not visibility
-
-        # For now, we'll implement filtering by highlighting/focusing matching nodes
-        # rather than hiding nodes, which is simpler and more reliable with Textual
+        # If filter is empty, reload the full tree
         if not self._filter_text:
-            # Clear any filter state
+            await self.load_projects()
             return
 
-        # Find and highlight the first matching node
-        self._find_and_select_match(self.root)
+        # Apply filter recursively - remove non-matching nodes
+        self._apply_filter_recursive(self.root)
 
-    def _find_and_select_match(self, node: TreeNode[ResourceTreeNode]) -> bool:
-        """Find the first node matching the filter and select it.
+    def _apply_filter_recursive(self, node: TreeNode[ResourceTreeNode]) -> bool:
+        """Recursively apply filter to nodes.
+
+        A node is visible if:
+        1. Its label matches the filter text, OR
+        2. Any of its descendants match the filter text
 
         Args:
-            node: Starting node
+            node: Node to check
 
         Returns:
-            True if a match was found
+            True if this node or any descendant matches the filter
         """
         # Check if this node's label matches
-        if self._filter_text in str(node.label).lower():
-            self.select_node(node)
-            return True
+        node_matches = self._filter_text in str(node.label).lower()
 
-        # Check children
-        return any(self._find_and_select_match(child) for child in node.children)
+        # Check if any children match (recursively)
+        has_matching_child = False
+        for child in list(node.children):
+            child_matches = self._apply_filter_recursive(child)
+            if child_matches:
+                has_matching_child = True
+            elif not child_matches and child != self.root:
+                # Hide non-matching children by removing them
+                child.remove()
+
+        # This node should be visible if it matches or has matching children
+        return node_matches or has_matching_child
