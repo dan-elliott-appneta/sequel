@@ -64,11 +64,16 @@ The config file uses JSON format with the following structure:
 | `SEQUEL_GCLOUD_PROJECT_ID` | N/A | None | Default GCloud project ID |
 | `SEQUEL_GCLOUD_QUOTA_WAIT_TIME` | N/A | `60` | Seconds to wait on quota errors |
 
-### Project Filtering
+### Filtering
 
 | Environment Variable | Config File | Default | Description |
 |---------------------|-------------|---------|-------------|
-| `SEQUEL_PROJECT_FILTER_REGEX` | `filters.project_regex` | `""` (empty, show all) | Regex to filter projects (empty = show all) |
+| `SEQUEL_PROJECT_FILTER_REGEX` | `filters.project_regex` | `""` (empty, show all) | Regex to filter projects at state layer (empty = show all) |
+| `SEQUEL_DNS_ZONE_FILTER` | `filters.dns_zone_filter` | `""` (empty, show all) | Substring filter for DNS zones (empty = show all) |
+
+**Security Note:** All regex patterns are validated at startup to prevent ReDoS (Regular Expression Denial of Service) attacks. Invalid or dangerous patterns are logged and disabled gracefully.
+
+**UI Filtering:** Press **'f'** in the app to toggle the filter input for real-time filtering across all resource types. Press **'Esc'** to clear the filter.
 
 ### UI Configuration
 
@@ -173,3 +178,33 @@ sequel
 1. Test regex pattern separately
 2. Empty string (`""`) disables filtering
 3. Check syntax: use double backslashes in JSON (`\\`)
+4. Check startup logs for regex validation warnings
+5. Avoid dangerous patterns (e.g., nested quantifiers like `(a+)+`)
+
+### DNS zone filter
+
+The DNS zone filter uses simple substring matching (case-insensitive). To show only zones containing "prod":
+
+**Via Environment Variable:**
+```bash
+export SEQUEL_DNS_ZONE_FILTER="prod"
+sequel
+```
+
+**Via Config File:**
+```json
+{
+  "filters": {
+    "dns_zone_filter": "prod"
+  }
+}
+```
+
+### Regex Validation Warnings
+
+If you see a warning like "Invalid project filter regex" at startup:
+1. Check the regex syntax is valid
+2. Avoid nested quantifiers: `(a+)+`, `(a*)*`
+3. Avoid overlapping alternations: `(a|ab)*`
+4. Keep patterns under 500 characters
+5. Use fewer than 20 capturing groups

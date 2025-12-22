@@ -116,7 +116,7 @@ After setup, verify authentication works:
 
 ```bash
 # This will fail with auth error if credentials are not valid
-sequel --version  # Should output: sequel 0.1.0
+sequel --version  # Should output: sequel 1.0.4
 
 # Then run the app
 sequel

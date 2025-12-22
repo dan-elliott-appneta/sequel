@@ -59,15 +59,34 @@ Sequel implements automatic credential scrubbing in all logs via `CredentialScru
 - **Does NOT Contain:** Credentials, secrets, tokens, or sensitive data
 - **Permissions:** Uses standard user file permissions
 
+### Input Validation & ReDoS Prevention
+
+**Regex Pattern Validation** (Added in v1.0.4):
+- **All user-provided regex patterns are validated** at startup
+- **ReDoS Detection:** Patterns with nested quantifiers or catastrophic backtracking are rejected
+- **Syntax Validation:** Invalid regex syntax is caught gracefully
+- **Graceful Degradation:** Invalid patterns log a warning and filtering is disabled
+- **Implementation:** `src/sequel/utils/regex_validator.py`
+- **Test Coverage:** 31 tests covering validation, ReDoS detection, and real-world scenarios
+
+**Protected Patterns:**
+- Nested quantifiers: `(a+)+`, `(a*)*`, `(a{2,5})*`
+- Overlapping alternations: `(a|ab)*`
+- Excessive complexity: >500 chars, >20 capturing groups
+
+**Why This Matters:**
+Regular Expression Denial of Service (ReDoS) attacks can cause catastrophic backtracking, freezing the application with maliciously-crafted input. Sequel validates all patterns before use to prevent this attack vector.
+
 ---
 
 ## Supported Versions
 
 | Version | Security Updates |
 |---------|------------------|
-| 0.1.x (Alpha) | ✅ Latest release only |
+| 1.0.x | ✅ Latest release only |
+| 0.1.x (Legacy) | ❌ No longer supported |
 
-**Note:** This is alpha software. Use at your own risk in production environments.
+**Note:** Version 1.0.0+ is production-ready. Security patches are applied to the latest 1.0.x release only.
 
 ---
 
@@ -76,18 +95,18 @@ Sequel implements automatic credential scrubbing in all logs via `CredentialScru
 We believe in transparent security. The following limitations are known:
 
 1. **Config File Permissions:** Uses default user permissions (not hardened to 600)
-2. **Input Validation:** Relies on Google Cloud API validation for inputs
-3. **Audit Logging:** No built-in audit logging (use GCP audit logs instead)
-4. **Rate Limiting:** No client-side rate limiting (relies on GCP quota enforcement)
+2. **Audit Logging:** No built-in audit logging (use GCP audit logs instead)
+3. **Rate Limiting:** No client-side rate limiting (relies on GCP quota enforcement)
 
 ---
 
 ## Security Audit
 
-- **Last Audit:** Initial release (2024)
+- **Last Audit:** v1.0.4 release (December 2025)
 - **Test Coverage of Security Features:** 100%
 - **Automated Security Scanning:** GitHub Dependabot enabled
-- **Credential Scrubbing Tests:** 38 test cases
+- **Credential Scrubbing Tests:** 17 test cases
+- **Regex Validation Tests:** 31 test cases
 
 ---
 

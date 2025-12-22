@@ -92,9 +92,38 @@ You can also select text with the mouse and copy normally (Ctrl+C or Cmd+C).
 |-----|--------|
 | `q` | Quit application |
 | `r` | Refresh current view |
+| `f` | Toggle filter input (real-time filtering) |
+| `Esc` | Clear filter / Dismiss modal |
 | `Ctrl+P` | Open command palette (theme selection) |
 | `?` | Show help modal |
-| `Esc` | Dismiss modal/dialog |
+
+## Filtering Resources
+
+Sequel provides two types of filtering:
+
+### State Layer Filtering (Startup)
+Configure filters in `~/.config/sequel/config.json` or via environment variables:
+- **Project filter**: Regex pattern applied when loading projects
+- **DNS zone filter**: Substring filter for DNS zones
+
+These filters are applied at the state layer before resources are stored, reducing memory usage and improving performance.
+
+### UI Filtering (Real-time)
+Press **`f`** to toggle the filter input for real-time filtering across all resource types:
+
+1. Press `f` to show the filter input
+2. Type your filter text (filters as you type, debounced 400ms)
+3. Matching nodes and their ancestors are shown
+4. Press `Esc` to clear the filter and hide the input
+
+**Supported resource types:**
+- Projects
+- Cloud DNS zones and records
+- Cloud SQL instances
+- Compute instance groups and VMs
+- GKE clusters and nodes
+- Secrets
+- IAM service accounts and roles
 
 ## Resource Types
 
