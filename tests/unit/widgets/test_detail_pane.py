@@ -172,9 +172,10 @@ class TestDetailPane:
 
         # Verify configuration
         assert detail_pane.language == "json"
-        assert detail_pane.theme == "monokai"
+        assert detail_pane.theme == "dracula"  # Vibrant purple/pink syntax highlighting
         assert detail_pane.read_only is True
         assert detail_pane.show_line_numbers is True
+        assert detail_pane.soft_wrap is False
 
     def test_raw_data_preserves_all_api_fields(self) -> None:
         """Test that raw_data preserves all original API response fields."""

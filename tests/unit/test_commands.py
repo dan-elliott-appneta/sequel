@@ -109,3 +109,106 @@ class TestThemeProvider:
         assert provider is not None
         assert hasattr(provider, "search")
         assert hasattr(provider, "select_theme")
+
+    @pytest.mark.asyncio
+    async def test_search_returns_matching_themes(self) -> None:
+        """Test search method returns themes matching the query."""
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["SEQUEL_CONFIG_DIR"] = tmpdir
+
+            # Create a mock screen and app
+            mock_app = MagicMock(spec=App)
+            mock_app.theme = "textual-dark"
+
+            mock_screen = MagicMock()
+            mock_screen.app = mock_app
+
+            provider = ThemeProvider(screen=mock_screen)
+
+            # Search for "dark" themes
+            with patch("sequel.commands.get_config") as mock_get_config:
+                mock_config = MagicMock()
+                mock_config.theme = "textual-dark"
+                mock_get_config.return_value = mock_config
+
+                hits = []
+                async for hit in provider.search("dark"):
+                    hits.append(hit)
+
+            # Should find themes with "dark" in the name
+            assert len(hits) > 0
+            # textual-dark and solarized-dark should be in results
+            hit_texts = [str(hit.text) for hit in hits]
+            assert any("textual-dark" in text.lower() for text in hit_texts)
+
+            # Cleanup
+            os.environ.pop("SEQUEL_CONFIG_DIR", None)
+
+    @pytest.mark.asyncio
+    async def test_search_marks_current_theme(self) -> None:
+        """Test search method marks the current theme with (current) suffix."""
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["SEQUEL_CONFIG_DIR"] = tmpdir
+
+            # Create a mock screen and app
+            mock_app = MagicMock(spec=App)
+            mock_app.theme = "nord"
+
+            mock_screen = MagicMock()
+            mock_screen.app = mock_app
+
+            provider = ThemeProvider(screen=mock_screen)
+
+            # Search for "nord"
+            with patch("sequel.commands.get_config") as mock_get_config:
+                mock_config = MagicMock()
+                mock_config.theme = "nord"
+                mock_get_config.return_value = mock_config
+
+                hits = []
+                async for hit in provider.search("nord"):
+                    hits.append(hit)
+
+            # Should find nord theme
+            assert len(hits) == 1
+            assert "current" in hits[0].help.lower()
+
+            # Cleanup
+            os.environ.pop("SEQUEL_CONFIG_DIR", None)
+
+    @pytest.mark.asyncio
+    async def test_search_no_matches(self) -> None:
+        """Test search method returns no results for non-matching query."""
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["SEQUEL_CONFIG_DIR"] = tmpdir
+
+            # Create a mock screen and app
+            mock_app = MagicMock(spec=App)
+            mock_app.theme = "textual-dark"
+
+            mock_screen = MagicMock()
+            mock_screen.app = mock_app
+
+            provider = ThemeProvider(screen=mock_screen)
+
+            # Search for something that doesn't match any theme
+            with patch("sequel.commands.get_config") as mock_get_config:
+                mock_config = MagicMock()
+                mock_config.theme = "textual-dark"
+                mock_get_config.return_value = mock_config
+
+                hits = []
+                async for hit in provider.search("xyznonexistent"):
+                    hits.append(hit)
+
+            # Should find no results
+            assert len(hits) == 0
+
+            # Cleanup
+            os.environ.pop("SEQUEL_CONFIG_DIR", None)

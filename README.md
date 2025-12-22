@@ -82,6 +82,10 @@ Sequel stores user preferences in `~/.config/sequel/config.json`. This file is a
   },
   "filters": {
     "project_regex": "^my-project-prefix.*$"
+  },
+  "logging": {
+    "log_file": "~/.config/sequel/sequel.log",
+    "log_level": "INFO"
   }
 }
 ```
@@ -125,9 +129,9 @@ export SEQUEL_CACHE_TTL_RESOURCES="300"           # Resource cache TTL in second
 export SEQUEL_API_TIMEOUT="30"                    # API timeout in seconds (default: 30)
 export SEQUEL_API_MAX_RETRIES="3"                 # Max retry attempts (default: 3)
 
-# Logging
+# Logging (defaults to ~/.config/sequel/sequel.log)
 export SEQUEL_LOG_LEVEL="INFO"                    # Log level: DEBUG, INFO, WARNING, ERROR
-export SEQUEL_LOG_FILE="/path/to/sequel.log"      # Log file path (optional)
+export SEQUEL_LOG_FILE="/path/to/sequel.log"      # Log file path (default: ~/.config/sequel/sequel.log)
 
 # UI Settings
 export SEQUEL_THEME="textual-dark"                # Textual theme name
@@ -284,9 +288,13 @@ MIT License - See LICENSE file for details.
 
 ## Security
 
-- Credentials are never logged (enforced by credential scrubbing)
-- Secret values are never retrieved (only metadata)
-- All user data stays local (no telemetry)
+- **Credentials are never logged** (enforced by credential scrubbing filter)
+- **Secret values are never retrieved** (only metadata is accessed)
+- **All user data stays local** (no telemetry or external reporting)
+- **Regex patterns are validated** to prevent ReDoS (Regular Expression Denial of Service) attacks
+  - User-provided regex patterns from config files or environment variables are validated at startup
+  - Patterns with nested quantifiers or catastrophic backtracking potential are rejected
+  - Invalid patterns are logged and disabled gracefully (app continues with filtering disabled)
 
 For security issues and detailed security practices, please see [SECURITY.md](SECURITY.md).
 

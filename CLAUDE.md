@@ -76,7 +76,11 @@ This project is being built in 10 phases. Each phase is implemented in its own b
     - Resource counts in tree node labels with proper pluralization
     - Enhanced error recovery (credential refresh, quota wait/retry)
   - Not Implemented:
-    - Toast notifications (removed due to Textual layout issues - will revisit in future)
+    - Toast notifications (planned but not implemented - encountered Textual layout issues with z-ordering)
+      - Stub methods exist in `main.py` but do nothing (pass statements)
+      - No `toast.py` widget file exists
+      - Status bar provides similar feedback functionality
+      - May be revisited in future if Textual adds better z-index/layer support
     - Progress indicators (status bar serves this purpose)
   - Test coverage: **96.02%** (362 tests) maintained
   - All tests passing
@@ -102,6 +106,28 @@ This project is being built in 10 phases. Each phase is implemented in its own b
     - v1.0.0 tag
   - Package available on PyPI
   - All documentation updated
+
+### Post-Release Improvements (v1.0.1+)
+
+**Security & Lifecycle Fixes** (December 2025):
+- ✅ **Timer lifecycle management**: Added `on_unmount()` handler to properly cancel pending filter timers
+  - Prevents callbacks executing on destroyed widgets
+  - Fixes potential memory leaks on screen unmount
+  - Located in: `src/sequel/screens/main.py`
+
+- ✅ **Regex validation & ReDoS prevention**: Added comprehensive regex validation system
+  - Validates syntax at config load time (prevents crashes)
+  - Detects and blocks ReDoS patterns (nested quantifiers, overlapping alternations)
+  - Gracefully handles invalid patterns (logs warning, disables filtering)
+  - New module: `src/sequel/utils/regex_validator.py`
+  - Integrated in: `src/sequel/config.py`
+  - Protects against malicious or poorly-written regex in `SEQUEL_PROJECT_FILTER_REGEX`
+
+- ✅ **Documentation clarity**: Clarified toast notification implementation status
+  - Toast notifications were **not** implemented (only stub methods exist)
+  - Textual layout issues prevented proper implementation
+  - Status bar provides equivalent functionality
+  - Updated both CLAUDE.md and code comments for consistency
 
 ## Development Workflow
 
@@ -151,6 +177,17 @@ All PRs must pass:
 - Use credential scrubbing filter in all logging
 - For secrets, only retrieve metadata, never values
 - Test credential scrubbing with unit tests
+- **Validate all user-provided regex patterns** to prevent:
+  - ReDoS (Regular Expression Denial of Service) attacks
+  - Invalid syntax that crashes the application
+  - Overly complex patterns that cause performance issues
+
+**Regex Validation:**
+- All regex patterns from config files or environment variables are validated at load time
+- Use `sequel.utils.regex_validator` module for validation
+- Patterns with nested quantifiers (e.g., `(a+)+`) are rejected as potential ReDoS attacks
+- Invalid patterns are logged and disabled (app continues with filtering disabled)
+- Located in: `src/sequel/utils/regex_validator.py`
 
 See [SECURITY.md](../SECURITY.md) for detailed security practices and vulnerability reporting.
 

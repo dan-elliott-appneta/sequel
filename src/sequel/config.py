@@ -8,6 +8,7 @@ import os
 from dataclasses import dataclass
 
 from sequel.config_file import get_default_config, load_config_file
+from sequel.utils.regex_validator import RegexValidationError, validate_regex
 
 
 @dataclass
@@ -41,6 +42,9 @@ class Config:
     # Project Filtering
     project_filter_regex: str | None = None  # Filter projects by regex (None = show all)
 
+    # DNS Zone Filtering
+    dns_zone_filter: str | None = None  # Only show DNS zones containing this string (None = show all)
+
     # UI Configuration
     theme: str = "textual-dark"  # Textual theme name
 
@@ -67,6 +71,7 @@ class Config:
             SEQUEL_GCLOUD_PROJECT_ID: Default GCloud project ID
             SEQUEL_GCLOUD_QUOTA_WAIT_TIME: Seconds to wait on quota errors
             SEQUEL_PROJECT_FILTER_REGEX: Regex to filter projects (empty string = show all)
+            SEQUEL_DNS_ZONE_FILTER: Only show DNS zones containing this string (empty = show all)
             SEQUEL_THEME: Textual theme name
 
         Returns:
@@ -99,6 +104,25 @@ class Config:
         # Convert empty string to None to disable filtering
         project_filter_regex = project_filter if project_filter else None
 
+        # Validate regex pattern for security (prevent ReDoS attacks)
+        if project_filter_regex:
+            try:
+                validate_regex(project_filter_regex, warn_on_redos=True)
+            except RegexValidationError as e:
+                print(f"WARNING: Invalid project filter regex '{project_filter_regex}': {e}")
+                print("Project filtering will be disabled.")
+                project_filter_regex = None
+
+        # Get DNS zone filter with special handling for empty string
+        dns_zone_filter = get_value(
+            "SEQUEL_DNS_ZONE_FILTER",
+            "filters",
+            "dns_zone_filter",
+            defaults["filters"].get("dns_zone_filter", "")
+        )
+        # Convert empty string to None to disable filtering
+        dns_zone_filter = dns_zone_filter if dns_zone_filter else None
+
         # Get theme from env > config file > default
         theme = get_value(
             "SEQUEL_THEME",
@@ -106,6 +130,23 @@ class Config:
             "theme",
             defaults["ui"]["theme"]
         ) or "textual-dark"
+
+        # Get log file from env > config file > default
+        log_file = get_value(
+            "SEQUEL_LOG_FILE",
+            "logging",
+            "log_file",
+            defaults["logging"]["log_file"]
+        )
+
+        # Get log level from env > config file > default
+        log_level_value = get_value(
+            "SEQUEL_LOG_LEVEL",
+            "logging",
+            "log_level",
+            defaults["logging"]["log_level"]
+        )
+        log_level = log_level_value.upper() if log_level_value else "INFO"
 
         return cls(
             api_timeout=int(os.getenv("SEQUEL_API_TIMEOUT", "30")),
@@ -115,8 +156,8 @@ class Config:
             cache_enabled=os.getenv("SEQUEL_CACHE_ENABLED", "true").lower() == "true",
             cache_ttl_projects=int(os.getenv("SEQUEL_CACHE_TTL_PROJECTS", "600")),
             cache_ttl_resources=int(os.getenv("SEQUEL_CACHE_TTL_RESOURCES", "300")),
-            log_level=os.getenv("SEQUEL_LOG_LEVEL", "INFO").upper(),
-            log_file=os.getenv("SEQUEL_LOG_FILE"),
+            log_level=log_level,
+            log_file=log_file,
             enable_credential_scrubbing=os.getenv(
                 "SEQUEL_ENABLE_CREDENTIAL_SCRUBBING", "true"
             ).lower()
@@ -124,6 +165,7 @@ class Config:
             gcloud_project_id=os.getenv("SEQUEL_GCLOUD_PROJECT_ID"),
             gcloud_quota_wait_time=int(os.getenv("SEQUEL_GCLOUD_QUOTA_WAIT_TIME", "60")),
             project_filter_regex=project_filter_regex,
+            dns_zone_filter=dns_zone_filter,
             theme=theme,
         )
 
