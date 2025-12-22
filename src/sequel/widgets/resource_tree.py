@@ -947,7 +947,9 @@ class ResourceTree(Tree[ResourceTreeNode]):
             True if this node or any descendant matches the filter
         """
         # Check if this node's label matches
-        node_matches = self._filter_text in str(node.label).lower()
+        # Use .plain to get plain text without Rich formatting
+        label_text = node.label.plain if hasattr(node.label, 'plain') else str(node.label)
+        node_matches = self._filter_text in label_text.lower()
 
         # Check if any children match (recursively)
         has_matching_child = False
