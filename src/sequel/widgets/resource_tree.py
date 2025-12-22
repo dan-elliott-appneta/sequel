@@ -930,8 +930,59 @@ class ResourceTree(Tree[ResourceTreeNode]):
             await self.load_projects()
             return
 
+        # First, expand all expandable nodes to load their children
+        # This ensures DNS records and other on-demand resources are loaded
+        await self._expand_all_nodes(self.root)
+
         # Apply filter recursively - remove non-matching nodes
         self._apply_filter_recursive(self.root)
+
+    async def _expand_all_nodes(self, node: TreeNode[ResourceTreeNode]) -> None:
+        """Recursively expand all expandable nodes to load their children.
+
+        This ensures that on-demand loaded content (like DNS records) is
+        available for filtering.
+
+        Args:
+            node: Node to expand
+        """
+        # Load children if not already loaded AND node has no children yet
+        # (Skip if children were manually added, as in tests)
+        if node.data and not node.data.loaded and not node.children:
+            try:
+                # Load resources based on type
+                if node.data.resource_type == ResourceType.CLOUDDNS:
+                    await self._load_dns_zones(node)
+                elif node.data.resource_type == ResourceType.CLOUDDNS_ZONE:
+                    await self._load_dns_records(node)
+                elif node.data.resource_type == ResourceType.CLOUDSQL:
+                    await self._load_cloudsql_instances(node)
+                elif node.data.resource_type == ResourceType.COMPUTE:
+                    await self._load_instance_groups(node)
+                elif node.data.resource_type == ResourceType.COMPUTE_INSTANCE_GROUP:
+                    await self._load_instances_in_group(node)
+                elif node.data.resource_type == ResourceType.GKE:
+                    await self._load_gke_clusters(node)
+                elif node.data.resource_type == ResourceType.GKE_CLUSTER:
+                    await self._load_cluster_nodes(node)
+                elif node.data.resource_type == ResourceType.SECRETS:
+                    await self._load_secrets(node)
+                elif node.data.resource_type == ResourceType.IAM:
+                    await self._load_service_accounts(node)
+                elif node.data.resource_type == ResourceType.IAM_SERVICE_ACCOUNT:
+                    await self._load_service_account_roles(node)
+
+                node.data.loaded = True
+            except Exception as e:
+                logger.error(f"Failed to load resources during filter: {e}")
+
+        # Expand this node if it's expandable
+        if node.allow_expand and not node.is_expanded:
+            node.expand()
+
+        # Recursively expand all children
+        for child in list(node.children):
+            await self._expand_all_nodes(child)
 
     def _apply_filter_recursive(self, node: TreeNode[ResourceTreeNode]) -> bool:
         """Recursively apply filter to nodes.
