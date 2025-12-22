@@ -1,5 +1,6 @@
 """Main application screen with tree and detail pane layout."""
 
+import asyncio
 from typing import ClassVar
 
 from textual.app import ComposeResult
@@ -131,6 +132,7 @@ class MainScreen(Screen[None]):
         self.filter_input: Input | None = None
         self.filter_active: bool = False
         self.loading_progress: LoadingProgress | None = None
+        self._filter_timer: asyncio.TimerHandle | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the screen layout.
@@ -442,13 +444,33 @@ class MainScreen(Screen[None]):
         logger.debug("Filter cleared and hidden")
 
     async def on_input_changed(self, event: Input.Changed) -> None:
-        """Handle filter input changes.
+        """Handle filter input changes with debouncing.
 
         Args:
             event: Input changed event
         """
         if event.input.id == "filter-input" and self.resource_tree:
+            # Cancel any pending filter operation
+            if self._filter_timer:
+                self._filter_timer.cancel()
+
             filter_text = event.value.strip()
+
+            # Debounce: wait 400ms after user stops typing before filtering
+            # This prevents UI hangs when typing quickly
+            loop = asyncio.get_event_loop()
+            self._filter_timer = loop.call_later(
+                0.4,  # 400ms delay
+                lambda: asyncio.create_task(self._apply_filter_debounced(filter_text))
+            )
+
+    async def _apply_filter_debounced(self, filter_text: str) -> None:
+        """Apply filter after debounce delay.
+
+        Args:
+            filter_text: Text to filter by
+        """
+        if self.resource_tree:
             await self.resource_tree.apply_filter(filter_text)
             logger.debug(f"Applied filter: '{filter_text}'")
 
