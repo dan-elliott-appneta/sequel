@@ -961,8 +961,4 @@ class ResourceTree(Tree[ResourceTreeNode]):
             return True
 
         # Check children
-        for child in node.children:
-            if self._find_and_select_match(child):
-                return True
-
-        return False
+        return any(self._find_and_select_match(child) for child in node.children)
