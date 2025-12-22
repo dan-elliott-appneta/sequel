@@ -74,6 +74,8 @@ class ResourceState:
         if config.project_filter_regex:
             import re
             try:
+                # Note: Regex is already validated in config.py during load time
+                # This try-except is kept as a safety measure
                 pattern = re.compile(config.project_filter_regex)
                 original_count = len(projects)
                 projects = [
@@ -85,7 +87,8 @@ class ResourceState:
                     f"{original_count} -> {len(projects)} projects"
                 )
             except re.error as e:
-                logger.error(f"Invalid project filter regex: {e}")
+                # This should never happen due to validation at config load time
+                logger.error(f"Invalid project filter regex (should have been caught at config load): {e}")
 
         # Store in state (only filtered projects)
         self._projects = {p.project_id: p for p in projects}

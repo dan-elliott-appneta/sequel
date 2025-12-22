@@ -8,6 +8,7 @@ import os
 from dataclasses import dataclass
 
 from sequel.config_file import get_default_config, load_config_file
+from sequel.utils.regex_validator import RegexValidationError, validate_regex
 
 
 @dataclass
@@ -102,6 +103,15 @@ class Config:
         )
         # Convert empty string to None to disable filtering
         project_filter_regex = project_filter if project_filter else None
+
+        # Validate regex pattern for security (prevent ReDoS attacks)
+        if project_filter_regex:
+            try:
+                validate_regex(project_filter_regex, warn_on_redos=True)
+            except RegexValidationError as e:
+                print(f"WARNING: Invalid project filter regex '{project_filter_regex}': {e}")
+                print("Project filtering will be disabled.")
+                project_filter_regex = None
 
         # Get DNS zone filter with special handling for empty string
         dns_zone_filter = get_value(

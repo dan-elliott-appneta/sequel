@@ -382,7 +382,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         # Process projects ONE AT A TIME to prevent segfaults
         # Even batch_size=2 (12 concurrent API calls) causes crashes
-        # batch_size=1 means max 6 concurrent API calls (1 project × 6 resource types)
+        # batch_size=1 means max 6 concurrent API calls (1 project x 6 resource types)
         for i, project_node in enumerate(project_nodes, 1):
             logger.info(f"Cleanup: processing project {i}/{len(project_nodes)}: {project_node.label}")
 

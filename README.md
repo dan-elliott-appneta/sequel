@@ -288,9 +288,13 @@ MIT License - See LICENSE file for details.
 
 ## Security
 
-- Credentials are never logged (enforced by credential scrubbing)
-- Secret values are never retrieved (only metadata)
-- All user data stays local (no telemetry)
+- **Credentials are never logged** (enforced by credential scrubbing filter)
+- **Secret values are never retrieved** (only metadata is accessed)
+- **All user data stays local** (no telemetry or external reporting)
+- **Regex patterns are validated** to prevent ReDoS (Regular Expression Denial of Service) attacks
+  - User-provided regex patterns from config files or environment variables are validated at startup
+  - Patterns with nested quantifiers or catastrophic backtracking potential are rejected
+  - Invalid patterns are logged and disabled gracefully (app continues with filtering disabled)
 
 For security issues and detailed security practices, please see [SECURITY.md](SECURITY.md).
 

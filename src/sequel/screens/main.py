@@ -171,6 +171,19 @@ class MainScreen(Screen[None]):
                 if self.status_bar:
                     self.status_bar.set_loading(False)
 
+    async def on_unmount(self) -> None:
+        """Handle screen unmount event.
+
+        Cleanup any pending timers to prevent callbacks on destroyed widgets.
+        """
+        logger.info("Main screen unmounting - cleaning up resources")
+
+        # Cancel pending filter timer if any
+        if self._filter_timer:
+            self._filter_timer.cancel()
+            self._filter_timer = None
+            logger.debug("Cancelled pending filter timer")
+
     async def on_tree_node_highlighted(self, event: ResourceTree.NodeHighlighted[ResourceTreeNode]) -> None:
         """Handle tree node selection.
 
