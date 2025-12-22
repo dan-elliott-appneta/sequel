@@ -308,7 +308,21 @@ class ResourceTree(Tree[ResourceTreeNode]):
         Uses parallel loading for performance - loads all resource types for each
         project simultaneously using asyncio.gather().
         """
+        from sequel.widgets.status_bar import StatusBar
+
+        # Try to get the status bar to show loading indicator
+        status_bar = None
+        try:
+            if self.app:
+                status_bar = self.app.query_one(StatusBar)
+        except Exception:
+            pass  # Status bar might not be available yet
+
         logger.info("Starting automatic cleanup of empty nodes with parallel loading")
+
+        if status_bar:
+            status_bar.set_operation("Cleaning up empty nodes...")
+
         projects_to_check = list(self.root.children)
 
         for project_node in projects_to_check:
@@ -319,6 +333,9 @@ class ResourceTree(Tree[ResourceTreeNode]):
             await self._load_all_resources_parallel(project_node)
 
         logger.info("Completed automatic cleanup of empty nodes")
+
+        if status_bar:
+            status_bar.set_operation(None)  # Clear the operation
 
     async def _load_all_resources_parallel(self, project_node: TreeNode[ResourceTreeNode]) -> None:
         """Load all resource types for a project in parallel.
@@ -973,16 +990,34 @@ class ResourceTree(Tree[ResourceTreeNode]):
         Args:
             filter_text: Text to filter by (empty string clears filter)
         """
+        from sequel.widgets.status_bar import StatusBar
+
+        # Try to get the status bar to show filtering indicator
+        status_bar = None
+        try:
+            if self.app:
+                status_bar = self.app.query_one(StatusBar)
+        except Exception:
+            pass  # Status bar might not be available yet
+
         self._filter_text = filter_text.strip().lower()
         logger.info(f"Applying filter: '{filter_text}'")
 
         if not self._filter_text:
             # No filter - show all loaded data from state
+            if status_bar:
+                status_bar.set_operation("Rebuilding tree...")
             await self._rebuild_tree_from_state()
+            if status_bar:
+                status_bar.set_operation(None)
             return
 
         # With filter - show only matching resources from state
+        if status_bar:
+            status_bar.set_operation(f"Filtering for '{filter_text}'...")
         await self._rebuild_filtered_tree()
+        if status_bar:
+            status_bar.set_operation(None)
 
     async def _rebuild_tree_from_state(self) -> None:
         """Rebuild tree from current state without filter."""
