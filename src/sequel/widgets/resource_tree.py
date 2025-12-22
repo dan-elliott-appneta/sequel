@@ -1409,6 +1409,16 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         logger.info(f"Filter applied: showing {len(self.root.children)} matching projects")
 
+        # Show completion notification
+        if self.app:
+            project_count = len(self.root.children)
+            project_word = "project" if project_count == 1 else "projects"
+            self.app.notify(
+                f"Filter complete: {project_count} {project_word} match '{filter_text}'",
+                severity="information",
+                timeout=3,
+            )
+
     def _matches_filter(self, text: str) -> bool:
         """Check if text matches the current filter.
 

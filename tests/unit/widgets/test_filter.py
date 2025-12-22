@@ -435,10 +435,18 @@ class TestFilterLogic:
         ):
             await resource_tree.apply_filter("grafana")
 
-            # Should send notification
-            mock_app.notify.assert_called_once()
-            call_args = mock_app.notify.call_args
-            assert "grafana" in call_args[0][0].lower()
+            # Should send two notifications: start and completion
+            assert mock_app.notify.call_count == 2
+
+            # First call: "Filtering for 'grafana'..."
+            first_call = mock_app.notify.call_args_list[0]
+            assert "filtering" in first_call[0][0].lower()
+            assert "grafana" in first_call[0][0].lower()
+
+            # Second call: "Filter complete: 1 project match 'grafana'"
+            second_call = mock_app.notify.call_args_list[1]
+            assert "complete" in second_call[0][0].lower()
+            assert "grafana" in second_call[0][0].lower()
 
 
 class TestFilterUI:

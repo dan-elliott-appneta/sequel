@@ -46,9 +46,9 @@ class DetailPane(TextArea):
         super().__init__(
             "",  # Initial empty text
             language="json",
-            theme="monokai",
             read_only=True,
             show_line_numbers=True,
+            soft_wrap=False,
         )
         self.current_resource: BaseModel | None = None
 
