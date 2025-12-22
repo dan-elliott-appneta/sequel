@@ -4,7 +4,7 @@ A Terminal User Interface (TUI) for browsing and inspecting Google Cloud resourc
 
 ## Version
 
-Current version: **0.1.0** (Alpha)
+Current version: **1.0.0**
 
 ## Features
 
@@ -262,13 +262,13 @@ See [docs/architecture/overview.md](docs/architecture/overview.md) for detailed 
 
 ## Project Status
 
-This project is in **alpha** stage. The MVP includes basic browsing functionality for the listed resource types.
+Version 1.0.0 has been released! This version includes comprehensive functionality for browsing Google Cloud resources.
 
-**Roadmap:**
-- ✅ [Phase 7: Performance Optimization](docs/phase-7-performance-plan.md) - **COMPLETE** - Parallel API calls, cache optimization, LRU eviction
-- ✅ [Phase 8: Error Handling & UX Polish](docs/phase-8-ux-plan.md) - **COMPLETE** - VIM bindings, enhanced status bar, error recovery
-- ✅ [Phase 9: Testing & Documentation](docs/phase-9-testing-docs-plan.md) - **COMPLETE** - Comprehensive documentation, integration tests (35), performance benchmarks (8)
-- [ ] [Phase 10: Packaging & Release](docs/phase-10-release-plan.md) - PyPI publishing, release automation
+**Completed Phases:**
+- ✅ [Phase 7: Performance Optimization](docs/phase-7-performance-plan.md) - Parallel API calls, cache optimization, LRU eviction
+- ✅ [Phase 8: Error Handling & UX Polish](docs/phase-8-ux-plan.md) - VIM bindings, enhanced status bar, error recovery
+- ✅ [Phase 9: Testing & Documentation](docs/phase-9-testing-docs-plan.md) - Comprehensive documentation, integration tests (35), performance benchmarks (8)
+- ✅ [Phase 10: Packaging & Release](docs/phase-10-release-plan.md) - PyPI publishing, release automation
 
 See `CLAUDE.md` for development guidelines.
 
