@@ -276,9 +276,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
             # 2. User applies a filter (filter logic loads DNS data as needed)
             # self._background_task = asyncio.create_task(self._load_dns_zones_slowly(projects, force_refresh))
 
-            # Automatically cleanup empty nodes in the background (non-blocking)
-            # Store task reference to prevent garbage collection
-            self._cleanup_task = asyncio.create_task(self.cleanup_empty_nodes())
+            # DISABLED: Automatic cleanup causes segfaults due to parallel API loading
+            # The cleanup_empty_nodes() method loads all resource types in parallel for each project,
+            # which creates too many concurrent API calls and causes segmentation faults.
+            # Users can manually trigger cleanup if needed, or it will happen naturally when filtering.
+            # self._cleanup_task = asyncio.create_task(self.cleanup_empty_nodes())
 
         except Exception as e:
             logger.error(f"Failed to load projects: {e}")

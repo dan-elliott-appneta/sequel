@@ -36,6 +36,15 @@ def get_config_file() -> Path:
     return get_config_dir() / "config.json"
 
 
+def get_log_file_path() -> Path:
+    """Get the default path to the log file.
+
+    Returns:
+        Path to sequel.log in the config directory
+    """
+    return get_config_dir() / "sequel.log"
+
+
 def load_config_file() -> dict[str, Any]:
     """Load configuration from config file.
 
@@ -88,6 +97,10 @@ def get_default_config() -> dict[str, Any]:
         "filters": {
             "project_regex": "",
             "dns_zone_filter": "",
+        },
+        "logging": {
+            "log_file": str(get_log_file_path()),
+            "log_level": "INFO",
         },
     }
 

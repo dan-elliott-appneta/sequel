@@ -34,7 +34,7 @@ For more information, visit: https://github.com/dan-elliott-appneta/sequel
     parser.add_argument(
         "--log-file",
         type=str,
-        help="Path to log file (default: logs are suppressed to avoid interfering with TUI)",
+        help="Path to log file (default: ~/.config/sequel/sequel.log)",
     )
 
     parser.add_argument(

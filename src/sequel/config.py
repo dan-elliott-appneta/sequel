@@ -121,6 +121,23 @@ class Config:
             defaults["ui"]["theme"]
         ) or "textual-dark"
 
+        # Get log file from env > config file > default
+        log_file = get_value(
+            "SEQUEL_LOG_FILE",
+            "logging",
+            "log_file",
+            defaults["logging"]["log_file"]
+        )
+
+        # Get log level from env > config file > default
+        log_level_value = get_value(
+            "SEQUEL_LOG_LEVEL",
+            "logging",
+            "log_level",
+            defaults["logging"]["log_level"]
+        )
+        log_level = log_level_value.upper() if log_level_value else "INFO"
+
         return cls(
             api_timeout=int(os.getenv("SEQUEL_API_TIMEOUT", "30")),
             api_max_retries=int(os.getenv("SEQUEL_API_MAX_RETRIES", "3")),
@@ -129,8 +146,8 @@ class Config:
             cache_enabled=os.getenv("SEQUEL_CACHE_ENABLED", "true").lower() == "true",
             cache_ttl_projects=int(os.getenv("SEQUEL_CACHE_TTL_PROJECTS", "600")),
             cache_ttl_resources=int(os.getenv("SEQUEL_CACHE_TTL_RESOURCES", "300")),
-            log_level=os.getenv("SEQUEL_LOG_LEVEL", "INFO").upper(),
-            log_file=os.getenv("SEQUEL_LOG_FILE"),
+            log_level=log_level,
+            log_file=log_file,
             enable_credential_scrubbing=os.getenv(
                 "SEQUEL_ENABLE_CREDENTIAL_SCRUBBING", "true"
             ).lower()
