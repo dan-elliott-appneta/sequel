@@ -56,14 +56,14 @@ class MainScreen(Screen[None]):
     }
 
     #filter-container {
-        height: auto;
+        height: 0;
         background: $panel;
         padding: 0 1;
-        display: none;
+        overflow: hidden;
     }
 
     #filter-container.visible {
-        display: block;
+        height: 3;
     }
 
     #filter-input {
