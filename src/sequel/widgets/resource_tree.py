@@ -938,14 +938,20 @@ class ResourceTree(Tree[ResourceTreeNode]):
         self._apply_filter_recursive(self.root)
 
     async def _expand_all_nodes(self, node: TreeNode[ResourceTreeNode]) -> None:
-        """Recursively expand all expandable nodes to load their children.
+        """Recursively expand visible nodes to load their children.
 
         This ensures that on-demand loaded content (like DNS records) is
-        available for filtering.
+        available for filtering. Only expands nodes that are already visible
+        (their parent is expanded) to avoid loading the entire tree.
 
         Args:
             node: Node to expand
         """
+        # Only process nodes that are already visible (expanded or root)
+        # This prevents trying to load ALL resources from ALL projects
+        if node != self.root and node.parent and not node.parent.is_expanded:
+            return
+
         # Load children if not already loaded AND node has no children yet
         # (Skip if children were manually added, as in tests)
         if node.data and not node.data.loaded and not node.children:
@@ -976,8 +982,9 @@ class ResourceTree(Tree[ResourceTreeNode]):
             except Exception as e:
                 logger.error(f"Failed to load resources during filter: {e}")
 
-        # Expand this node if it's expandable
-        if node.allow_expand and not node.is_expanded:
+        # Expand this node if it's expandable and already visible
+        if (node.allow_expand and not node.is_expanded and node != self.root
+                and node.parent and node.parent.is_expanded):
             node.expand()
 
         # Recursively expand all children
