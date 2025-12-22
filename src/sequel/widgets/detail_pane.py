@@ -46,7 +46,7 @@ class DetailPane(TextArea):
         super().__init__(
             "",  # Initial empty text
             language="json",
-            theme="monokai",  # Colorful syntax highlighting theme
+            theme="dracula",  # Vibrant purple/pink syntax highlighting theme
             read_only=True,
             show_line_numbers=True,
             soft_wrap=False,

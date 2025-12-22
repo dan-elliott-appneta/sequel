@@ -172,7 +172,7 @@ class TestDetailPane:
 
         # Verify configuration
         assert detail_pane.language == "json"
-        assert detail_pane.theme == "monokai"  # Colorful syntax highlighting
+        assert detail_pane.theme == "dracula"  # Vibrant purple/pink syntax highlighting
         assert detail_pane.read_only is True
         assert detail_pane.show_line_numbers is True
         assert detail_pane.soft_wrap is False
