@@ -276,11 +276,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
             # 2. User applies a filter (filter logic loads DNS data as needed)
             # self._background_task = asyncio.create_task(self._load_dns_zones_slowly(projects, force_refresh))
 
-            # DISABLED: Automatic cleanup still causes segfaults even with batched loading
-            # Even with batch size of 2 (12 concurrent API calls), segfaults still occur.
-            # Cleanup happens automatically during filtering operations instead.
-            # Manual cleanup can be triggered if needed, but automatic background cleanup is too risky.
-            # self._cleanup_task = asyncio.create_task(self.cleanup_empty_nodes())
+            # Automatically cleanup empty nodes in the background (non-blocking)
+            # Processes ONE project at a time (max 6 concurrent API calls per project)
+            # Store task reference to prevent garbage collection
+            self._cleanup_task = asyncio.create_task(self.cleanup_empty_nodes())
 
         except Exception as e:
             logger.error(f"Failed to load projects: {e}")
@@ -357,10 +356,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
         loading each resource type to check if it has any resources. Empty resource
         type nodes are removed, and projects with no resource types are also removed.
 
-        Uses batched loading with throttling to prevent API overload and segfaults.
-        Processes projects in small batches with delays between batches.
+        Processes ONE project at a time with 0.5s delays between projects to prevent
+        segfaults. Each project loads 6 resource types in parallel (max 6 concurrent API calls).
         """
-        logger.info("Starting automatic cleanup of empty nodes with batched loading")
+        logger.info("Starting automatic cleanup of empty nodes (one project at a time)")
 
         # Show starting notification
         if self.app:
@@ -381,23 +380,18 @@ class ResourceTree(Tree[ResourceTreeNode]):
             if node.data and node.data.resource_type == ResourceType.PROJECT
         ]
 
-        # Process projects in small batches to prevent too many concurrent API calls
-        batch_size = 2  # Process only 2 projects at a time to be safe
-        for i in range(0, len(project_nodes), batch_size):
-            batch = project_nodes[i:i + batch_size]
-            logger.info(f"Cleanup batch {i // batch_size + 1}: processing {len(batch)} projects")
+        # Process projects ONE AT A TIME to prevent segfaults
+        # Even batch_size=2 (12 concurrent API calls) causes crashes
+        # batch_size=1 means max 6 concurrent API calls (1 project × 6 resource types)
+        for i, project_node in enumerate(project_nodes, 1):
+            logger.info(f"Cleanup: processing project {i}/{len(project_nodes)}: {project_node.label}")
 
-            # Add small delay between batches to avoid rate limits
-            if i > 0:
+            # Add delay between projects to avoid rate limits and reduce load
+            if i > 1:
                 await asyncio.sleep(0.5)
 
-            # Load resources for this batch of projects in parallel
-            tasks = []
-            for project_node in batch:
-                tasks.append(self._load_all_resources_parallel(project_node))
-
-            # Wait for batch to complete
-            await asyncio.gather(*tasks, return_exceptions=True)
+            # Load resources for this single project (6 resource types in parallel)
+            await self._load_all_resources_parallel(project_node)
 
         # Calculate how many projects were removed
         final_project_count = len(self.root.children)
