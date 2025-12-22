@@ -322,6 +322,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         if status_bar:
             status_bar.set_operation("Cleaning up empty nodes...")
+            # Yield to event loop to allow UI update
+            await asyncio.sleep(0.1)
 
         projects_to_check = list(self.root.children)
 
@@ -1007,14 +1009,31 @@ class ResourceTree(Tree[ResourceTreeNode]):
             # No filter - show all loaded data from state
             if status_bar:
                 status_bar.set_operation("Rebuilding tree...")
+                # Yield to event loop to allow UI update
+                await asyncio.sleep(0.1)
             await self._rebuild_tree_from_state()
             if status_bar:
                 status_bar.set_operation(None)
             return
 
+        # Ensure resources are loaded before filtering
+        if not self._initial_load_complete:
+            logger.info("Resources not yet loaded - loading all resources before filtering")
+            if status_bar:
+                status_bar.set_operation("Loading all resources for filtering...")
+                # Yield to event loop to allow UI update
+                await asyncio.sleep(0.1)
+
+            # Load all projects and their resources
+            projects = await self._state.load_projects(force_refresh=False)
+            await self._state.load_all_resources(projects, None)
+            self._initial_load_complete = True
+
         # With filter - show only matching resources from state
         if status_bar:
             status_bar.set_operation(f"Filtering for '{filter_text}'...")
+            # Yield to event loop to allow UI update
+            await asyncio.sleep(0.1)
         await self._rebuild_filtered_tree()
         if status_bar:
             status_bar.set_operation(None)
