@@ -87,6 +87,7 @@ def get_default_config() -> dict[str, Any]:
         },
         "filters": {
             "project_regex": "",
+            "dns_zone_filter": "",
         },
     }
 

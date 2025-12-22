@@ -1,5 +1,6 @@
 """Centralized state manager for in-memory GCP resource data."""
 
+from sequel.config import get_config
 from sequel.models.clouddns import DNSRecord, ManagedZone
 from sequel.models.cloudsql import CloudSQLInstance
 from sequel.models.compute import ComputeInstance, InstanceGroup
@@ -54,7 +55,7 @@ class ResourceState:
             force_refresh: If True, bypass state cache and reload from API
 
         Returns:
-            List of Project instances
+            List of Project instances (filtered by project_filter_regex if configured)
         """
         key = ("projects",)
 
@@ -67,7 +68,26 @@ class ResourceState:
         service = await get_project_service()
         projects = await service.list_projects(use_cache=not force_refresh)
 
-        # Store in state
+        # Apply project filter BEFORE storing in state
+        # This ensures we only store and enumerate projects that match the filter
+        config = get_config()
+        if config.project_filter_regex:
+            import re
+            try:
+                pattern = re.compile(config.project_filter_regex)
+                original_count = len(projects)
+                projects = [
+                    p for p in projects
+                    if pattern.match(p.project_id) or pattern.match(p.display_name)
+                ]
+                logger.info(
+                    f"Applied project filter '{config.project_filter_regex}': "
+                    f"{original_count} -> {len(projects)} projects"
+                )
+            except re.error as e:
+                logger.error(f"Invalid project filter regex: {e}")
+
+        # Store in state (only filtered projects)
         self._projects = {p.project_id: p for p in projects}
         self._loaded.add(key)
 
@@ -89,21 +109,71 @@ class ResourceState:
         key = (project_id, "dns_zones")
 
         # Return from state if already loaded and not forcing refresh
+        # Note: Zones in state are already filtered, so no need to filter again
         if not force_refresh and key in self._loaded:
             zones = self._dns_zones.get(project_id, [])
-            logger.info(f"Returning {len(zones)} DNS zones from state for {project_id}")
+            logger.info(f"Returning {len(zones)} filtered DNS zones from state for {project_id}")
             return zones
 
         # Load from service
         service = await get_clouddns_service()
         zones = await service.list_zones(project_id, use_cache=not force_refresh)
 
-        # Store in state
+        # Apply DNS zone filter BEFORE storing in state
+        # This ensures we only store and enumerate zones that match the filter
+        config = get_config()
+        if config.dns_zone_filter:
+            original_count = len(zones)
+            zones = [z for z in zones if config.dns_zone_filter.lower() in z.dns_name.lower()]
+            logger.info(
+                f"Applied DNS zone filter '{config.dns_zone_filter}': "
+                f"{original_count} -> {len(zones)} zones for {project_id}"
+            )
+
+        # Store in state (only filtered zones)
         self._dns_zones[project_id] = zones
         self._loaded.add(key)
 
         logger.info(f"Loaded {len(zones)} DNS zones into state for {project_id}")
         return zones
+
+    async def load_dns_records(
+        self, project_id: str, zone_name: str, force_refresh: bool = False
+    ) -> list[DNSRecord]:
+        """Load DNS records for a zone.
+
+        Args:
+            project_id: GCP project ID
+            zone_name: DNS zone name
+            force_refresh: If True, bypass state cache and reload from API
+
+        Returns:
+            List of DNSRecord instances
+        """
+        key = (project_id, zone_name, "dns_records")
+
+        # Return from state if already loaded and not forcing refresh
+        if not force_refresh and key in self._loaded:
+            records = self._dns_records.get((project_id, zone_name), [])
+            logger.info(
+                f"Returning {len(records)} DNS records from state for {zone_name} in {project_id}"
+            )
+            return records
+
+        # Load from service
+        service = await get_clouddns_service()
+        records = await service.list_records(
+            project_id=project_id, zone_name=zone_name, use_cache=not force_refresh
+        )
+
+        # Store in state
+        self._dns_records[(project_id, zone_name)] = records
+        self._loaded.add(key)
+
+        logger.info(
+            f"Loaded {len(records)} DNS records into state for {zone_name} in {project_id}"
+        )
+        return records
 
     async def load_cloudsql_instances(
         self, project_id: str, force_refresh: bool = False
@@ -224,6 +294,10 @@ class ResourceState:
         """Get DNS zones from state (returns empty list if not loaded)."""
         return self._dns_zones.get(project_id, [])
 
+    def get_dns_records(self, project_id: str, zone_name: str) -> list[DNSRecord]:
+        """Get DNS records from state (returns empty list if not loaded)."""
+        return self._dns_records.get((project_id, zone_name), [])
+
     def get_cloudsql_instances(self, project_id: str) -> list[CloudSQLInstance]:
         """Get CloudSQL instances from state."""
         return self._cloudsql.get(project_id, [])
@@ -259,3 +333,12 @@ def get_resource_state() -> ResourceState:
     if _resource_state is None:
         _resource_state = ResourceState()
     return _resource_state
+
+
+def reset_resource_state() -> None:
+    """Reset the global resource state singleton.
+
+    This is primarily for testing to ensure a clean state between tests.
+    """
+    global _resource_state
+    _resource_state = None

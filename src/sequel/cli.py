@@ -3,6 +3,7 @@
 import argparse
 import sys
 
+from sequel import __version__
 from sequel.app import run_app
 from sequel.config import get_config
 from sequel.utils.logging import setup_logging
@@ -45,7 +46,7 @@ For more information, visit: https://github.com/dan-elliott-appneta/sequel
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.0",
+        version=f"%(prog)s {__version__}",
     )
 
     args = parser.parse_args()

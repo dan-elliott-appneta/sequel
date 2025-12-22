@@ -1,14 +1,12 @@
 """Resource tree widget for displaying GCP resources in a hierarchical view."""
 
 import asyncio
-import re
 from typing import Any
 
 from textual.widgets import Tree
 from textual.widgets.tree import TreeNode
 
-from sequel.config import get_config
-from sequel.services.clouddns import get_clouddns_service
+from sequel.models.project import Project
 from sequel.services.compute import get_compute_service
 from sequel.services.gke import get_gke_service
 from sequel.services.iam import get_iam_service
@@ -119,6 +117,127 @@ class ResourceTree(Tree[ResourceTreeNode]):
             allow_expand=False,
         )
 
+    async def _load_dns_zones_slowly(
+        self, projects: list[Project], force_refresh: bool = False
+    ) -> None:
+        """Load ONLY DNS zones for projects one at a time to avoid crashes.
+
+        This is a very conservative approach that loads DNS zones slowly
+        in the background to populate the local datasource for filtering.
+
+        Args:
+            projects: List of projects to load DNS zones for
+            force_refresh: If True, bypass cache and reload from API
+        """
+        logger.info(f"Background loading DNS zones for {len(projects)} projects (one at a time)")
+
+        for i, project in enumerate(projects):
+            try:
+                # Load DNS zones for this project (filtered by dns_zone_filter)
+                zones = await self._state.load_dns_zones(project.project_id, force_refresh)
+                logger.debug(f"Loaded {len(zones)} DNS zones for {project.project_id} ({i+1}/{len(projects)})")
+
+                # Wait between projects to avoid overwhelming the system
+                await asyncio.sleep(1.0)  # 1 second delay between projects
+
+            except Exception as e:
+                logger.warning(f"Failed to load DNS zones for {project.project_id}: {e}")
+
+        logger.info(f"Finished background loading DNS zones for {len(projects)} projects")
+
+    async def _load_all_resources_for_projects(
+        self, projects: list[Project], force_refresh: bool = False
+    ) -> None:
+        """Load all resources for all projects in parallel into state.
+
+        This ensures all resources are available in the local datasource for filtering.
+
+        Args:
+            projects: List of projects to load resources for
+            force_refresh: If True, bypass cache and reload from API
+        """
+        logger.info(f"Proactively loading resources for {len(projects)} projects")
+
+        # Limit concurrent operations to prevent overwhelming the API and causing segfaults
+        # Process projects in small batches with throttling
+        batch_size = 2  # Process only 2 projects at a time to be safe
+        max_dns_records_per_batch = 10  # Limit DNS record loads per batch
+        all_results = []
+
+        for i in range(0, len(projects), batch_size):
+            batch = projects[i:i + batch_size]
+            logger.info(f"Loading resources for projects {i+1}-{min(i+batch_size, len(projects))}")
+
+            # Add small delay between batches to avoid rate limits
+            if i > 0:
+                await asyncio.sleep(0.5)
+
+            # Create tasks for this batch
+            from typing import Any
+            tasks: list[Any] = []
+            for project in batch:
+                project_id = project.project_id
+                # Load DNS zones (critical for filtering) - these are filtered by dns_zone_filter
+                tasks.append(self._state.load_dns_zones(project_id, force_refresh))
+                # Load other resources
+                tasks.append(self._state.load_cloudsql_instances(project_id, force_refresh))
+                tasks.append(self._state.load_compute_groups(project_id, force_refresh))
+                tasks.append(self._state.load_gke_clusters(project_id, force_refresh))
+                tasks.append(self._state.load_secrets(project_id, force_refresh))
+                tasks.append(self._state.load_iam_accounts(project_id, force_refresh))
+
+            # Load this batch in parallel
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            all_results.extend(results)
+
+            # Now load DNS records for the filtered zones in this batch
+            # Limit the number of DNS record loads to prevent segfaults
+            record_tasks: list[Any] = []
+            for j, result in enumerate(results):
+                # DNS zones are every 6th result (indices 0, 6, 12, ...)
+                if j % 6 == 0 and isinstance(result, list) and result:
+                    project_idx = j // 6
+                    if project_idx < len(batch):
+                        project_id = batch[project_idx].project_id
+                        # Load DNS records for each filtered zone (up to limit)
+                        for zone in result:
+                            if len(record_tasks) < max_dns_records_per_batch:
+                                record_tasks.append(
+                                    self._state.load_dns_records(project_id, zone.zone_name, force_refresh)
+                                )
+                            else:
+                                logger.debug(f"Skipping DNS records for {zone.zone_name} (batch limit reached)")
+
+            # Load DNS records for this batch
+            if record_tasks:
+                logger.info(f"Loading DNS records for {len(record_tasks)} filtered zones in batch")
+                record_results = await asyncio.gather(*record_tasks, return_exceptions=True)
+                for result in record_results:
+                    if isinstance(result, Exception):
+                        logger.warning(f"Failed to load DNS records: {result}")
+
+                # Small delay after loading DNS records
+                await asyncio.sleep(0.3)
+
+        # Use combined results
+        results = all_results
+
+        # Log any errors and count loaded zones
+        error_count = 0
+        total_zones = 0
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                error_count += 1
+                logger.warning(f"Failed to load resource: {result}")
+            # Track DNS zone results (every 6th task starting from index 0 is DNS zones)
+            elif i % 6 == 0 and isinstance(result, list):
+                total_zones += len(result)
+
+        logger.info(
+            f"Loaded resources for {len(projects)} projects "
+            f"({len(results)} tasks, {error_count} errors, {total_zones} filtered DNS zones)"
+        )
+
     async def load_projects(self, force_refresh: bool = False) -> None:
         """Load all projects as root-level nodes.
 
@@ -129,29 +248,13 @@ class ResourceTree(Tree[ResourceTreeNode]):
             logger.info(f"Loading projects into tree (force_refresh={force_refresh})")
 
             # Load projects into state (uses cache if not force_refresh)
+            # Note: Projects are already filtered by project_filter_regex in the state layer
             projects = await self._state.load_projects(force_refresh)
-
-            # Apply project filter if configured
-            config = get_config()
-            if config.project_filter_regex:
-                try:
-                    pattern = re.compile(config.project_filter_regex)
-                    filtered_projects = [
-                        p for p in projects
-                        if pattern.match(p.project_id) or pattern.match(p.display_name)
-                    ]
-                    logger.info(
-                        f"Filtered {len(projects)} projects to {len(filtered_projects)} "
-                        f"using regex: {config.project_filter_regex}"
-                    )
-                    projects = filtered_projects
-                except re.error as e:
-                    logger.error(f"Invalid project filter regex: {e}")
 
             # Clear existing nodes
             self.root.remove_children()
 
-            # Add project nodes
+            # Add project nodes FIRST so UI is responsive
             for project in projects:
                 node_data = ResourceTreeNode(
                     resource_type=ResourceType.PROJECT,
@@ -166,6 +269,12 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 self._add_resource_type_nodes(project_node, project.project_id)
 
             logger.info(f"Loaded {len(projects)} projects")
+
+            # DISABLED: Background DNS loading causes segfaults due to concurrent API calls
+            # DNS zones and records will be loaded on-demand when:
+            # 1. User expands DNS zone nodes
+            # 2. User applies a filter (filter logic loads DNS data as needed)
+            # self._background_task = asyncio.create_task(self._load_dns_zones_slowly(projects, force_refresh))
 
             # Automatically cleanup empty nodes in the background (non-blocking)
             # Store task reference to prevent garbage collection
@@ -384,6 +493,28 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 self._remove_empty_project_node(project_node)
             return
 
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(zones)} DNS zones")
+            filtered_zones = []
+            for zone in zones:
+                # Check if zone name matches UI filter
+                if self._matches_filter(zone.dns_name):
+                    filtered_zones.append(zone)
+                else:
+                    # Check if any DNS records match the filter
+                    try:
+                        records = await self._state.load_dns_records(project_id, zone.zone_name)
+                        for record in records:
+                            if self._matches_filter(record.record_name) or self._matches_filter(record.record_type):
+                                filtered_zones.append(zone)
+                                break
+                    except Exception as e:
+                        logger.debug(f"Failed to check DNS records for filtering: {e}")
+
+            zones = filtered_zones
+            logger.info(f"Filtered to {len(zones)} DNS zones matching '{self._filter_text}'")
+
         # Update parent label with count
         zone_word = "zone" if len(zones) == 1 else "zones"
         parent_node.set_label(f"🌐 Cloud DNS ({len(zones)} {zone_word})")
@@ -404,7 +535,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
             )
 
     async def _load_dns_records(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
-        """Load DNS records for a managed zone."""
+        """Load DNS records for a managed zone from state."""
         if parent_node.data is None or parent_node.data.resource_data is None:
             return
 
@@ -418,19 +549,27 @@ class ResourceTree(Tree[ResourceTreeNode]):
             )
             return
 
-        # Fetch DNS records from Cloud DNS API
+        # Load DNS records from state (uses cache from service layer)
         try:
-            dns_service = await get_clouddns_service()
             logger.info(
-                f"Fetching DNS records for zone {zone.zone_name} "
-                f"in project {parent_node.data.project_id}"
+                f"Loading DNS records for zone {zone.zone_name} "
+                f"in project {parent_node.data.project_id} from state"
             )
-            records = await dns_service.list_records(
+            records = await self._state.load_dns_records(
                 project_id=parent_node.data.project_id,
                 zone_name=zone.zone_name,
             )
 
-            logger.info(f"Retrieved {len(records)} DNS records for {zone.zone_name}")
+            logger.info(f"Loaded {len(records)} DNS records for {zone.zone_name} from state")
+
+            # Apply UI filter if active
+            if self._filter_text:
+                logger.info(f"Applying UI filter '{self._filter_text}' to {len(records)} DNS records")
+                records = [
+                    r for r in records
+                    if self._matches_filter(r.record_name) or self._matches_filter(r.record_type)
+                ]
+                logger.info(f"Filtered to {len(records)} DNS records matching '{self._filter_text}'")
 
             if not records:
                 # Show message that no records exist instead of removing the node
@@ -485,6 +624,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         parent_node.remove_children()
 
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(instances)} CloudSQL instances")
+            instances = [
+                i for i in instances
+                if self._matches_filter(i.instance_name)
+            ]
+            logger.info(f"Filtered to {len(instances)} CloudSQL instances matching '{self._filter_text}'")
+
         if not instances:
             # Remove the parent node if there are no instances
             project_node = parent_node.parent
@@ -523,6 +671,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
         groups = await self._state.load_compute_groups(project_id)
 
         parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(groups)} compute groups")
+            groups = [
+                g for g in groups
+                if self._matches_filter(g.group_name)
+            ]
+            logger.info(f"Filtered to {len(groups)} compute groups matching '{self._filter_text}'")
 
         if not groups:
             # Remove the parent node if there are no instance groups
@@ -583,6 +740,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         parent_node.remove_children()
 
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(clusters)} GKE clusters")
+            clusters = [
+                c for c in clusters
+                if self._matches_filter(c.cluster_name)
+            ]
+            logger.info(f"Filtered to {len(clusters)} GKE clusters matching '{self._filter_text}'")
+
         if not clusters:
             # Remove the parent node if there are no clusters
             project_node = parent_node.parent
@@ -628,6 +794,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         parent_node.remove_children()
 
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(secrets)} secrets")
+            secrets = [
+                s for s in secrets
+                if self._matches_filter(s.secret_name)
+            ]
+            logger.info(f"Filtered to {len(secrets)} secrets matching '{self._filter_text}'")
+
         if not secrets:
             # Remove the parent node if there are no secrets
             project_node = parent_node.parent
@@ -665,6 +840,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
         accounts = await self._state.load_iam_accounts(project_id)
 
         parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(accounts)} IAM accounts")
+            accounts = [
+                a for a in accounts
+                if self._matches_filter(a.email) or (a.display_name and self._matches_filter(a.display_name))
+            ]
+            logger.info(f"Filtered to {len(accounts)} IAM accounts matching '{self._filter_text}'")
 
         if not accounts:
             # Remove the parent node if there are no service accounts
@@ -944,19 +1128,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
             self.app.notify(f"Filtering for '{filter_text}'...", severity="information", timeout=2)
 
         # Get all projects from state
+        # Note: Projects are already filtered by project_filter_regex in the state layer
         projects = self._state.get_projects()
-
-        # Apply project filter regex if configured
-        config = get_config()
-        if config.project_filter_regex:
-            try:
-                pattern = re.compile(config.project_filter_regex)
-                projects = [
-                    p for p in projects
-                    if pattern.match(p.project_id) or pattern.match(p.display_name)
-                ]
-            except re.error as e:
-                logger.error(f"Invalid project filter regex: {e}")
 
         # Rebuild tree with only matching resources
         self.root.remove_children()
@@ -970,6 +1143,32 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
             # Get all resources from state for this project
             matching_resources: dict[str, list[Any]] = {}
+
+            # Check DNS Zones and Records (if loaded)
+            if self._state.is_loaded(project.project_id, "dns_zones"):
+                zones = self._state.get_dns_zones(project.project_id)
+                matching_zones = []
+
+                for zone in zones:
+                    # Check if zone name matches
+                    if self._matches_filter(zone.dns_name):
+                        matching_zones.append(zone)
+                    else:
+                        # Load DNS records for this zone if not already loaded
+                        try:
+                            records = await self._state.load_dns_records(
+                                project.project_id, zone.zone_name
+                            )
+                            # Check if any records in this zone match
+                            for record in records:
+                                if self._matches_filter(record.record_name) or self._matches_filter(record.record_type):
+                                    matching_zones.append(zone)
+                                    break  # Found a match, include this zone
+                        except Exception as e:
+                            logger.warning(f"Failed to load DNS records for {zone.zone_name}: {e}")
+
+                if matching_zones:
+                    matching_resources["dns_zones"] = matching_zones
 
             # Check CloudSQL (if loaded)
             if self._state.is_loaded(project.project_id, "cloudsql"):
@@ -1028,6 +1227,33 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     allow_expand=True,
                 )
 
+                # Add matching DNS Zones
+                if "dns_zones" in matching_resources:
+                    zones = matching_resources["dns_zones"]
+                    dns_data = ResourceTreeNode(
+                        resource_type=ResourceType.CLOUDDNS,
+                        resource_id=f"{project.project_id}:clouddns",
+                        project_id=project.project_id,
+                    )
+                    zone_word = "zone" if len(zones) == 1 else "zones"
+                    dns_node = project_node.add(
+                        f"🌐 Cloud DNS ({len(zones)} {zone_word})",
+                        data=dns_data,
+                        allow_expand=True,
+                    )
+                    for zone in zones:
+                        zone_data = ResourceTreeNode(
+                            resource_type=ResourceType.CLOUDDNS_ZONE,
+                            resource_id=zone.zone_name,
+                            resource_data=zone,
+                            project_id=project.project_id,
+                        )
+                        dns_node.add(
+                            f"🔵 {zone.dns_name}",
+                            data=zone_data,
+                            allow_expand=True,
+                        )
+
                 # Add matching CloudSQL instances
                 if "cloudsql" in matching_resources:
                     instances = matching_resources["cloudsql"]
@@ -1070,12 +1296,12 @@ class ResourceTree(Tree[ResourceTreeNode]):
                         allow_expand=True,
                     )
                     for group in groups:
-                        zone = None
+                        group_zone: str | None = None
                         region = None
                         if hasattr(group, 'zone') and group.zone:
                             zone_parts = group.zone.split('/')
                             if len(zone_parts) > 0:
-                                zone = zone_parts[-1]
+                                group_zone = zone_parts[-1]
                         elif hasattr(group, 'region') and group.region:
                             region_parts = group.region.split('/')
                             if len(region_parts) > 0:
@@ -1086,11 +1312,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
                             resource_id=group.group_name,
                             resource_data=group,
                             project_id=project.project_id,
-                            zone=zone,
+                            zone=group_zone,
                             location=region,
                         )
                         type_icon = "M" if group.is_managed else "U"
-                        zone_or_region = zone if zone else region
+                        zone_or_region = group_zone if group_zone else region
                         compute_node.add(
                             f"[{type_icon}] {group.group_name} ({zone_or_region}, size: {group.size})",
                             data=group_data,

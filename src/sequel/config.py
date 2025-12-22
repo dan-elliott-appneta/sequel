@@ -41,6 +41,9 @@ class Config:
     # Project Filtering
     project_filter_regex: str | None = None  # Filter projects by regex (None = show all)
 
+    # DNS Zone Filtering
+    dns_zone_filter: str | None = None  # Only show DNS zones containing this string (None = show all)
+
     # UI Configuration
     theme: str = "textual-dark"  # Textual theme name
 
@@ -67,6 +70,7 @@ class Config:
             SEQUEL_GCLOUD_PROJECT_ID: Default GCloud project ID
             SEQUEL_GCLOUD_QUOTA_WAIT_TIME: Seconds to wait on quota errors
             SEQUEL_PROJECT_FILTER_REGEX: Regex to filter projects (empty string = show all)
+            SEQUEL_DNS_ZONE_FILTER: Only show DNS zones containing this string (empty = show all)
             SEQUEL_THEME: Textual theme name
 
         Returns:
@@ -99,6 +103,16 @@ class Config:
         # Convert empty string to None to disable filtering
         project_filter_regex = project_filter if project_filter else None
 
+        # Get DNS zone filter with special handling for empty string
+        dns_zone_filter = get_value(
+            "SEQUEL_DNS_ZONE_FILTER",
+            "filters",
+            "dns_zone_filter",
+            defaults["filters"].get("dns_zone_filter", "")
+        )
+        # Convert empty string to None to disable filtering
+        dns_zone_filter = dns_zone_filter if dns_zone_filter else None
+
         # Get theme from env > config file > default
         theme = get_value(
             "SEQUEL_THEME",
@@ -124,6 +138,7 @@ class Config:
             gcloud_project_id=os.getenv("SEQUEL_GCLOUD_PROJECT_ID"),
             gcloud_quota_wait_time=int(os.getenv("SEQUEL_GCLOUD_QUOTA_WAIT_TIME", "60")),
             project_filter_regex=project_filter_regex,
+            dns_zone_filter=dns_zone_filter,
             theme=theme,
         )
 

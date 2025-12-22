@@ -5,6 +5,7 @@ from typing import ClassVar
 from textual.app import App
 from textual.binding import Binding
 
+from sequel import __version__
 from sequel.commands import ThemeProvider
 from sequel.config import get_config
 from sequel.screens.main import MainScreen
@@ -68,7 +69,7 @@ class SequelApp(App[None]):
         """Initialize the application."""
         super().__init__(*args, **kwargs)
         self.title = "Sequel - GCP Resource Browser"
-        self.sub_title = "v0.1.0"
+        self.sub_title = f"v{__version__}"
 
         # Load theme from config
         config = get_config()
