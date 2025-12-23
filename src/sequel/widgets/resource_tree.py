@@ -43,6 +43,9 @@ class ResourceType:
     PUBSUB = "pubsub"  # Pub/Sub (category)
     PUBSUB_TOPIC = "pubsub_topic"  # Expandable topic
     PUBSUB_SUBSCRIPTION = "pubsub_subscription"  # Individual subscription (leaf)
+    NETWORK = "network"  # VPC Networks (category)
+    VPC_NETWORK = "vpc_network"  # Expandable VPC network
+    SUBNET = "subnet"  # Individual subnet (leaf)
 
 
 class ResourceTreeNode:
@@ -368,6 +371,14 @@ class ResourceTree(Tree[ResourceTreeNode]):
         )
         project_node.add("📢 Pub/Sub", data=pubsub_data, allow_expand=True)
 
+        # Add VPC Networks
+        network_data = ResourceTreeNode(
+            resource_type=ResourceType.NETWORK,
+            resource_id=f"{project_id}:networks",
+            project_id=project_id,
+        )
+        project_node.add("🌐 VPC Networks", data=network_data, allow_expand=True)
+
     def _remove_empty_project_node(self, project_node: TreeNode[ResourceTreeNode]) -> None:
         """Remove a project node if it has no children.
 
@@ -487,6 +498,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 task = self._load_buckets(resource_node)
             elif resource_type == ResourceType.PUBSUB:
                 task = self._load_pubsub_topics(resource_node)
+            elif resource_type == ResourceType.NETWORK:
+                task = self._load_networks(resource_node)
 
             if task:
                 tasks.append(task)
@@ -566,6 +579,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 await self._load_pubsub_topics(node)
             elif node.data.resource_type == ResourceType.PUBSUB_TOPIC:
                 await self._load_pubsub_subscriptions(node)
+            elif node.data.resource_type == ResourceType.NETWORK:
+                await self._load_networks(node)
+            elif node.data.resource_type == ResourceType.VPC_NETWORK:
+                await self._load_subnets(node)
 
             node.data.loaded = True
 
@@ -1498,6 +1515,130 @@ class ResourceTree(Tree[ResourceTreeNode]):
         # Add "... and N more" indicator if we limited the children
         if self._should_limit_children(total_subscriptions):
             remaining = total_subscriptions - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
+
+    async def _load_networks(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load VPC networks for a project from state."""
+        if parent_node.data is None or parent_node.data.project_id is None:
+            return
+
+        project_id = parent_node.data.project_id
+        logger.info(f"Loading VPC networks for {project_id} from state")
+
+        # Load into state (uses cache from service layer)
+        networks = await self._state.load_networks(project_id)
+
+        parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(networks)} networks")
+            networks = [
+                n for n in networks
+                if self._matches_filter(n.network_name)
+            ]
+            logger.info(f"Filtered to {len(networks)} networks matching '{self._filter_text}'")
+
+        if not networks:
+            # Remove the parent node if there are no networks
+            project_node = parent_node.parent
+            parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
+            return
+
+        # Update parent label with count
+        network_word = "network" if len(networks) == 1 else "networks"
+        parent_node.set_label(f"🌐 VPC Networks ({len(networks)} {network_word})")
+
+        # Limit number of children to prevent segfaults with large datasets
+        total_networks = len(networks)
+        networks_to_show = (
+            networks[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_networks)
+            else networks
+        )
+
+        for network in networks_to_show:
+            node_data = ResourceTreeNode(
+                resource_type=ResourceType.VPC_NETWORK,
+                resource_id=network.network_name,
+                resource_data=network,
+                project_id=project_id,
+            )
+            parent_node.add(
+                f"🌐 {network.network_name}",
+                data=node_data,
+                allow_expand=True,
+            )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_networks):
+            remaining = total_networks - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
+
+    async def _load_subnets(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load subnets for a VPC network from state."""
+        if parent_node.data is None or parent_node.data.resource_data is None:
+            return
+
+        from sequel.models.networks import VPCNetwork
+
+        network = parent_node.data.resource_data
+        if not isinstance(network, VPCNetwork):
+            return
+
+        project_id = parent_node.data.project_id
+        if project_id is None:
+            return
+
+        logger.info(f"Loading subnets for network {network.network_name}")
+
+        # Load subnets for this specific network
+        subnets = await self._state.load_subnets(project_id, network_name=network.network_name)
+
+        logger.info(f"Found {len(subnets)} subnets for network {network.network_name}")
+
+        parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(subnets)} subnets")
+            subnets = [
+                s for s in subnets
+                if self._matches_filter(s.subnet_name)
+            ]
+            logger.info(f"Filtered to {len(subnets)} subnets matching '{self._filter_text}'")
+
+        if not subnets:
+            parent_node.add_leaf("No subnets")
+            return
+
+        # Limit number of children to prevent segfaults with large datasets
+        total_subnets = len(subnets)
+        subnets_to_show = (
+            subnets[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_subnets)
+            else subnets
+        )
+
+        for subnet in subnets_to_show:
+            node_data = ResourceTreeNode(
+                resource_type=ResourceType.SUBNET,
+                resource_id=subnet.subnet_name,
+                resource_data=subnet,
+                project_id=project_id,
+            )
+
+            parent_node.add_leaf(
+                f"🔗 {subnet.subnet_name} ({subnet.region})",
+                data=node_data,
+            )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_subnets):
+            remaining = total_subnets - MAX_CHILDREN_PER_NODE
             self._add_more_indicator(parent_node, remaining)
 
     async def apply_filter(self, filter_text: str) -> None:
