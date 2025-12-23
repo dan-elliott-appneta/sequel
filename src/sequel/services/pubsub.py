@@ -76,15 +76,30 @@ class PubSubService(BaseService):
                 # Format: projects/{project}
                 project_path = f"projects/{project_id}"
 
-                # Call the API
-                request = client.projects().topics().list(project=project_path)
-                # Run blocking execute() in thread to avoid blocking event loop
-                response = await asyncio.to_thread(request.execute)
-
                 topics: list[Topic] = []
-                for item in response.get("topics", []):
-                    topic = Topic.from_api_response(item)
-                    topics.append(topic)
+                next_page_token = None
+
+                # Handle pagination
+                while True:
+                    # Call the API with pagination token
+                    request = client.projects().topics().list(
+                        project=project_path,
+                        pageToken=next_page_token
+                    )
+                    # Run blocking execute() in thread to avoid blocking event loop
+                    response = await asyncio.to_thread(request.execute)
+
+                    # Process topics from this page
+                    for item in response.get("topics", []):
+                        topic = Topic.from_api_response(item)
+                        topics.append(topic)
+
+                    # Check for more pages
+                    next_page_token = response.get("nextPageToken")
+                    if not next_page_token:
+                        break
+
+                    logger.debug(f"Fetching next page of topics (current count: {len(topics)})")
 
                 logger.info(f"Found {len(topics)} topics")
                 return topics
@@ -146,15 +161,30 @@ class PubSubService(BaseService):
                 # Format: projects/{project}
                 project_path = f"projects/{project_id}"
 
-                # Call the API
-                request = client.projects().subscriptions().list(project=project_path)
-                # Run blocking execute() in thread to avoid blocking event loop
-                response = await asyncio.to_thread(request.execute)
-
                 subscriptions: list[Subscription] = []
-                for item in response.get("subscriptions", []):
-                    subscription = Subscription.from_api_response(item)
-                    subscriptions.append(subscription)
+                next_page_token = None
+
+                # Handle pagination
+                while True:
+                    # Call the API with pagination token
+                    request = client.projects().subscriptions().list(
+                        project=project_path,
+                        pageToken=next_page_token
+                    )
+                    # Run blocking execute() in thread to avoid blocking event loop
+                    response = await asyncio.to_thread(request.execute)
+
+                    # Process subscriptions from this page
+                    for item in response.get("subscriptions", []):
+                        subscription = Subscription.from_api_response(item)
+                        subscriptions.append(subscription)
+
+                    # Check for more pages
+                    next_page_token = response.get("nextPageToken")
+                    if not next_page_token:
+                        break
+
+                    logger.debug(f"Fetching next page of subscriptions (current count: {len(subscriptions)})")
 
                 logger.info(f"Found {len(subscriptions)} subscriptions")
                 return subscriptions

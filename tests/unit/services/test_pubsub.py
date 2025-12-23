@@ -341,6 +341,109 @@ class TestPubSubService:
             # Second argument should be the subscriptions list
             assert len(mock_set.call_args[0][1]) == 1
 
+    @pytest.mark.asyncio
+    async def test_list_topics_pagination(
+        self, pubsub_service: PubSubService, mock_pubsub_client: MagicMock
+    ) -> None:
+        """Test listing topics with pagination."""
+        # Mock paginated responses
+        mock_response_page1 = {
+            "topics": [
+                {"name": "projects/test-project/topics/topic-1"},
+                {"name": "projects/test-project/topics/topic-2"},
+            ],
+            "nextPageToken": "page2token",
+        }
+        mock_response_page2 = {
+            "topics": [
+                {"name": "projects/test-project/topics/topic-3"},
+            ],
+            # No nextPageToken means this is the last page
+        }
+
+        # Create mock requests for each page
+        mock_request_page1 = MagicMock()
+        mock_request_page1.execute = MagicMock(return_value=mock_response_page1)
+
+        mock_request_page2 = MagicMock()
+        mock_request_page2.execute = MagicMock(return_value=mock_response_page2)
+
+        # Mock the list() method to return different requests based on pageToken
+        def mock_list(**kwargs: Any) -> MagicMock:
+            if kwargs.get("pageToken") == "page2token":
+                return mock_request_page2
+            return mock_request_page1
+
+        mock_pubsub_client.projects().topics().list.side_effect = mock_list
+        pubsub_service._client = mock_pubsub_client
+
+        topics = await pubsub_service.list_topics("test-project", use_cache=False)
+
+        # Should have all 3 topics from both pages
+        assert len(topics) == 3
+        assert topics[0].topic_name == "topic-1"
+        assert topics[1].topic_name == "topic-2"
+        assert topics[2].topic_name == "topic-3"
+
+        # Verify both API calls were made
+        assert mock_pubsub_client.projects().topics().list.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_list_subscriptions_pagination(
+        self, pubsub_service: PubSubService, mock_pubsub_client: MagicMock
+    ) -> None:
+        """Test listing subscriptions with pagination."""
+        # Mock paginated responses
+        mock_response_page1 = {
+            "subscriptions": [
+                {
+                    "name": "projects/test-project/subscriptions/sub-1",
+                    "topic": "projects/test-project/topics/topic-1",
+                },
+                {
+                    "name": "projects/test-project/subscriptions/sub-2",
+                    "topic": "projects/test-project/topics/topic-1",
+                },
+            ],
+            "nextPageToken": "page2token",
+        }
+        mock_response_page2 = {
+            "subscriptions": [
+                {
+                    "name": "projects/test-project/subscriptions/sub-3",
+                    "topic": "projects/test-project/topics/topic-2",
+                },
+            ],
+            # No nextPageToken means this is the last page
+        }
+
+        # Create mock requests for each page
+        mock_request_page1 = MagicMock()
+        mock_request_page1.execute = MagicMock(return_value=mock_response_page1)
+
+        mock_request_page2 = MagicMock()
+        mock_request_page2.execute = MagicMock(return_value=mock_response_page2)
+
+        # Mock the list() method to return different requests based on pageToken
+        def mock_list(**kwargs: Any) -> MagicMock:
+            if kwargs.get("pageToken") == "page2token":
+                return mock_request_page2
+            return mock_request_page1
+
+        mock_pubsub_client.projects().subscriptions().list.side_effect = mock_list
+        pubsub_service._client = mock_pubsub_client
+
+        subscriptions = await pubsub_service.list_subscriptions("test-project", use_cache=False)
+
+        # Should have all 3 subscriptions from both pages
+        assert len(subscriptions) == 3
+        assert subscriptions[0].subscription_name == "sub-1"
+        assert subscriptions[1].subscription_name == "sub-2"
+        assert subscriptions[2].subscription_name == "sub-3"
+
+        # Verify both API calls were made
+        assert mock_pubsub_client.projects().subscriptions().list.call_count == 2
+
 
 class TestGetPubSubService:
     """Tests for get_pubsub_service function."""

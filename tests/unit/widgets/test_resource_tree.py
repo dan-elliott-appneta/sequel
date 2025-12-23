@@ -1690,6 +1690,8 @@ class TestAutomaticCleanup:
             patch.object(resource_tree._state, "load_gke_clusters", new_callable=AsyncMock) as mock_gke,
             patch.object(resource_tree._state, "load_secrets", new_callable=AsyncMock) as mock_secrets,
             patch.object(resource_tree._state, "load_iam_accounts", new_callable=AsyncMock) as mock_iam,
+            patch.object(resource_tree._state, "load_buckets", new_callable=AsyncMock) as mock_buckets,
+            patch.object(resource_tree._state, "load_pubsub_topics", new_callable=AsyncMock) as mock_pubsub,
         ):
             # All methods return empty lists
             mock_dns.return_value = []
@@ -1699,6 +1701,8 @@ class TestAutomaticCleanup:
             mock_gke.return_value = []
             mock_secrets.return_value = []
             mock_iam.return_value = []
+            mock_buckets.return_value = []
+            mock_pubsub.return_value = []
 
             # Run cleanup
             await resource_tree.cleanup_empty_nodes()
@@ -1737,6 +1741,8 @@ class TestAutomaticCleanup:
             patch.object(resource_tree._state, "load_gke_clusters", new_callable=AsyncMock) as mock_gke,
             patch.object(resource_tree._state, "load_secrets", new_callable=AsyncMock) as mock_secrets,
             patch.object(resource_tree._state, "load_iam_accounts", new_callable=AsyncMock) as mock_iam,
+            patch.object(resource_tree._state, "load_buckets", new_callable=AsyncMock) as mock_buckets,
+            patch.object(resource_tree._state, "load_pubsub_topics", new_callable=AsyncMock) as mock_pubsub,
         ):
             # CloudDNS returns zones
             mock_dns.return_value = [sample_dns_zone]
@@ -1748,6 +1754,8 @@ class TestAutomaticCleanup:
             mock_gke.return_value = []
             mock_secrets.return_value = []
             mock_iam.return_value = []
+            mock_buckets.return_value = []
+            mock_pubsub.return_value = []
 
             # Run cleanup
             await resource_tree.cleanup_empty_nodes()
@@ -1787,6 +1795,8 @@ class TestAutomaticCleanup:
             patch.object(resource_tree._state, "load_gke_clusters", new_callable=AsyncMock) as mock_gke,
             patch.object(resource_tree._state, "load_secrets", new_callable=AsyncMock) as mock_secrets,
             patch.object(resource_tree._state, "load_iam_accounts", new_callable=AsyncMock) as mock_iam,
+            patch.object(resource_tree._state, "load_buckets", new_callable=AsyncMock) as mock_buckets,
+            patch.object(resource_tree._state, "load_pubsub_topics", new_callable=AsyncMock) as mock_pubsub,
         ):
             # CloudDNS throws error
             mock_dns.side_effect = Exception("API Error")
@@ -1798,6 +1808,8 @@ class TestAutomaticCleanup:
             mock_gke.return_value = []
             mock_secrets.return_value = []
             mock_iam.return_value = []
+            mock_buckets.return_value = []
+            mock_pubsub.return_value = []
 
             # Run cleanup - should not raise exception
             await resource_tree.cleanup_empty_nodes()
