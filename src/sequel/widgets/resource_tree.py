@@ -39,6 +39,7 @@ class ResourceType:
     IAM_SERVICE_ACCOUNT = "iam_service_account"  # Expandable service account
     IAM_ROLE = "iam_role"  # Individual role binding (leaf)
     FIREWALL = "firewall"  # Firewall policies (leaf)
+    STORAGE = "storage"  # Cloud Storage buckets (leaf)
 
 
 class ResourceTreeNode:
@@ -348,6 +349,14 @@ class ResourceTree(Tree[ResourceTreeNode]):
         )
         project_node.add("🔥 Firewall Policies", data=firewall_data, allow_expand=True)
 
+        # Add Cloud Storage
+        storage_data = ResourceTreeNode(
+            resource_type=ResourceType.STORAGE,
+            resource_id=f"{project_id}:storage",
+            project_id=project_id,
+        )
+        project_node.add("🪣 Cloud Storage", data=storage_data, allow_expand=True)
+
     def _remove_empty_project_node(self, project_node: TreeNode[ResourceTreeNode]) -> None:
         """Remove a project node if it has no children.
 
@@ -463,6 +472,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 task = self._load_service_accounts(resource_node)
             elif resource_type == ResourceType.FIREWALL:
                 task = self._load_firewalls(resource_node)
+            elif resource_type == ResourceType.STORAGE:
+                task = self._load_buckets(resource_node)
 
             if task:
                 tasks.append(task)
@@ -499,13 +510,17 @@ class ResourceTree(Tree[ResourceTreeNode]):
             return
 
         # Skip expansion for leaf nodes that have resource_data
-        # FIREWALL uses the same ResourceType for both parent and leaf nodes
+        # FIREWALL and STORAGE use the same ResourceType for both parent and leaf nodes
         # Leaf nodes have resource_data, parent category nodes do not
         is_firewall_leaf = (
             node.data.resource_type == ResourceType.FIREWALL
             and node.data.resource_data is not None
         )
-        if is_firewall_leaf:
+        is_storage_leaf = (
+            node.data.resource_type == ResourceType.STORAGE
+            and node.data.resource_data is not None
+        )
+        if is_firewall_leaf or is_storage_leaf:
             return
 
         try:
@@ -532,6 +547,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 await self._load_service_account_roles(node)
             elif node.data.resource_type == ResourceType.FIREWALL:
                 await self._load_firewalls(node)
+            elif node.data.resource_type == ResourceType.STORAGE:
+                await self._load_buckets(node)
 
             node.data.loaded = True
 
@@ -1238,6 +1255,77 @@ class ResourceTree(Tree[ResourceTreeNode]):
             remaining = total_firewalls - MAX_CHILDREN_PER_NODE
             self._add_more_indicator(parent_node, remaining)
 
+    async def _load_buckets(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load Cloud Storage buckets for a project from state."""
+        if parent_node.data is None or parent_node.data.project_id is None:
+            return
+
+        project_id = parent_node.data.project_id
+        logger.info(f"Loading Cloud Storage buckets for {project_id} from state")
+
+        # Load into state (uses cache from service layer)
+        buckets = await self._state.load_buckets(project_id)
+
+        parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(buckets)} buckets")
+            buckets = [
+                b for b in buckets
+                if self._matches_filter(b.bucket_name)
+            ]
+            logger.info(f"Filtered to {len(buckets)} buckets matching '{self._filter_text}'")
+
+        if not buckets:
+            # Remove the parent node if there are no buckets
+            project_node = parent_node.parent
+            parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
+            return
+
+        # Update parent label with count
+        bucket_word = "bucket" if len(buckets) == 1 else "buckets"
+        parent_node.set_label(f"🪣 Cloud Storage ({len(buckets)} {bucket_word})")
+
+        # Limit number of children to prevent segfaults with large datasets
+        total_buckets = len(buckets)
+        buckets_to_show = (
+            buckets[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_buckets)
+            else buckets
+        )
+
+        for bucket in buckets_to_show:
+            node_data = ResourceTreeNode(
+                resource_type=ResourceType.STORAGE,
+                resource_id=bucket.bucket_name,
+                resource_data=bucket,
+                project_id=project_id,
+            )
+            # Show storage class as icon indicator
+            storage_icon = "📦"  # Default
+            if bucket.storage_class == "STANDARD":
+                storage_icon = "📦"
+            elif bucket.storage_class == "NEARLINE":
+                storage_icon = "📅"
+            elif bucket.storage_class == "COLDLINE":
+                storage_icon = "❄️"
+            elif bucket.storage_class == "ARCHIVE":
+                storage_icon = "🗄️"
+
+            parent_node.add_leaf(
+                f"{storage_icon} {bucket.bucket_name}",
+                data=node_data,
+            )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_buckets):
+            remaining = total_buckets - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
+
     async def apply_filter(self, filter_text: str) -> None:
         """Apply filter by querying state and rebuilding tree.
 
@@ -1349,6 +1437,13 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 matching_firewalls = [f for f in firewalls if self._matches_filter(f.policy_name)]
                 if matching_firewalls:
                     matching_resources["firewalls"] = matching_firewalls
+
+            # Check Cloud Storage Buckets (if loaded)
+            if self._state.is_loaded(project.project_id, "buckets"):
+                buckets = self._state.get_buckets(project.project_id)
+                matching_buckets = [b for b in buckets if self._matches_filter(b.bucket_name)]
+                if matching_buckets:
+                    matching_resources["buckets"] = matching_buckets
 
             # Only add project if it matches or has matching resources
             if project_matches or matching_resources:
@@ -1568,6 +1663,43 @@ class ResourceTree(Tree[ResourceTreeNode]):
                         firewall_node.add_leaf(
                             f"{status_icon} {firewall.policy_name}",
                             data=fw_data,
+                        )
+
+                # Add matching Cloud Storage Buckets
+                if "buckets" in matching_resources:
+                    buckets = matching_resources["buckets"]
+                    storage_data = ResourceTreeNode(
+                        resource_type=ResourceType.STORAGE,
+                        resource_id=f"{project.project_id}:storage",
+                        project_id=project.project_id,
+                    )
+                    bucket_word = "bucket" if len(buckets) == 1 else "buckets"
+                    storage_node = project_node.add(
+                        f"🪣 Cloud Storage ({len(buckets)} {bucket_word})",
+                        data=storage_data,
+                        allow_expand=True,
+                    )
+                    for bucket in buckets:
+                        bucket_data = ResourceTreeNode(
+                            resource_type=ResourceType.STORAGE,
+                            resource_id=bucket.bucket_name,
+                            resource_data=bucket,
+                            project_id=project.project_id,
+                        )
+                        # Show storage class as icon indicator
+                        storage_icon = "📦"  # Default
+                        if bucket.storage_class == "STANDARD":
+                            storage_icon = "📦"
+                        elif bucket.storage_class == "NEARLINE":
+                            storage_icon = "📅"
+                        elif bucket.storage_class == "COLDLINE":
+                            storage_icon = "❄️"
+                        elif bucket.storage_class == "ARCHIVE":
+                            storage_icon = "🗄️"
+
+                        storage_node.add_leaf(
+                            f"{storage_icon} {bucket.bucket_name}",
+                            data=bucket_data,
                         )
 
         logger.info(f"Filter applied: showing {len(self.root.children)} matching projects")
