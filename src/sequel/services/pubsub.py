@@ -178,6 +178,10 @@ class PubSubService(BaseService):
                     for item in response.get("subscriptions", []):
                         subscription = Subscription.from_api_response(item)
                         subscriptions.append(subscription)
+                        logger.debug(
+                            f"Loaded subscription: {subscription.subscription_name} -> "
+                            f"topic: {subscription.topic_name}"
+                        )
 
                     # Check for more pages
                     next_page_token = response.get("nextPageToken")

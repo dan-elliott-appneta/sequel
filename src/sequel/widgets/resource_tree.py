@@ -1354,6 +1354,25 @@ class ResourceTree(Tree[ResourceTreeNode]):
         # Load into state (uses cache from service layer)
         topics = await self._state.load_pubsub_topics(project_id)
 
+        # Also load subscriptions to check for orphaned ones
+        all_subscriptions = await self._state.load_pubsub_subscriptions(project_id)
+        topic_names = {t.topic_name for t in topics}
+
+        orphaned_subs = [
+            sub for sub in all_subscriptions
+            if sub.topic_name not in topic_names
+        ]
+
+        if orphaned_subs:
+            logger.warning(
+                f"Found {len(orphaned_subs)} orphaned subscriptions in {project_id} "
+                f"(subscriptions referencing non-existent topics):"
+            )
+            for sub in orphaned_subs:
+                logger.warning(
+                    f"  - {sub.subscription_name} references missing topic: {sub.topic_name}"
+                )
+
         parent_node.remove_children()
 
         # Apply UI filter if active
