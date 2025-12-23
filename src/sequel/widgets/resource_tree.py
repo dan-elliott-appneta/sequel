@@ -39,7 +39,6 @@ class ResourceType:
     IAM_SERVICE_ACCOUNT = "iam_service_account"  # Expandable service account
     IAM_ROLE = "iam_role"  # Individual role binding (leaf)
     FIREWALL = "firewall"  # Firewall policies (leaf)
-    LOADBALANCER = "loadbalancer"  # Load balancers (leaf)
 
 
 class ResourceTreeNode:
@@ -349,14 +348,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
         )
         project_node.add("🔥 Firewall Policies", data=firewall_data, allow_expand=True)
 
-        # Add Load Balancers
-        lb_data = ResourceTreeNode(
-            resource_type=ResourceType.LOADBALANCER,
-            resource_id=f"{project_id}:loadbalancer",
-            project_id=project_id,
-        )
-        project_node.add("⚖️  Load Balancers", data=lb_data, allow_expand=True)
-
     def _remove_empty_project_node(self, project_node: TreeNode[ResourceTreeNode]) -> None:
         """Remove a project node if it has no children.
 
@@ -472,8 +463,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 task = self._load_service_accounts(resource_node)
             elif resource_type == ResourceType.FIREWALL:
                 task = self._load_firewalls(resource_node)
-            elif resource_type == ResourceType.LOADBALANCER:
-                task = self._load_loadbalancers(resource_node)
 
             if task:
                 tasks.append(task)
@@ -510,17 +499,13 @@ class ResourceTree(Tree[ResourceTreeNode]):
             return
 
         # Skip expansion for leaf nodes that have resource_data
-        # FIREWALL and LOADBALANCER use the same ResourceType for both parent and leaf nodes
+        # FIREWALL uses the same ResourceType for both parent and leaf nodes
         # Leaf nodes have resource_data, parent category nodes do not
         is_firewall_leaf = (
             node.data.resource_type == ResourceType.FIREWALL
             and node.data.resource_data is not None
         )
-        is_loadbalancer_leaf = (
-            node.data.resource_type == ResourceType.LOADBALANCER
-            and node.data.resource_data is not None
-        )
-        if is_firewall_leaf or is_loadbalancer_leaf:
+        if is_firewall_leaf:
             return
 
         try:
@@ -547,8 +532,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 await self._load_service_account_roles(node)
             elif node.data.resource_type == ResourceType.FIREWALL:
                 await self._load_firewalls(node)
-            elif node.data.resource_type == ResourceType.LOADBALANCER:
-                await self._load_loadbalancers(node)
 
             node.data.loaded = True
 
@@ -1255,67 +1238,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
             remaining = total_firewalls - MAX_CHILDREN_PER_NODE
             self._add_more_indicator(parent_node, remaining)
 
-    async def _load_loadbalancers(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
-        """Load load balancers for a project from state."""
-        if parent_node.data is None or parent_node.data.project_id is None:
-            return
-
-        project_id = parent_node.data.project_id
-        logger.info(f"Loading load balancers for {project_id} from state")
-
-        # Load into state (uses cache from service layer)
-        lbs = await self._state.load_loadbalancers(project_id)
-
-        parent_node.remove_children()
-
-        # Apply UI filter if active
-        if self._filter_text:
-            logger.info(f"Applying UI filter '{self._filter_text}' to {len(lbs)} load balancers")
-            lbs = [
-                lb for lb in lbs
-                if self._matches_filter(lb.lb_name)
-            ]
-            logger.info(f"Filtered to {len(lbs)} load balancers matching '{self._filter_text}'")
-
-        if not lbs:
-            # Remove the parent node if there are no load balancers
-            project_node = parent_node.parent
-            parent_node.remove()
-            # Check if project is now empty and remove it
-            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
-                self._remove_empty_project_node(project_node)
-            return
-
-        # Update parent label with count
-        lb_word = "balancer" if len(lbs) == 1 else "balancers"
-        parent_node.set_label(f"⚖️  Load Balancers ({len(lbs)} {lb_word})")
-
-        # Limit number of children to prevent segfaults with large datasets
-        total_lbs = len(lbs)
-        lbs_to_show = (
-            lbs[:MAX_CHILDREN_PER_NODE]
-            if self._should_limit_children(total_lbs)
-            else lbs
-        )
-
-        for lb in lbs_to_show:
-            node_data = ResourceTreeNode(
-                resource_type=ResourceType.LOADBALANCER,
-                resource_id=lb.lb_name,
-                resource_data=lb,
-                project_id=project_id,
-            )
-            protocol_info = f" ({lb.protocol})" if lb.protocol else ""
-            parent_node.add_leaf(
-                f"⚖️  {lb.lb_name}{protocol_info}",
-                data=node_data,
-            )
-
-        # Add "... and N more" indicator if we limited the children
-        if self._should_limit_children(total_lbs):
-            remaining = total_lbs - MAX_CHILDREN_PER_NODE
-            self._add_more_indicator(parent_node, remaining)
-
     async def apply_filter(self, filter_text: str) -> None:
         """Apply filter by querying state and rebuilding tree.
 
@@ -1427,13 +1349,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 matching_firewalls = [f for f in firewalls if self._matches_filter(f.policy_name)]
                 if matching_firewalls:
                     matching_resources["firewalls"] = matching_firewalls
-
-            # Check Load Balancers (if loaded)
-            if self._state.is_loaded(project.project_id, "loadbalancers"):
-                lbs = self._state.get_loadbalancers(project.project_id)
-                matching_lbs = [lb for lb in lbs if self._matches_filter(lb.lb_name)]
-                if matching_lbs:
-                    matching_resources["loadbalancers"] = matching_lbs
 
             # Only add project if it matches or has matching resources
             if project_matches or matching_resources:
@@ -1653,33 +1568,6 @@ class ResourceTree(Tree[ResourceTreeNode]):
                         firewall_node.add_leaf(
                             f"{status_icon} {firewall.policy_name}",
                             data=fw_data,
-                        )
-
-                # Add matching Load Balancers
-                if "loadbalancers" in matching_resources:
-                    lbs = matching_resources["loadbalancers"]
-                    lb_data = ResourceTreeNode(
-                        resource_type=ResourceType.LOADBALANCER,
-                        resource_id=f"{project.project_id}:loadbalancer",
-                        project_id=project.project_id,
-                    )
-                    lb_word = "balancer" if len(lbs) == 1 else "balancers"
-                    lb_node = project_node.add(
-                        f"⚖️  Load Balancers ({len(lbs)} {lb_word})",
-                        data=lb_data,
-                        allow_expand=True,
-                    )
-                    for lb in lbs:
-                        lb_node_data = ResourceTreeNode(
-                            resource_type=ResourceType.LOADBALANCER,
-                            resource_id=lb.lb_name,
-                            resource_data=lb,
-                            project_id=project.project_id,
-                        )
-                        protocol_info = f" ({lb.protocol})" if lb.protocol else ""
-                        lb_node.add_leaf(
-                            f"⚖️  {lb.lb_name}{protocol_info}",
-                            data=lb_node_data,
                         )
 
         logger.info(f"Filter applied: showing {len(self.root.children)} matching projects")

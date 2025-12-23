@@ -7,7 +7,6 @@ from sequel.models.compute import ComputeInstance, InstanceGroup
 from sequel.models.firewall import FirewallPolicy
 from sequel.models.gke import GKECluster, GKENode
 from sequel.models.iam import IAMRoleBinding, ServiceAccount
-from sequel.models.loadbalancer import LoadBalancer
 from sequel.models.project import Project
 from sequel.models.secrets import Secret
 from sequel.services.clouddns import get_clouddns_service
@@ -16,7 +15,6 @@ from sequel.services.compute import get_compute_service
 from sequel.services.firewall import get_firewall_service
 from sequel.services.gke import get_gke_service
 from sequel.services.iam import get_iam_service
-from sequel.services.loadbalancer import get_loadbalancer_service
 from sequel.services.projects import get_project_service
 from sequel.services.secrets import get_secret_manager_service
 from sequel.utils.logging import get_logger
@@ -49,7 +47,6 @@ class ResourceState:
         self._iam_accounts: dict[str, list[ServiceAccount]] = {}
         self._iam_roles: dict[tuple[str, str], list[IAMRoleBinding]] = {}
         self._firewalls: dict[str, list[FirewallPolicy]] = {}
-        self._loadbalancers: dict[str, list[LoadBalancer]] = {}
 
         # Track what's been loaded - set of tuple keys
         self._loaded: set[tuple[str, ...]] = set()
@@ -304,26 +301,6 @@ class ResourceState:
         logger.info(f"Loaded {len(firewalls)} firewall policies into state")
         return firewalls
 
-    async def load_loadbalancers(
-        self, project_id: str, force_refresh: bool = False
-    ) -> list[LoadBalancer]:
-        """Load load balancers for a project."""
-        key = (project_id, "loadbalancers")
-
-        if not force_refresh and key in self._loaded:
-            lbs = self._loadbalancers.get(project_id, [])
-            logger.info(f"Returning {len(lbs)} load balancers from state")
-            return lbs
-
-        service = await get_loadbalancer_service()
-        lbs = await service.list_load_balancers(project_id, use_cache=not force_refresh)
-
-        self._loadbalancers[project_id] = lbs
-        self._loaded.add(key)
-
-        logger.info(f"Loaded {len(lbs)} load balancers into state")
-        return lbs
-
     def is_loaded(self, *key_parts: str) -> bool:
         """Check if a resource type has been loaded into state.
 
@@ -370,10 +347,6 @@ class ResourceState:
     def get_firewalls(self, project_id: str) -> list[FirewallPolicy]:
         """Get firewall policies from state."""
         return self._firewalls.get(project_id, [])
-
-    def get_loadbalancers(self, project_id: str) -> list[LoadBalancer]:
-        """Get load balancers from state."""
-        return self._loadbalancers.get(project_id, [])
 
 
 # Global singleton instance

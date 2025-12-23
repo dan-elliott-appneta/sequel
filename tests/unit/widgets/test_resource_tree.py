@@ -1270,8 +1270,8 @@ class TestResourceTree:
 
         resource_tree._add_resource_type_nodes(project_node, "test-project")
 
-        # Should have 8 resource categories
-        assert len(project_node.children) == 8
+        # Should have 7 resource categories
+        assert len(project_node.children) == 7
 
         # Check all categories exist
         labels = [child.label.plain for child in project_node.children]
@@ -1279,7 +1279,6 @@ class TestResourceTree:
         assert any("Cloud SQL" in label for label in labels)
         assert any("Instance Groups" in label for label in labels)
         assert any("Firewall Policies" in label for label in labels)
-        assert any("Load Balancers" in label for label in labels)
         assert any("GKE Clusters" in label for label in labels)
         assert any("Secrets" in label for label in labels)
         assert any("Service Accounts" in label for label in labels)
