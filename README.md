@@ -37,6 +37,7 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 - CloudSQL instances
 - Cloud Storage buckets
 - Pub/Sub topics and subscriptions
+- VPC Networks and subnets
 - Compute Engine Instance Groups
 - Firewall Policies (VPC firewall rules)
 - Google Kubernetes Engine (GKE) clusters and nodes
