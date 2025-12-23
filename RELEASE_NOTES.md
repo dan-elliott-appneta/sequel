@@ -1,146 +1,72 @@
-# Sequel 1.0.0 - Initial Release
+# VPC Networks and Subnets Support 🌐
 
-We're excited to announce the initial release of **Sequel** - a Terminal User Interface (TUI) for browsing and inspecting Google Cloud resources!
+This release adds support for browsing Google Cloud VPC Networks and their subnets in a hierarchical structure.
 
-## 🎉 Highlights
+## New Features
 
-- **Hierarchical Tree View**: Navigate Google Cloud resources with an intuitive, expandable tree interface
-- **Real Resource Data**: View actual DNS records, IAM roles, GKE nodes, and instance group members
-- **Syntax-Highlighted JSON**: Beautiful JSON details pane with tree-sitter syntax highlighting
-- **High Performance**: 215.9x cache speedup, sub-millisecond operations
-- **VIM Bindings**: Native keyboard navigation for power users
-- **Comprehensive Testing**: 395 tests with 94%+ code coverage
+### VPC Networks and Subnets
+- **Hierarchical resource browsing**: Networks → Subnets
+- **Network information**: Name, mode (auto/custom), subnet count, MTU, routing mode, creation time
+- **Subnet information**: Name, region, IP CIDR range, gateway address, private Google access, flow logs, purpose
+- **Visual indicators**: 🌐 for networks, 🔗 for subnets
+- **Efficient loading**: Uses aggregatedList API to fetch all subnets in a single call
 
-## ✨ Features
+## Implementation Details
 
-### Supported Resources
+- Added VPCNetwork and Subnet models with comprehensive metadata
+- Implemented NetworksService with caching and retry logic
+- Integrated with resource tree for lazy loading and filtering
+- Full test coverage: 27 new tests (9 model, 18 service)
 
-- **Projects**: Browse all accessible Google Cloud projects
-- **Cloud DNS**: View managed zones and DNS records (A, CNAME, MX, TXT, etc.)
-- **CloudSQL**: List database instances with version and state information
-- **Compute Engine**: Instance groups with individual VM instances
-- **GKE**: Clusters with individual node details
-- **Secret Manager**: Secret metadata (values never retrieved)
-- **IAM**: Service accounts with role bindings
+## Statistics
 
-### User Interface
+- **Total Tests**: 605 (all passing)
+- **Coverage**: 92.37%
+- **New Files**: 4 (models, service, tests)
+- **Modified Files**: 6
 
-- **Tree Navigation**: Keyboard-focused with VIM bindings (j/k/h/l)
-- **JSON Details Pane**: Syntax-highlighted API responses with mouse text selection
-- **Status Bar**: Live cache statistics, resource counts, keyboard hints
-- **Empty Node Removal**: Automatic cleanup of projects/categories with no resources
-- **Virtual Scrolling**: Smart limits with "... and N more" indicators
+## Supported Resources
 
-### Performance
+Sequel now supports **11 resource categories**:
+1. Cloud DNS (zones → records)
+2. Cloud SQL instances
+3. Compute Instance Groups (groups → instances)
+4. GKE Clusters (clusters → nodes)
+5. Secrets
+6. Service Accounts (accounts → role bindings)
+7. Firewall Policies
+8. Cloud Storage Buckets
+9. Pub/Sub (topics → subscriptions)
+10. Cloud Run (services and jobs)
+11. **VPC Networks (networks → subnets)** ✨ NEW
 
-- **Intelligent Caching**: LRU eviction with 100MB size limit, 90.9% hit rate
-- **Parallel API Calls**: Simultaneous resource loading across services
-- **Background Cleanup**: Automatic cache cleanup every 5 minutes
-- **Fast Operations**: 0.001ms cache GET, 0.002ms model creation
+## Installation
 
-### Security
+\`\`\`bash
+pip install sequel-ag==1.4.0
+\`\`\`
 
-- **Read-Only Access**: Uses `cloud-platform.read-only` scope
-- **Credential Scrubbing**: Automatic removal of sensitive data from logs
-- **Local Configuration**: All data stays local, no telemetry
-- **ADC Authentication**: Standard Google Cloud Application Default Credentials
+Or upgrade from a previous version:
 
-## 📦 Installation
+\`\`\`bash
+pip install --upgrade sequel-ag
+\`\`\`
 
-```bash
-pip install sequel-ag
-```
+## Full Changelog
 
-### Prerequisites
+**Merged PRs:**
+- #25: Add VPC Networks and Subnets support
 
-- Python 3.11 or higher
-- Google Cloud SDK with configured Application Default Credentials (ADC)
-
-## 🚀 Quick Start
-
-```bash
-# Authenticate with Google Cloud
-gcloud auth application-default login
-
-# Launch Sequel
-sequel
-
-# Navigation
-# - j/k or ↑/↓: Navigate tree
-# - Enter: Expand/collapse node
-# - h/l: Move between panes
-# - q: Quit
-# - r: Refresh
-# - Ctrl+P: Command palette
-```
-
-## 📊 Performance Benchmarks
-
-- **Project Loading**: 0.11ms (1 project), 1.48ms (100 projects)
-- **Cache**: 90.9% hit rate, 215.9x speedup vs API calls
-- **Concurrent Operations**: 1000 writes in 15.68ms, 1000 reads in 2.25ms
-- **Model Creation**: 0.002ms per model
-
-## 🧪 Testing
-
-- **Unit Tests**: 362 passing
-- **Integration Tests**: 25 passing
-- **Benchmarks**: 8 passing
-- **Total**: 395 tests with 94%+ coverage
-
-## 📚 Documentation
-
-- [Installation Guide](docs/user-guide/installation.md)
-- [Configuration Guide](docs/user-guide/configuration.md)
-- [Usage Guide](docs/user-guide/usage.md)
-- [Troubleshooting Guide](docs/user-guide/troubleshooting.md)
-- [Architecture Overview](docs/architecture/overview.md)
-- [Contributing Guide](docs/contributing/development.md)
-
-## 🔧 Configuration
-
-Sequel can be configured via environment variables or `~/.config/sequel/config.json`:
-
-```bash
-# Filter projects by regex
-export SEQUEL_PROJECT_FILTER_REGEX="^my-project-prefix.*$"
-
-# Cache settings
-export SEQUEL_CACHE_TTL_PROJECTS="600"
-export SEQUEL_CACHE_TTL_RESOURCES="300"
-
-# Theme selection
-export SEQUEL_THEME="textual-dark"
-```
-
-## 🐛 Known Limitations
-
-- Alpha software - use at your own risk in production
-- Limited to read-only operations
-- No built-in audit logging
-- Relies on GCP quota limits
-
-## 🤝 Contributing
-
-Contributions are welcome! See our [Development Guide](docs/contributing/development.md) for details.
-
-## 📄 License
-
-MIT License - See [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-Built with:
-- [Textual](https://textual.textualize.io/) - Modern TUI framework
-- [Google Cloud Python Client Libraries](https://cloud.google.com/python/docs/reference)
-- [Pydantic](https://docs.pydantic.dev/) - Data validation
-
-## 🔗 Links
-
-- **GitHub**: https://github.com/dan-elliott-appneta/sequel
-- **PyPI**: https://pypi.org/project/sequel-ag/
-- **Issues**: https://github.com/dan-elliott-appneta/sequel/issues
+**Commits:**
+- docs: Add VPC Networks to implementation plan
+- feat: Add VPC Network and Subnet models
+- feat: Add VPC Networks service
+- feat: Add VPC Networks state management
+- feat: Integrate VPC Networks with resource tree
+- test: Add comprehensive model and service tests
+- docs: Update documentation for v1.4.0
+- chore: Bump version to 1.4.0
 
 ---
 
-**Full Changelog**: https://github.com/dan-elliott-appneta/sequel/commits/v1.0.0
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
