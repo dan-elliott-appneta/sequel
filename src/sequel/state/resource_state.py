@@ -2,7 +2,10 @@
 
 from sequel.config import get_config
 from sequel.models.clouddns import DNSRecord, ManagedZone
-from sequel.models.cloudrun import CloudRunJob, CloudRunService
+from sequel.models.cloudrun import (
+    CloudRunJob as CloudRunJobModel,
+    CloudRunService as CloudRunServiceModel,
+)
 from sequel.models.cloudsql import CloudSQLInstance
 from sequel.models.compute import ComputeInstance, InstanceGroup
 from sequel.models.firewall import FirewallPolicy
@@ -56,8 +59,8 @@ class ResourceState:
         self._buckets: dict[str, list[Bucket]] = {}
         self._pubsub_topics: dict[str, list[Topic]] = {}
         self._pubsub_subscriptions: dict[str, list[Subscription]] = {}
-        self._cloudrun_services: dict[str, list[CloudRunService]] = {}
-        self._cloudrun_jobs: dict[str, list[CloudRunJob]] = {}
+        self._cloudrun_services: dict[str, list[CloudRunServiceModel]] = {}
+        self._cloudrun_jobs: dict[str, list[CloudRunJobModel]] = {}
 
         # Track what's been loaded - set of tuple keys
         self._loaded: set[tuple[str, ...]] = set()
@@ -449,7 +452,7 @@ class ResourceState:
 
     async def load_cloudrun_services(
         self, project_id: str, force_refresh: bool = False
-    ) -> list[CloudRunService]:
+    ) -> list[CloudRunServiceModel]:
         """Load Cloud Run services for a project.
 
         Args:
@@ -457,7 +460,7 @@ class ResourceState:
             force_refresh: If True, bypass state cache and reload from API
 
         Returns:
-            List of CloudRunService instances
+            List of CloudRunServiceModel instances
         """
         key = (project_id, "cloudrun_services")
 
@@ -477,7 +480,7 @@ class ResourceState:
 
     async def load_cloudrun_jobs(
         self, project_id: str, force_refresh: bool = False
-    ) -> list[CloudRunJob]:
+    ) -> list[CloudRunJobModel]:
         """Load Cloud Run jobs for a project.
 
         Args:
@@ -485,7 +488,7 @@ class ResourceState:
             force_refresh: If True, bypass state cache and reload from API
 
         Returns:
-            List of CloudRunJob instances
+            List of CloudRunJobModel instances
         """
         key = (project_id, "cloudrun_jobs")
 
@@ -503,11 +506,11 @@ class ResourceState:
         logger.info(f"Loaded {len(jobs)} Cloud Run jobs into state")
         return jobs
 
-    def get_cloudrun_services(self, project_id: str) -> list[CloudRunService]:
+    def get_cloudrun_services(self, project_id: str) -> list[CloudRunServiceModel]:
         """Get Cloud Run services from state."""
         return self._cloudrun_services.get(project_id, [])
 
-    def get_cloudrun_jobs(self, project_id: str) -> list[CloudRunJob]:
+    def get_cloudrun_jobs(self, project_id: str) -> list[CloudRunJobModel]:
         """Get Cloud Run jobs from state."""
         return self._cloudrun_jobs.get(project_id, [])
 

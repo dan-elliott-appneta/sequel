@@ -7,7 +7,10 @@ from googleapiclient import discovery
 
 from sequel.cache.memory import get_cache
 from sequel.config import get_config
-from sequel.models.cloudrun import CloudRunJob, CloudRunService
+from sequel.models.cloudrun import (
+    CloudRunJob as CloudRunJobModel,
+    CloudRunService as CloudRunServiceModel,
+)
 from sequel.services.auth import get_auth_manager
 from sequel.services.base import BaseService
 from sequel.utils.logging import get_logger
@@ -42,7 +45,7 @@ class CloudRunService(BaseService):
 
     async def list_services(
         self, project_id: str, use_cache: bool = True
-    ) -> list[CloudRunService]:
+    ) -> list[CloudRunServiceModel]:
         """List all Cloud Run services in a project.
 
         Args:
@@ -50,7 +53,7 @@ class CloudRunService(BaseService):
             use_cache: Whether to use cached results
 
         Returns:
-            List of CloudRunService instances
+            List of CloudRunServiceModel instances
 
         Raises:
             AuthError: If authentication fails
@@ -64,9 +67,9 @@ class CloudRunService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} Cloud Run services from cache")
-                return cast("list[CloudRunService]", cached)
+                return cast("list[CloudRunServiceModel]", cached)
 
-        async def _list_services() -> list[CloudRunService]:
+        async def _list_services() -> list[CloudRunServiceModel]:
             """Internal function to list Cloud Run services."""
             client = await self._get_client()
 
@@ -77,7 +80,7 @@ class CloudRunService(BaseService):
                 # Format: projects/{project}/locations/-
                 parent = f"projects/{project_id}/locations/-"
 
-                services: list[CloudRunService] = []
+                services: list[CloudRunServiceModel] = []
                 next_page_token = None
 
                 # Handle pagination
@@ -91,7 +94,7 @@ class CloudRunService(BaseService):
 
                     # Process services from this page
                     for item in response.get("services", []):
-                        service = CloudRunService.from_api_response(item)
+                        service = CloudRunServiceModel.from_api_response(item)
                         services.append(service)
                         logger.debug(f"Loaded Cloud Run service: {service.service_name}")
 
@@ -130,7 +133,7 @@ class CloudRunService(BaseService):
 
     async def list_jobs(
         self, project_id: str, use_cache: bool = True
-    ) -> list[CloudRunJob]:
+    ) -> list[CloudRunJobModel]:
         """List all Cloud Run jobs in a project.
 
         Args:
@@ -138,7 +141,7 @@ class CloudRunService(BaseService):
             use_cache: Whether to use cached results
 
         Returns:
-            List of CloudRunJob instances
+            List of CloudRunJobModel instances
 
         Raises:
             AuthError: If authentication fails
@@ -152,9 +155,9 @@ class CloudRunService(BaseService):
             cached = await self._cache.get(cache_key)
             if cached is not None:
                 logger.info(f"Returning {len(cached)} Cloud Run jobs from cache")
-                return cast("list[CloudRunJob]", cached)
+                return cast("list[CloudRunJobModel]", cached)
 
-        async def _list_jobs() -> list[CloudRunJob]:
+        async def _list_jobs() -> list[CloudRunJobModel]:
             """Internal function to list Cloud Run jobs."""
             client = await self._get_client()
 
@@ -165,7 +168,7 @@ class CloudRunService(BaseService):
                 # Format: projects/{project}/locations/-
                 parent = f"projects/{project_id}/locations/-"
 
-                jobs: list[CloudRunJob] = []
+                jobs: list[CloudRunJobModel] = []
                 next_page_token = None
 
                 # Handle pagination
@@ -179,7 +182,7 @@ class CloudRunService(BaseService):
 
                     # Process jobs from this page
                     for item in response.get("jobs", []):
-                        job = CloudRunJob.from_api_response(item)
+                        job = CloudRunJobModel.from_api_response(item)
                         jobs.append(job)
                         logger.debug(f"Loaded Cloud Run job: {job.job_name}")
 
