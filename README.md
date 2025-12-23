@@ -4,7 +4,7 @@ A Terminal User Interface (TUI) for browsing and inspecting Google Cloud resourc
 
 ## Version
 
-Current version: **1.1.0**
+Current version: **1.3.0**
 
 ## Features
 
@@ -37,6 +37,7 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 - CloudSQL instances
 - Cloud Storage buckets
 - Pub/Sub topics and subscriptions
+- Cloud Run services and jobs
 - Compute Engine Instance Groups
 - Firewall Policies (VPC firewall rules)
 - Google Kubernetes Engine (GKE) clusters and nodes
