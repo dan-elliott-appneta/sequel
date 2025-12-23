@@ -153,10 +153,7 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Subprocess-based execution prevents segfaults (learned from load balancer removal)
   - 30-second timeout per command prevents UI hangs
   - Parses Knative (services) and Cloud Run v1 (jobs) JSON formats
-  - **Performance optimization**: Excluded from automatic cleanup loading (loads on-demand only)
-    - gcloud CLI takes ~1 second per command (2 commands per project)
-    - Loading during cleanup was causing UI slowness
-    - Now loads only when user expands Cloud Run nodes
+  - gcloud CLI takes ~1 second per command (acceptable tradeoff for stability)
   - Full test coverage (20 model tests, 12 service tests)
   - PR: #24
 
