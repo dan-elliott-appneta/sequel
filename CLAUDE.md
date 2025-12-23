@@ -142,7 +142,7 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Subscriptions show type (Push/Pull), ACK deadline, filters
   - Icons: 📢 for topics, 📬 for push subscriptions, 📭 for pull subscriptions
   - Full test coverage (23 model tests, 15 service tests)
-  - PR: #[TBD]
+  - PR: #23
 
 ## Development Workflow
 
