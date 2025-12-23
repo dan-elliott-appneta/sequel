@@ -509,6 +509,20 @@ class ResourceTree(Tree[ResourceTreeNode]):
         if node.data.loaded:
             return
 
+        # Skip expansion for leaf nodes that have resource_data
+        # FIREWALL and LOADBALANCER use the same ResourceType for both parent and leaf nodes
+        # Leaf nodes have resource_data, parent category nodes do not
+        is_firewall_leaf = (
+            node.data.resource_type == ResourceType.FIREWALL
+            and node.data.resource_data is not None
+        )
+        is_loadbalancer_leaf = (
+            node.data.resource_type == ResourceType.LOADBALANCER
+            and node.data.resource_data is not None
+        )
+        if is_firewall_leaf or is_loadbalancer_leaf:
+            return
+
         try:
             # Load resources based on type
             if node.data.resource_type == ResourceType.CLOUDDNS:
