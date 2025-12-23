@@ -6,7 +6,7 @@ Based on exploration of the Sequel codebase, I've identified the implementation 
 
 ## Current Implementation Status
 
-**Currently Supported (7 categories):**
+**Currently Supported (11 categories):**
 1. Cloud DNS (zones → records) - Complex hierarchical
 2. Cloud SQL instances - Simple flat
 3. Compute Instance Groups (groups → instances) - Complex hierarchical
@@ -14,6 +14,10 @@ Based on exploration of the Sequel codebase, I've identified the implementation 
 5. Secrets - Simple flat
 6. Service Accounts (accounts → role bindings) - Complex hierarchical
 7. Firewall Policies - Simple flat
+8. Cloud Storage Buckets - Simple flat (v1.1.0)
+9. Pub/Sub (topics → subscriptions) - Complex hierarchical (v1.2.0)
+10. Cloud Run (services and jobs) - Simple flat (v1.3.0)
+11. VPC Networks (networks → subnets) - Complex hierarchical (v1.4.0)
 
 ## Implementation Pattern Summary
 
@@ -140,13 +144,24 @@ Single level hierarchy or simple multi-region
 ### ⭐ TIER 3: Moderate (2-3 days)
 Hierarchical with sub-resources or complex structure
 
-#### 11. **Subnets** (child of VPC Networks)
+#### 11. **VPC Networks → Subnets** ✅ COMPLETED (v1.4.0)
 **Difficulty: 5/10**
-- API: `compute.networks().list()` + `compute.subnetworks().list(region=r)`
-- Structure: Networks → Subnets (per region)
+- API: `compute.networks().list()` + `compute.subnetworks().aggregatedList()`
+- Structure: Networks → Subnets (hierarchical)
 - Why moderate: Requires region iteration per network
 - Similar to: Compute groups → instances
-- Parent: VPC Networks (tier 1 resource)
+- Fields (networks): name, mode (auto/custom), subnet count, creation time
+- Fields (subnets): name, region, IP range (CIDR), private Google access, flow logs
+- Icons: 🌐 for networks, 🔗 for subnets
+
+**Implementation (v1.4.0):**
+- Created VPCNetwork and Subnet models in `src/sequel/models/networks.py`
+- Implemented NetworksService with list_networks() and list_subnets()
+- Added hierarchical tree structure: Networks (expandable) → Subnets (leaf nodes)
+- Used aggregatedList for subnets to avoid region iteration
+- Followed Cloud DNS pattern for hierarchical expansion
+- Test coverage: 27 tests (9 model tests, 18 service tests)
+- PR: #25
 
 #### 12. **Routes**
 **Difficulty: 5/10**
@@ -312,9 +327,10 @@ Resources with known stability issues or extreme complexity
 
 1. ✅ **Cloud Storage Buckets** (Tier 1) - Universal need, very easy - **COMPLETED v1.1.0**
 2. ✅ **Pub/Sub Topics → Subscriptions** (Tier 3) - Messaging backbone - **COMPLETED v1.2.0**
-3. **Persistent Disks** (Tier 1) - Shows compute storage, easy
-4. **Cloud Run Services** (Tier 1) - Modern serverless, popular
-5. **BigQuery Datasets → Tables** (Tier 3) - Data analytics, high value
+3. ✅ **Cloud Run Services** (Tier 1) - Modern serverless, popular - **COMPLETED v1.3.0**
+4. ✅ **VPC Networks → Subnets** (Tier 3) - Networking foundation - **COMPLETED v1.4.0**
+5. **Persistent Disks** (Tier 1) - Shows compute storage, easy
+6. **BigQuery Datasets → Tables** (Tier 3) - Data analytics, high value
 
 ### Implementation Strategy
 

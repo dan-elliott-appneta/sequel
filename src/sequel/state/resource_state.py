@@ -7,6 +7,7 @@ from sequel.models.compute import ComputeInstance, InstanceGroup
 from sequel.models.firewall import FirewallPolicy
 from sequel.models.gke import GKECluster, GKENode
 from sequel.models.iam import IAMRoleBinding, ServiceAccount
+from sequel.models.networks import Subnet, VPCNetwork
 from sequel.models.project import Project
 from sequel.models.pubsub import Subscription, Topic
 from sequel.models.secrets import Secret
@@ -17,6 +18,7 @@ from sequel.services.compute import get_compute_service
 from sequel.services.firewall import get_firewall_service
 from sequel.services.gke import get_gke_service
 from sequel.services.iam import get_iam_service
+from sequel.services.networks import get_networks_service
 from sequel.services.projects import get_project_service
 from sequel.services.pubsub import get_pubsub_service
 from sequel.services.secrets import get_secret_manager_service
@@ -54,6 +56,8 @@ class ResourceState:
         self._buckets: dict[str, list[Bucket]] = {}
         self._pubsub_topics: dict[str, list[Topic]] = {}
         self._pubsub_subscriptions: dict[str, list[Subscription]] = {}
+        self._networks: dict[str, list[VPCNetwork]] = {}
+        self._subnets: dict[str, list[Subnet]] = {}
 
         # Track what's been loaded - set of tuple keys
         self._loaded: set[tuple[str, ...]] = set()
@@ -442,6 +446,89 @@ class ResourceState:
     def get_pubsub_subscriptions(self, project_id: str) -> list[Subscription]:
         """Get Pub/Sub subscriptions from state."""
         return self._pubsub_subscriptions.get(project_id, [])
+
+    async def load_networks(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[VPCNetwork]:
+        """Load VPC networks for a project.
+
+        Args:
+            project_id: GCP project ID
+            force_refresh: If True, bypass state cache and reload from API
+
+        Returns:
+            List of VPCNetwork instances
+        """
+        key = (project_id, "networks")
+
+        if not force_refresh and key in self._loaded:
+            networks = self._networks.get(project_id, [])
+            logger.info(f"Returning {len(networks)} VPC networks from state")
+            return networks
+
+        service = await get_networks_service()
+        networks = await service.list_networks(project_id, use_cache=not force_refresh)
+
+        self._networks[project_id] = networks
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(networks)} VPC networks into state")
+        return networks
+
+    async def load_subnets(
+        self, project_id: str, network_name: str | None = None, force_refresh: bool = False
+    ) -> list[Subnet]:
+        """Load subnets for a project, optionally filtered by network.
+
+        Args:
+            project_id: GCP project ID
+            network_name: Optional network name to filter by
+            force_refresh: If True, bypass state cache and reload from API
+
+        Returns:
+            List of Subnet instances
+        """
+        # Use different keys for all subnets vs filtered by network
+        key = (project_id, "subnets") if network_name is None else (project_id, "subnets", network_name)
+
+        if not force_refresh and key in self._loaded:
+            # For filtered requests, filter from cached subnets
+            all_subnets = self._subnets.get(project_id, [])
+            if network_name is None:
+                subnets = all_subnets
+            else:
+                subnets = [s for s in all_subnets if s.network_name == network_name]
+            logger.info(f"Returning {len(subnets)} subnets from state")
+            return subnets
+
+        service = await get_networks_service()
+        subnets = await service.list_subnets(
+            project_id, network_name=network_name, use_cache=not force_refresh
+        )
+
+        # Store all subnets (or update with filtered results)
+        if network_name is None:
+            self._subnets[project_id] = subnets
+        else:
+            # Merge filtered subnets into existing cache
+            existing = self._subnets.get(project_id, [])
+            # Remove old subnets for this network
+            existing = [s for s in existing if s.network_name != network_name]
+            # Add new subnets
+            self._subnets[project_id] = existing + subnets
+
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(subnets)} subnets into state")
+        return subnets
+
+    def get_networks(self, project_id: str) -> list[VPCNetwork]:
+        """Get VPC networks from state."""
+        return self._networks.get(project_id, [])
+
+    def get_subnets(self, project_id: str) -> list[Subnet]:
+        """Get subnets from state."""
+        return self._subnets.get(project_id, [])
 
 
 # Global singleton instance
