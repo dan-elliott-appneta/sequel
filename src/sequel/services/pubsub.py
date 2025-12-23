@@ -93,6 +93,7 @@ class PubSubService(BaseService):
                     for item in response.get("topics", []):
                         topic = Topic.from_api_response(item)
                         topics.append(topic)
+                        logger.debug(f"Loaded topic: {topic.topic_name}")
 
                     # Check for more pages
                     next_page_token = response.get("nextPageToken")
