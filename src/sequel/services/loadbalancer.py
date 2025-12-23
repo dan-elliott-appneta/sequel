@@ -92,8 +92,8 @@ class LoadBalancerService(BaseService):
         async def _list_regional_forwarding_rules() -> list[LoadBalancer]:
             """List regional forwarding rules across all regions.
 
-            Note: Fetches regions sequentially to avoid Google API client
-            thread-safety issues that can cause memory corruption.
+            Note: Must fetch regions FULLY SEQUENTIALLY - ANY concurrency causes
+            memory corruption in the Google API client. This is slow but necessary.
             """
             client = await self._get_client()
 
@@ -102,11 +102,12 @@ class LoadBalancerService(BaseService):
                 regions_request = client.regions().list(project=project_id)
                 regions_response = await asyncio.to_thread(regions_request.execute)
 
-                all_load_balancers: list[LoadBalancer] = []
                 regions = [r.get("name", "") for r in regions_response.get("items", [])]
+                all_load_balancers: list[LoadBalancer] = []
 
-                # Fetch regions SEQUENTIALLY to avoid client thread-safety issues
-                # Google API client is not thread-safe for concurrent request creation
+                logger.info(f"Fetching load balancers from {len(regions)} regions (this may take a while)...")
+
+                # CRITICAL: Must be fully sequential - ANY parallel access causes crashes
                 for region in regions:
                     try:
                         request = client.forwardingRules().list(
