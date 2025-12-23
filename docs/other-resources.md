@@ -104,13 +104,24 @@ Single API call, flat structure, no sub-resources
 ### ⭐ TIER 2: Easy (1 day)
 Single level hierarchy or simple multi-region
 
-#### 7. **Cloud Storage Buckets → Objects**
+#### 7. **Cloud Storage Buckets → Objects** 🔄 IN PROGRESS (v1.5.0)
 **Difficulty: 4/10**
 - APIs: `storage.buckets().list()` + `storage.objects().list(bucket=name)`
 - Structure: Buckets (parent) → Objects (children, paginated)
 - Why medium: Object listing can be huge (need limits)
 - Similar to: CloudDNS zones → records
 - Consideration: Limit to first 100 objects per bucket
+- Fields (objects): name, size, content type, creation time, storage class, CRC32C checksum
+- Icons: 🪣 for buckets (already implemented), 📄 for objects
+
+**Implementation Plan (v1.5.0):**
+- Add StorageObject model to `src/sequel/models/storage.py`
+- Update StorageService with list_objects() method (with pagination support)
+- Make buckets expandable in resource tree (like DNS zones)
+- Limit to first 100 objects per bucket (virtual scrolling)
+- Display object size, type, and creation time
+- Follow Cloud DNS pattern for hierarchical expansion
+- PR: #[TBD]
 
 #### 8. **Snapshots**
 **Difficulty: 4/10**

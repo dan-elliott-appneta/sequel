@@ -154,6 +154,15 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Full test coverage (9 model tests, 18 service tests)
   - PR: #25
 
+- 🔄 **Cloud Storage Objects (v1.5.0)**: Adding Cloud Storage Objects support
+  - Hierarchical resource: Buckets → Objects (Tier 2 difficulty)
+  - Buckets already implemented in v1.1.0, now making them expandable
+  - Objects show name, size, content type, creation time, storage class
+  - Icons: 🪣 for buckets, 📄 for objects
+  - Pagination support with 100-object limit per bucket
+  - Follows Cloud DNS pattern for hierarchical expansion
+  - PR: #[TBD]
+
 ## Development Workflow
 
 ### Branch Strategy
