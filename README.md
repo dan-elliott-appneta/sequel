@@ -21,6 +21,7 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 - **JSON details pane** with tree-sitter syntax highlighting, pretty-printed API responses, and mouse text selection
 - **Performance optimized**:
   - Parallel API operations for simultaneous resource loading
+  - Concurrency limiting (max 5 concurrent region queries) to prevent system overload
   - Intelligent caching with LRU eviction and 100MB size limit
   - Cache statistics tracking (hits, misses, evictions, expirations)
   - Connection pooling for API clients

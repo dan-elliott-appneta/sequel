@@ -216,6 +216,9 @@ See [SECURITY.md](../SECURITY.md) for detailed security practices and vulnerabil
 
 - All GCloud API calls must be async
 - Use `asyncio.gather()` for parallel operations
+- **Use `asyncio.Semaphore()` to limit concurrent operations** when making many parallel API calls
+  - Example: Load balancer service limits to 5 concurrent region queries (not 30+)
+  - Prevents system overload, memory fragmentation, and segfaults with large datasets
 - Set timeouts on all network calls (30s default)
 - Handle `CancelledError` properly
 
@@ -314,6 +317,7 @@ sequel/
 | Async exceptions swallowed | Wrap all async ops in try/except |
 | Credential expiry | Handle `RefreshError`, prompt re-auth |
 | Large datasets slow UI | Lazy loading, pagination, virtual scrolling |
+| Segfaults with large datasets (60+ items) | Use MAX_CHILDREN_PER_NODE limits in tree loading, asyncio.Semaphore to limit concurrent API calls |
 
 ## Documentation Requirements
 
