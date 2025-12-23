@@ -9,6 +9,7 @@ from sequel.models.gke import GKECluster, GKENode
 from sequel.models.iam import IAMRoleBinding, ServiceAccount
 from sequel.models.project import Project
 from sequel.models.secrets import Secret
+from sequel.models.storage import Bucket
 from sequel.services.clouddns import get_clouddns_service
 from sequel.services.cloudsql import get_cloudsql_service
 from sequel.services.compute import get_compute_service
@@ -17,6 +18,7 @@ from sequel.services.gke import get_gke_service
 from sequel.services.iam import get_iam_service
 from sequel.services.projects import get_project_service
 from sequel.services.secrets import get_secret_manager_service
+from sequel.services.storage import get_storage_service
 from sequel.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -47,6 +49,7 @@ class ResourceState:
         self._iam_accounts: dict[str, list[ServiceAccount]] = {}
         self._iam_roles: dict[tuple[str, str], list[IAMRoleBinding]] = {}
         self._firewalls: dict[str, list[FirewallPolicy]] = {}
+        self._buckets: dict[str, list[Bucket]] = {}
 
         # Track what's been loaded - set of tuple keys
         self._loaded: set[tuple[str, ...]] = set()
@@ -301,6 +304,26 @@ class ResourceState:
         logger.info(f"Loaded {len(firewalls)} firewall policies into state")
         return firewalls
 
+    async def load_buckets(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[Bucket]:
+        """Load Cloud Storage buckets for a project."""
+        key = (project_id, "buckets")
+
+        if not force_refresh and key in self._loaded:
+            buckets = self._buckets.get(project_id, [])
+            logger.info(f"Returning {len(buckets)} buckets from state")
+            return buckets
+
+        service = await get_storage_service()
+        buckets = await service.list_buckets(project_id, use_cache=not force_refresh)
+
+        self._buckets[project_id] = buckets
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(buckets)} buckets into state")
+        return buckets
+
     def is_loaded(self, *key_parts: str) -> bool:
         """Check if a resource type has been loaded into state.
 
@@ -347,6 +370,10 @@ class ResourceState:
     def get_firewalls(self, project_id: str) -> list[FirewallPolicy]:
         """Get firewall policies from state."""
         return self._firewalls.get(project_id, [])
+
+    def get_buckets(self, project_id: str) -> list[Bucket]:
+        """Get Cloud Storage buckets from state."""
+        return self._buckets.get(project_id, [])
 
 
 # Global singleton instance

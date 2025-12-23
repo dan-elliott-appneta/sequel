@@ -6,7 +6,7 @@ Sequel is a Python TUI application for browsing Google Cloud resources. It uses 
 
 ## Version Management
 
-**Current Version: 1.0.5**
+**Current Version: 1.1.0**
 
 We follow [Semantic Versioning](https://semver.org/) (SemVer):
 - **MAJOR** version: Incompatible API changes
@@ -40,7 +40,7 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Branch: `phases-3-6-implementation`
   - Combined implementation of data models, services, widgets, and application integration
   - Includes:
-    - Pydantic models for all resources (Project, CloudDNS, CloudSQL, Compute, Firewall, LoadBalancer, GKE, Secrets, IAM)
+    - Pydantic models for all resources (Project, CloudDNS, CloudSQL, Storage, Compute, Firewall, GKE, Secrets, IAM)
     - Service layer for all GCP APIs with caching and retry logic
     - Resource tree widget with lazy loading (includes CloudDNS zones → records hierarchy)
     - Detail pane for resource information with JSON syntax highlighting
