@@ -36,6 +36,7 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 - Cloud DNS managed zones and DNS records
 - CloudSQL instances
 - Cloud Storage buckets
+- Pub/Sub topics and subscriptions
 - Compute Engine Instance Groups
 - Firewall Policies (VPC firewall rules)
 - Google Kubernetes Engine (GKE) clusters and nodes

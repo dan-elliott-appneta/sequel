@@ -8,6 +8,7 @@ from sequel.models.firewall import FirewallPolicy
 from sequel.models.gke import GKECluster, GKENode
 from sequel.models.iam import IAMRoleBinding, ServiceAccount
 from sequel.models.project import Project
+from sequel.models.pubsub import Subscription, Topic
 from sequel.models.secrets import Secret
 from sequel.models.storage import Bucket
 from sequel.services.clouddns import get_clouddns_service
@@ -17,6 +18,7 @@ from sequel.services.firewall import get_firewall_service
 from sequel.services.gke import get_gke_service
 from sequel.services.iam import get_iam_service
 from sequel.services.projects import get_project_service
+from sequel.services.pubsub import get_pubsub_service
 from sequel.services.secrets import get_secret_manager_service
 from sequel.services.storage import get_storage_service
 from sequel.utils.logging import get_logger
@@ -50,6 +52,8 @@ class ResourceState:
         self._iam_roles: dict[tuple[str, str], list[IAMRoleBinding]] = {}
         self._firewalls: dict[str, list[FirewallPolicy]] = {}
         self._buckets: dict[str, list[Bucket]] = {}
+        self._pubsub_topics: dict[str, list[Topic]] = {}
+        self._pubsub_subscriptions: dict[str, list[Subscription]] = {}
 
         # Track what's been loaded - set of tuple keys
         self._loaded: set[tuple[str, ...]] = set()
@@ -374,6 +378,70 @@ class ResourceState:
     def get_buckets(self, project_id: str) -> list[Bucket]:
         """Get Cloud Storage buckets from state."""
         return self._buckets.get(project_id, [])
+
+    async def load_pubsub_topics(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[Topic]:
+        """Load Pub/Sub topics for a project.
+
+        Args:
+            project_id: GCP project ID
+            force_refresh: If True, bypass state cache and reload from API
+
+        Returns:
+            List of Topic instances
+        """
+        key = (project_id, "pubsub_topics")
+
+        if not force_refresh and key in self._loaded:
+            topics = self._pubsub_topics.get(project_id, [])
+            logger.info(f"Returning {len(topics)} Pub/Sub topics from state")
+            return topics
+
+        service = await get_pubsub_service()
+        topics = await service.list_topics(project_id, use_cache=not force_refresh)
+
+        self._pubsub_topics[project_id] = topics
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(topics)} Pub/Sub topics into state")
+        return topics
+
+    async def load_pubsub_subscriptions(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[Subscription]:
+        """Load Pub/Sub subscriptions for a project.
+
+        Args:
+            project_id: GCP project ID
+            force_refresh: If True, bypass state cache and reload from API
+
+        Returns:
+            List of Subscription instances
+        """
+        key = (project_id, "pubsub_subscriptions")
+
+        if not force_refresh and key in self._loaded:
+            subscriptions = self._pubsub_subscriptions.get(project_id, [])
+            logger.info(f"Returning {len(subscriptions)} Pub/Sub subscriptions from state")
+            return subscriptions
+
+        service = await get_pubsub_service()
+        subscriptions = await service.list_subscriptions(project_id, use_cache=not force_refresh)
+
+        self._pubsub_subscriptions[project_id] = subscriptions
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(subscriptions)} Pub/Sub subscriptions into state")
+        return subscriptions
+
+    def get_pubsub_topics(self, project_id: str) -> list[Topic]:
+        """Get Pub/Sub topics from state."""
+        return self._pubsub_topics.get(project_id, [])
+
+    def get_pubsub_subscriptions(self, project_id: str) -> list[Subscription]:
+        """Get Pub/Sub subscriptions from state."""
+        return self._pubsub_subscriptions.get(project_id, [])
 
 
 # Global singleton instance
