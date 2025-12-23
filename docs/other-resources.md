@@ -311,10 +311,10 @@ Resources with known stability issues or extreme complexity
 ### Top 5 to Add Next (Best ROI)
 
 1. ✅ **Cloud Storage Buckets** (Tier 1) - Universal need, very easy - **COMPLETED v1.1.0**
-2. **Persistent Disks** (Tier 1) - Shows compute storage, easy
-3. **Cloud Run Services** (Tier 1) - Modern serverless, popular
-4. **BigQuery Datasets → Tables** (Tier 3) - Data analytics, high value
-5. **Pub/Sub Topics → Subscriptions** (Tier 3) - Messaging backbone - **IN PROGRESS**
+2. ✅ **Pub/Sub Topics → Subscriptions** (Tier 3) - Messaging backbone - **COMPLETED v1.2.0**
+3. **Persistent Disks** (Tier 1) - Shows compute storage, easy
+4. **Cloud Run Services** (Tier 1) - Modern serverless, popular
+5. **BigQuery Datasets → Tables** (Tier 3) - Data analytics, high value
 
 ### Implementation Strategy
 
