@@ -507,10 +507,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 task = self._load_pubsub_topics(resource_node)
             # Skip Cloud Run from automatic parallel loading due to slow gcloud CLI
             # Remove nodes immediately to allow cleanup to work properly
-            elif resource_type == ResourceType.CLOUDRUN_SERVICE:
-                resource_node.remove()  # Remove unloaded node to allow cleanup
-                continue  # Skip loading - loads on user interaction only
-            elif resource_type == ResourceType.CLOUDRUN_JOB:
+            elif resource_type == ResourceType.CLOUDRUN_SERVICE or resource_type == ResourceType.CLOUDRUN_JOB:
                 resource_node.remove()  # Remove unloaded node to allow cleanup
                 continue  # Skip loading - loads on user interaction only
 
