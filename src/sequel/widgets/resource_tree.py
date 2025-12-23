@@ -39,7 +39,9 @@ class ResourceType:
     IAM_SERVICE_ACCOUNT = "iam_service_account"  # Expandable service account
     IAM_ROLE = "iam_role"  # Individual role binding (leaf)
     FIREWALL = "firewall"  # Firewall policies (leaf)
-    STORAGE = "storage"  # Cloud Storage buckets (leaf)
+    STORAGE = "storage"  # Cloud Storage (category)
+    STORAGE_BUCKET = "storage_bucket"  # Expandable bucket
+    STORAGE_OBJECT = "storage_object"  # Individual object (leaf)
     PUBSUB = "pubsub"  # Pub/Sub (category)
     PUBSUB_TOPIC = "pubsub_topic"  # Expandable topic
     PUBSUB_SUBSCRIPTION = "pubsub_subscription"  # Individual subscription (leaf)
@@ -536,17 +538,16 @@ class ResourceTree(Tree[ResourceTreeNode]):
             return
 
         # Skip expansion for leaf nodes that have resource_data
-        # FIREWALL and STORAGE use the same ResourceType for both parent and leaf nodes
+        # FIREWALL uses the same ResourceType for both parent and leaf nodes
         # Leaf nodes have resource_data, parent category nodes do not
         is_firewall_leaf = (
             node.data.resource_type == ResourceType.FIREWALL
             and node.data.resource_data is not None
         )
-        is_storage_leaf = (
-            node.data.resource_type == ResourceType.STORAGE
-            and node.data.resource_data is not None
-        )
-        if is_firewall_leaf or is_storage_leaf:
+        # STORAGE_BUCKET nodes are expandable (contain objects)
+        # STORAGE_OBJECT nodes are leaf nodes
+        is_storage_object_leaf = node.data.resource_type == ResourceType.STORAGE_OBJECT
+        if is_firewall_leaf or is_storage_object_leaf:
             return
 
         try:
@@ -575,6 +576,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 await self._load_firewalls(node)
             elif node.data.resource_type == ResourceType.STORAGE:
                 await self._load_buckets(node)
+            elif node.data.resource_type == ResourceType.STORAGE_BUCKET:
+                await self._load_storage_objects(node)
             elif node.data.resource_type == ResourceType.PUBSUB:
                 await self._load_pubsub_topics(node)
             elif node.data.resource_type == ResourceType.PUBSUB_TOPIC:
@@ -1334,7 +1337,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
 
         for bucket in buckets_to_show:
             node_data = ResourceTreeNode(
-                resource_type=ResourceType.STORAGE,
+                resource_type=ResourceType.STORAGE_BUCKET,
                 resource_id=bucket.bucket_name,
                 resource_data=bucket,
                 project_id=project_id,
@@ -1350,14 +1353,84 @@ class ResourceTree(Tree[ResourceTreeNode]):
             elif bucket.storage_class == "ARCHIVE":
                 storage_icon = "🗄️"
 
-            parent_node.add_leaf(
+            parent_node.add(
                 f"{storage_icon} {bucket.bucket_name}",
                 data=node_data,
+                allow_expand=True,
             )
 
         # Add "... and N more" indicator if we limited the children
         if self._should_limit_children(total_buckets):
             remaining = total_buckets - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
+
+    async def _load_storage_objects(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load objects for a Cloud Storage bucket from state."""
+        if parent_node.data is None or parent_node.data.resource_data is None:
+            return
+
+        from sequel.models.storage import Bucket
+
+        bucket = parent_node.data.resource_data
+        if not isinstance(bucket, Bucket):
+            return
+
+        project_id = parent_node.data.project_id
+        if project_id is None:
+            return
+
+        bucket_name = bucket.bucket_name
+        logger.info(f"Loading objects for bucket {bucket_name}")
+
+        # Load objects for this specific bucket
+        objects = await self._state.load_storage_objects(project_id, bucket_name)
+
+        logger.info(f"Found {len(objects)} objects for bucket {bucket_name}")
+
+        parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(objects)} objects")
+            objects = [
+                obj for obj in objects
+                if self._matches_filter(obj.object_name)
+            ]
+            logger.info(f"Filtered to {len(objects)} objects matching '{self._filter_text}'")
+
+        if not objects:
+            parent_node.add_leaf("No objects")
+            return
+
+        # Limit number of children to prevent segfaults with large datasets
+        total_objects = len(objects)
+        objects_to_show = (
+            objects[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_objects)
+            else objects
+        )
+
+        for obj in objects_to_show:
+            node_data = ResourceTreeNode(
+                resource_type=ResourceType.STORAGE_OBJECT,
+                resource_id=obj.object_name,
+                resource_data=obj,
+                project_id=project_id,
+            )
+
+            # Show object with size
+            label = f"📄 {obj.object_name}"
+            if obj.size is not None:
+                label += f" ({obj.get_display_size()})"
+
+            parent_node.add_leaf(
+                label,
+                data=node_data,
+            )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_objects):
+            remaining = total_objects - MAX_CHILDREN_PER_NODE
             self._add_more_indicator(parent_node, remaining)
 
     async def _load_pubsub_topics(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
@@ -2003,7 +2076,7 @@ class ResourceTree(Tree[ResourceTreeNode]):
                     )
                     for bucket in buckets:
                         bucket_data = ResourceTreeNode(
-                            resource_type=ResourceType.STORAGE,
+                            resource_type=ResourceType.STORAGE_BUCKET,
                             resource_id=bucket.bucket_name,
                             resource_data=bucket,
                             project_id=project.project_id,
@@ -2019,9 +2092,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
                         elif bucket.storage_class == "ARCHIVE":
                             storage_icon = "🗄️"
 
-                        storage_node.add_leaf(
+                        storage_node.add(
                             f"{storage_icon} {bucket.bucket_name}",
                             data=bucket_data,
+                            allow_expand=True,
                         )
 
                 # Add matching Pub/Sub Topics
