@@ -144,15 +144,16 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Full test coverage (23 model tests, 15 service tests)
   - PR: #23
 
-- ✅ **Cloud Run (v1.3.0)**: Added Cloud Run services and jobs support
+- ✅ **Cloud Run (v1.3.0)**: Added Cloud Run services and jobs support using gcloud CLI
   - Simple flat resources (Tier 1 difficulty)
+  - **Uses gcloud CLI instead of API client** to avoid thread-safety issues and core dumps
   - Services show name, URL, image, status, region, traffic allocation percentage
   - Jobs show name, image, status, region, last execution time, execution count
   - Icons: ☁️ for services, ⚙️ for jobs
-  - Wildcard location support (`-`) for efficient cross-region queries
-  - Full test coverage (20 model tests, 11 service tests)
-  - 609 total tests passing with 77.21% overall coverage
-  - PR: TBD
+  - Subprocess-based execution prevents segfaults (learned from load balancer removal)
+  - 30-second timeout per command prevents UI hangs
+  - Parses Knative (services) and Cloud Run v1 (jobs) JSON formats
+  - PR: #24
 
 ## Development Workflow
 
