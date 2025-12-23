@@ -144,14 +144,15 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Full test coverage (23 model tests, 15 service tests)
   - PR: #23
 
-- 🔄 **VPC Networks (v1.4.0)**: Adding VPC Networks and Subnets support
+- ✅ **VPC Networks (v1.4.0)**: Added VPC Networks and Subnets support
   - Hierarchical resource: Networks → Subnets (Tier 3 difficulty)
   - Networks show name, mode (auto/custom), subnet count, creation time
   - Subnets show name, region, IP range (CIDR), private Google access, flow logs
   - Icons: 🌐 for networks, 🔗 for subnets
   - Uses aggregatedList for subnets to avoid region iteration
   - Follows Cloud DNS pattern for hierarchical expansion
-  - PR: #25
+  - Full test coverage (9 model tests, 18 service tests)
+  - PR: #[TBD]
 
 ## Development Workflow
 
