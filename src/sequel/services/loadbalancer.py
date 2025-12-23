@@ -94,6 +94,7 @@ class LoadBalancerService(BaseService):
 
             Note: Uses a semaphore to limit concurrent region queries to prevent
             overwhelming the system with too many parallel API calls.
+            Uses a lock to protect client access for thread-safety.
             """
             client = await self._get_client()
 
@@ -106,14 +107,20 @@ class LoadBalancerService(BaseService):
                 # With ~30 regions, unlimited concurrency can cause segfaults
                 semaphore = asyncio.Semaphore(5)  # Max 5 concurrent region queries
 
+                # Lock to protect client access (Google API client not thread-safe)
+                client_lock = asyncio.Lock()
+
                 async def _fetch_region_lbs(region: str) -> list[LoadBalancer]:
                     """Fetch load balancers for a single region."""
                     async with semaphore:
                         try:
-                            request = client.forwardingRules().list(
-                                project=project_id,
-                                region=region
-                            )
+                            # Protect client access with lock to prevent concurrent issues
+                            async with client_lock:
+                                request = client.forwardingRules().list(
+                                    project=project_id,
+                                    region=region
+                                )
+                            # Execute outside the lock (I/O operation)
                             response = await asyncio.to_thread(request.execute)
 
                             lbs = []
