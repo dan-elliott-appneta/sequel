@@ -1642,8 +1642,8 @@ class TestEmptyProjectCleanup:
         # Verify CloudDNS node was removed but project still has other categories
         assert clouddns_node not in project_node.children
         assert project_node in resource_tree.root.children
-        # Project should still have 7 other resource type nodes (added Firewall and LoadBalancer)
-        assert len(project_node.children) == 7
+        # Project should still have 6 other resource type nodes (CloudSQL, Compute, GKE, Secrets, IAM, Firewall)
+        assert len(project_node.children) == 6
 
 
 class TestAutomaticCleanup:
@@ -1685,7 +1685,6 @@ class TestAutomaticCleanup:
             patch.object(resource_tree._state, "load_cloudsql_instances", new_callable=AsyncMock) as mock_sql,
             patch.object(resource_tree._state, "load_compute_groups", new_callable=AsyncMock) as mock_compute,
             patch.object(resource_tree._state, "load_firewalls", new_callable=AsyncMock) as mock_firewalls,
-            patch.object(resource_tree._state, "load_loadbalancers", new_callable=AsyncMock) as mock_loadbalancers,
             patch.object(resource_tree._state, "load_gke_clusters", new_callable=AsyncMock) as mock_gke,
             patch.object(resource_tree._state, "load_secrets", new_callable=AsyncMock) as mock_secrets,
             patch.object(resource_tree._state, "load_iam_accounts", new_callable=AsyncMock) as mock_iam,
@@ -1695,7 +1694,6 @@ class TestAutomaticCleanup:
             mock_sql.return_value = []
             mock_compute.return_value = []
             mock_firewalls.return_value = []
-            mock_loadbalancers.return_value = []
             mock_gke.return_value = []
             mock_secrets.return_value = []
             mock_iam.return_value = []
@@ -1734,7 +1732,6 @@ class TestAutomaticCleanup:
             patch.object(resource_tree._state, "load_cloudsql_instances", new_callable=AsyncMock) as mock_sql,
             patch.object(resource_tree._state, "load_compute_groups", new_callable=AsyncMock) as mock_compute,
             patch.object(resource_tree._state, "load_firewalls", new_callable=AsyncMock) as mock_firewalls,
-            patch.object(resource_tree._state, "load_loadbalancers", new_callable=AsyncMock) as mock_loadbalancers,
             patch.object(resource_tree._state, "load_gke_clusters", new_callable=AsyncMock) as mock_gke,
             patch.object(resource_tree._state, "load_secrets", new_callable=AsyncMock) as mock_secrets,
             patch.object(resource_tree._state, "load_iam_accounts", new_callable=AsyncMock) as mock_iam,
@@ -1746,7 +1743,6 @@ class TestAutomaticCleanup:
             mock_sql.return_value = []
             mock_compute.return_value = []
             mock_firewalls.return_value = []
-            mock_loadbalancers.return_value = []
             mock_gke.return_value = []
             mock_secrets.return_value = []
             mock_iam.return_value = []
@@ -1786,7 +1782,6 @@ class TestAutomaticCleanup:
             patch.object(resource_tree._state, "load_cloudsql_instances", new_callable=AsyncMock) as mock_sql,
             patch.object(resource_tree._state, "load_compute_groups", new_callable=AsyncMock) as mock_compute,
             patch.object(resource_tree._state, "load_firewalls", new_callable=AsyncMock) as mock_firewalls,
-            patch.object(resource_tree._state, "load_loadbalancers", new_callable=AsyncMock) as mock_loadbalancers,
             patch.object(resource_tree._state, "load_gke_clusters", new_callable=AsyncMock) as mock_gke,
             patch.object(resource_tree._state, "load_secrets", new_callable=AsyncMock) as mock_secrets,
             patch.object(resource_tree._state, "load_iam_accounts", new_callable=AsyncMock) as mock_iam,
@@ -1798,7 +1793,6 @@ class TestAutomaticCleanup:
             mock_sql.return_value = []
             mock_compute.return_value = []
             mock_firewalls.return_value = []
-            mock_loadbalancers.return_value = []
             mock_gke.return_value = []
             mock_secrets.return_value = []
             mock_iam.return_value = []
