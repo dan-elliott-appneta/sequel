@@ -8,6 +8,8 @@ import pytest
 from sequel.models.cloudrun import CloudRunJob, CloudRunService
 from sequel.services.cloudrun import (
     CloudRunService as CloudRunServiceClass,
+)
+from sequel.services.cloudrun import (
     get_cloudrun_service,
 )
 

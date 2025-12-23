@@ -9,6 +9,8 @@ from sequel.cache.memory import get_cache
 from sequel.config import get_config
 from sequel.models.cloudrun import (
     CloudRunJob as CloudRunJobModel,
+)
+from sequel.models.cloudrun import (
     CloudRunService as CloudRunServiceModel,
 )
 from sequel.services.auth import get_auth_manager

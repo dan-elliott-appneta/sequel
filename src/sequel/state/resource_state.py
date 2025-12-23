@@ -4,6 +4,8 @@ from sequel.config import get_config
 from sequel.models.clouddns import DNSRecord, ManagedZone
 from sequel.models.cloudrun import (
     CloudRunJob as CloudRunJobModel,
+)
+from sequel.models.cloudrun import (
     CloudRunService as CloudRunServiceModel,
 )
 from sequel.models.cloudsql import CloudSQLInstance

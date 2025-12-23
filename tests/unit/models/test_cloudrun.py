@@ -1,6 +1,5 @@
 """Unit tests for Cloud Run models."""
 
-from datetime import datetime
 from typing import Any
 
 from sequel.models.cloudrun import CloudRunJob, CloudRunService
