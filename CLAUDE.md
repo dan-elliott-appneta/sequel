@@ -6,7 +6,7 @@ Sequel is a Python TUI application for browsing Google Cloud resources. It uses 
 
 ## Version Management
 
-**Current Version: 1.1.0**
+**Current Version: 1.2.0**
 
 We follow [Semantic Versioning](https://semver.org/) (SemVer):
 - **MAJOR** version: Incompatible API changes
@@ -128,6 +128,21 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Textual layout issues prevented proper implementation
   - Status bar provides equivalent functionality
   - Updated both CLAUDE.md and code comments for consistency
+
+**New Resource Support** (December 2025):
+- ✅ **Cloud Storage (v1.1.0)**: Added Cloud Storage buckets support
+  - Simple flat resource (Tier 1 difficulty)
+  - Shows bucket name, location, storage class, creation time
+  - Full test coverage (23 model tests, 12 service tests)
+  - PR: #22
+
+- ✅ **Pub/Sub (v1.2.0)**: Added Pub/Sub topics and subscriptions support
+  - Hierarchical resource: Topics → Subscriptions (Tier 3 difficulty)
+  - Topics show labels, schema, message retention, KMS encryption
+  - Subscriptions show type (Push/Pull), ACK deadline, filters
+  - Icons: 📢 for topics, 📬 for push subscriptions, 📭 for pull subscriptions
+  - Full test coverage (23 model tests, 15 service tests)
+  - PR: #[TBD]
 
 ## Development Workflow
 

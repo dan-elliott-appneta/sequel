@@ -192,6 +192,14 @@ Hierarchical with sub-resources or complex structure
 - Similar to: IAM accounts → bindings
 - Complex: Many-to-many relationship
 
+**Implementation Plan (v1.2.0):**
+- Create Topic and Subscription models in `src/sequel/models/pubsub.py`
+- Implement PubSubService with list_topics() and list_subscriptions()
+- Add hierarchical tree structure: Topics (expandable) → Subscriptions (leaf nodes)
+- Handle topic-subscription relationship (subscriptions reference their topic)
+- Use icons: 📢 for topics, 📬 for subscriptions
+- Follow Cloud DNS pattern for hierarchical expansion
+
 ---
 
 ### ⭐ TIER 4: Hard (3-5 days)
@@ -302,11 +310,11 @@ Resources with known stability issues or extreme complexity
 
 ### Top 5 to Add Next (Best ROI)
 
-1. **Cloud Storage Buckets** (Tier 1) - Universal need, very easy
+1. ✅ **Cloud Storage Buckets** (Tier 1) - Universal need, very easy - **COMPLETED v1.1.0**
 2. **Persistent Disks** (Tier 1) - Shows compute storage, easy
 3. **Cloud Run Services** (Tier 1) - Modern serverless, popular
 4. **BigQuery Datasets → Tables** (Tier 3) - Data analytics, high value
-5. **Pub/Sub Topics → Subscriptions** (Tier 3) - Messaging backbone
+5. **Pub/Sub Topics → Subscriptions** (Tier 3) - Messaging backbone - **IN PROGRESS**
 
 ### Implementation Strategy
 

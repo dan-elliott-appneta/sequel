@@ -40,6 +40,9 @@ class ResourceType:
     IAM_ROLE = "iam_role"  # Individual role binding (leaf)
     FIREWALL = "firewall"  # Firewall policies (leaf)
     STORAGE = "storage"  # Cloud Storage buckets (leaf)
+    PUBSUB = "pubsub"  # Pub/Sub (category)
+    PUBSUB_TOPIC = "pubsub_topic"  # Expandable topic
+    PUBSUB_SUBSCRIPTION = "pubsub_subscription"  # Individual subscription (leaf)
 
 
 class ResourceTreeNode:
@@ -357,6 +360,14 @@ class ResourceTree(Tree[ResourceTreeNode]):
         )
         project_node.add("🪣 Cloud Storage", data=storage_data, allow_expand=True)
 
+        # Add Pub/Sub
+        pubsub_data = ResourceTreeNode(
+            resource_type=ResourceType.PUBSUB,
+            resource_id=f"{project_id}:pubsub",
+            project_id=project_id,
+        )
+        project_node.add("📢 Pub/Sub", data=pubsub_data, allow_expand=True)
+
     def _remove_empty_project_node(self, project_node: TreeNode[ResourceTreeNode]) -> None:
         """Remove a project node if it has no children.
 
@@ -474,6 +485,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 task = self._load_firewalls(resource_node)
             elif resource_type == ResourceType.STORAGE:
                 task = self._load_buckets(resource_node)
+            elif resource_type == ResourceType.PUBSUB:
+                task = self._load_pubsub_topics(resource_node)
 
             if task:
                 tasks.append(task)
@@ -549,6 +562,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 await self._load_firewalls(node)
             elif node.data.resource_type == ResourceType.STORAGE:
                 await self._load_buckets(node)
+            elif node.data.resource_type == ResourceType.PUBSUB:
+                await self._load_pubsub_topics(node)
+            elif node.data.resource_type == ResourceType.PUBSUB_TOPIC:
+                await self._load_pubsub_subscriptions(node)
 
             node.data.loaded = True
 
@@ -1326,6 +1343,136 @@ class ResourceTree(Tree[ResourceTreeNode]):
             remaining = total_buckets - MAX_CHILDREN_PER_NODE
             self._add_more_indicator(parent_node, remaining)
 
+    async def _load_pubsub_topics(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load Pub/Sub topics for a project from state."""
+        if parent_node.data is None or parent_node.data.project_id is None:
+            return
+
+        project_id = parent_node.data.project_id
+        logger.info(f"Loading Pub/Sub topics for {project_id} from state")
+
+        # Load into state (uses cache from service layer)
+        topics = await self._state.load_pubsub_topics(project_id)
+
+        parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(topics)} topics")
+            topics = [
+                t for t in topics
+                if self._matches_filter(t.topic_name)
+            ]
+            logger.info(f"Filtered to {len(topics)} topics matching '{self._filter_text}'")
+
+        if not topics:
+            # Remove the parent node if there are no topics
+            project_node = parent_node.parent
+            parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
+            return
+
+        # Update parent label with count
+        topic_word = "topic" if len(topics) == 1 else "topics"
+        parent_node.set_label(f"📢 Pub/Sub ({len(topics)} {topic_word})")
+
+        # Limit number of children to prevent segfaults with large datasets
+        total_topics = len(topics)
+        topics_to_show = (
+            topics[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_topics)
+            else topics
+        )
+
+        for topic in topics_to_show:
+            node_data = ResourceTreeNode(
+                resource_type=ResourceType.PUBSUB_TOPIC,
+                resource_id=topic.topic_name,
+                resource_data=topic,
+                project_id=project_id,
+            )
+            parent_node.add(
+                f"📢 {topic.topic_name}",
+                data=node_data,
+                allow_expand=True,
+            )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_topics):
+            remaining = total_topics - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
+
+    async def _load_pubsub_subscriptions(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load Pub/Sub subscriptions for a topic from state."""
+        if parent_node.data is None or parent_node.data.resource_data is None:
+            return
+
+        from sequel.models.pubsub import Topic
+
+        topic = parent_node.data.resource_data
+        if not isinstance(topic, Topic):
+            return
+
+        project_id = parent_node.data.project_id
+        if project_id is None:
+            return
+
+        logger.info(f"Loading Pub/Sub subscriptions for topic {topic.topic_name}")
+
+        # Load ALL subscriptions for the project from state
+        all_subscriptions = await self._state.load_pubsub_subscriptions(project_id)
+
+        # Filter subscriptions that belong to this topic
+        subscriptions = [
+            sub for sub in all_subscriptions
+            if sub.topic_name == topic.topic_name
+        ]
+
+        parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(subscriptions)} subscriptions")
+            subscriptions = [
+                s for s in subscriptions
+                if self._matches_filter(s.subscription_name)
+            ]
+            logger.info(f"Filtered to {len(subscriptions)} subscriptions matching '{self._filter_text}'")
+
+        if not subscriptions:
+            parent_node.add_leaf("No subscriptions")
+            return
+
+        # Limit number of children to prevent segfaults with large datasets
+        total_subscriptions = len(subscriptions)
+        subscriptions_to_show = (
+            subscriptions[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_subscriptions)
+            else subscriptions
+        )
+
+        for subscription in subscriptions_to_show:
+            node_data = ResourceTreeNode(
+                resource_type=ResourceType.PUBSUB_SUBSCRIPTION,
+                resource_id=subscription.subscription_name,
+                resource_data=subscription,
+                project_id=project_id,
+            )
+            # Show subscription type (Push/Pull) as icon
+            sub_icon = "📬" if subscription.is_push() else "📭"
+
+            parent_node.add_leaf(
+                f"{sub_icon} {subscription.subscription_name}",
+                data=node_data,
+            )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_subscriptions):
+            remaining = total_subscriptions - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
+
     async def apply_filter(self, filter_text: str) -> None:
         """Apply filter by querying state and rebuilding tree.
 
@@ -1444,6 +1591,13 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 matching_buckets = [b for b in buckets if self._matches_filter(b.bucket_name)]
                 if matching_buckets:
                     matching_resources["buckets"] = matching_buckets
+
+            # Check Pub/Sub Topics (if loaded)
+            if self._state.is_loaded(project.project_id, "pubsub_topics"):
+                topics = self._state.get_pubsub_topics(project.project_id)
+                matching_topics = [t for t in topics if self._matches_filter(t.topic_name)]
+                if matching_topics:
+                    matching_resources["pubsub_topics"] = matching_topics
 
             # Only add project if it matches or has matching resources
             if project_matches or matching_resources:
@@ -1700,6 +1854,33 @@ class ResourceTree(Tree[ResourceTreeNode]):
                         storage_node.add_leaf(
                             f"{storage_icon} {bucket.bucket_name}",
                             data=bucket_data,
+                        )
+
+                # Add matching Pub/Sub Topics
+                if "pubsub_topics" in matching_resources:
+                    topics = matching_resources["pubsub_topics"]
+                    pubsub_data = ResourceTreeNode(
+                        resource_type=ResourceType.PUBSUB,
+                        resource_id=f"{project.project_id}:pubsub",
+                        project_id=project.project_id,
+                    )
+                    topic_word = "topic" if len(topics) == 1 else "topics"
+                    pubsub_node = project_node.add(
+                        f"📢 Pub/Sub ({len(topics)} {topic_word})",
+                        data=pubsub_data,
+                        allow_expand=True,
+                    )
+                    for topic in topics:
+                        topic_data = ResourceTreeNode(
+                            resource_type=ResourceType.PUBSUB_TOPIC,
+                            resource_id=topic.topic_name,
+                            resource_data=topic,
+                            project_id=project.project_id,
+                        )
+                        pubsub_node.add(
+                            f"📢 {topic.topic_name}",
+                            data=topic_data,
+                            allow_expand=True,
                         )
 
         logger.info(f"Filter applied: showing {len(self.root.children)} matching projects")
