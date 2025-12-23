@@ -1424,11 +1424,19 @@ class ResourceTree(Tree[ResourceTreeNode]):
         # Load ALL subscriptions for the project from state
         all_subscriptions = await self._state.load_pubsub_subscriptions(project_id)
 
+        logger.debug(f"Total subscriptions in project: {len(all_subscriptions)}")
+        logger.debug(f"Looking for subscriptions matching topic_name='{topic.topic_name}'")
+
         # Filter subscriptions that belong to this topic
-        subscriptions = [
-            sub for sub in all_subscriptions
-            if sub.topic_name == topic.topic_name
-        ]
+        subscriptions = []
+        for sub in all_subscriptions:
+            if sub.topic_name == topic.topic_name:
+                subscriptions.append(sub)
+                logger.debug(f"  ✓ Match: {sub.subscription_name} -> {sub.topic_name}")
+            else:
+                logger.debug(f"  ✗ No match: {sub.subscription_name} -> {sub.topic_name}")
+
+        logger.info(f"Found {len(subscriptions)} subscriptions for topic {topic.topic_name}")
 
         parent_node.remove_children()
 
