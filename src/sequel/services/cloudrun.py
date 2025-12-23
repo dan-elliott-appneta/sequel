@@ -91,8 +91,19 @@ class CloudRunService(BaseService):
                     request = client.projects().locations().services().list(
                         parent=parent, pageToken=next_page_token
                     )
-                    # Run blocking execute() in thread to avoid blocking event loop
-                    response = await asyncio.to_thread(request.execute)
+                    # Run blocking execute() in thread with timeout to prevent UI hangs
+                    try:
+                        response = await asyncio.wait_for(
+                            asyncio.to_thread(request.execute),
+                            timeout=10.0  # 10 second timeout per API call
+                        )
+                    except asyncio.TimeoutError:
+                        logger.error(
+                            f"Timeout listing Cloud Run services for {project_id} "
+                            f"(pageToken={next_page_token})"
+                        )
+                        # Return what we have so far on timeout
+                        return services
 
                     # Process services from this page
                     for item in response.get("services", []):
@@ -113,7 +124,7 @@ class CloudRunService(BaseService):
                 return services
 
             except Exception as e:
-                logger.error(f"Failed to list Cloud Run services: {e}")
+                logger.error(f"Failed to list Cloud Run services: {e}", exc_info=True)
                 # Return empty list instead of raising for API not enabled case
                 return []
 
@@ -179,8 +190,19 @@ class CloudRunService(BaseService):
                     request = client.projects().locations().jobs().list(
                         parent=parent, pageToken=next_page_token
                     )
-                    # Run blocking execute() in thread to avoid blocking event loop
-                    response = await asyncio.to_thread(request.execute)
+                    # Run blocking execute() in thread with timeout to prevent UI hangs
+                    try:
+                        response = await asyncio.wait_for(
+                            asyncio.to_thread(request.execute),
+                            timeout=10.0  # 10 second timeout per API call
+                        )
+                    except asyncio.TimeoutError:
+                        logger.error(
+                            f"Timeout listing Cloud Run jobs for {project_id} "
+                            f"(pageToken={next_page_token})"
+                        )
+                        # Return what we have so far on timeout
+                        return jobs
 
                     # Process jobs from this page
                     for item in response.get("jobs", []):
@@ -201,7 +223,7 @@ class CloudRunService(BaseService):
                 return jobs
 
             except Exception as e:
-                logger.error(f"Failed to list Cloud Run jobs: {e}")
+                logger.error(f"Failed to list Cloud Run jobs: {e}", exc_info=True)
                 # Return empty list instead of raising for API not enabled case
                 return []
 
