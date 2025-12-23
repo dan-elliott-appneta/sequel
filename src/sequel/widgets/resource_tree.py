@@ -1215,7 +1215,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
         policy_word = "policy" if len(firewalls) == 1 else "policies"
         parent_node.set_label(f"🔥 Firewall Policies ({len(firewalls)} {policy_word})")
 
-        for firewall in firewalls:
+        # Limit number of children to prevent segfaults with large datasets
+        total_firewalls = len(firewalls)
+        firewalls_to_show = (
+            firewalls[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_firewalls)
+            else firewalls
+        )
+
+        for firewall in firewalls_to_show:
             node_data = ResourceTreeNode(
                 resource_type=ResourceType.FIREWALL,
                 resource_id=firewall.policy_name,
@@ -1227,6 +1235,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 f"{status_icon} {firewall.policy_name}",
                 data=node_data,
             )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_firewalls):
+            remaining = total_firewalls - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
 
     async def _load_loadbalancers(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
         """Load load balancers for a project from state."""
@@ -1263,7 +1276,15 @@ class ResourceTree(Tree[ResourceTreeNode]):
         lb_word = "balancer" if len(lbs) == 1 else "balancers"
         parent_node.set_label(f"⚖️  Load Balancers ({len(lbs)} {lb_word})")
 
-        for lb in lbs:
+        # Limit number of children to prevent segfaults with large datasets
+        total_lbs = len(lbs)
+        lbs_to_show = (
+            lbs[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_lbs)
+            else lbs
+        )
+
+        for lb in lbs_to_show:
             node_data = ResourceTreeNode(
                 resource_type=ResourceType.LOADBALANCER,
                 resource_id=lb.lb_name,
@@ -1275,6 +1296,11 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 f"⚖️  {lb.lb_name}{protocol_info}",
                 data=node_data,
             )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_lbs):
+            remaining = total_lbs - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
 
     async def apply_filter(self, filter_text: str) -> None:
         """Apply filter by querying state and rebuilding tree.

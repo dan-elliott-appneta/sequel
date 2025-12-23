@@ -90,7 +90,11 @@ class LoadBalancerService(BaseService):
                 return []
 
         async def _list_regional_forwarding_rules() -> list[LoadBalancer]:
-            """List regional forwarding rules across all regions."""
+            """List regional forwarding rules across all regions.
+
+            Note: Uses a semaphore to limit concurrent region queries to prevent
+            overwhelming the system with too many parallel API calls.
+            """
             client = await self._get_client()
 
             try:
@@ -98,25 +102,41 @@ class LoadBalancerService(BaseService):
                 regions_request = client.regions().list(project=project_id)
                 regions_response = await asyncio.to_thread(regions_request.execute)
 
+                # Limit concurrent region queries to prevent system overload
+                # With ~30 regions, unlimited concurrency can cause segfaults
+                semaphore = asyncio.Semaphore(5)  # Max 5 concurrent region queries
+
+                async def _fetch_region_lbs(region: str) -> list[LoadBalancer]:
+                    """Fetch load balancers for a single region."""
+                    async with semaphore:
+                        try:
+                            request = client.forwardingRules().list(
+                                project=project_id,
+                                region=region
+                            )
+                            response = await asyncio.to_thread(request.execute)
+
+                            lbs = []
+                            for item in response.get("items", []):
+                                lb = LoadBalancer.from_api_response(item)
+                                lbs.append(lb)
+                            return lbs
+                        except Exception as e:
+                            logger.debug(f"Failed to list forwarding rules in region {region}: {e}")
+                            return []
+
+                # Fetch from all regions with limited concurrency
+                regions = [r.get("name", "") for r in regions_response.get("items", [])]
+                region_results = await asyncio.gather(
+                    *[_fetch_region_lbs(region) for region in regions],
+                    return_exceptions=True
+                )
+
+                # Flatten results
                 all_load_balancers: list[LoadBalancer] = []
-
-                for region_data in regions_response.get("items", []):
-                    region = region_data.get("name", "")
-
-                    try:
-                        request = client.forwardingRules().list(
-                            project=project_id,
-                            region=region
-                        )
-                        response = await asyncio.to_thread(request.execute)
-
-                        for item in response.get("items", []):
-                            lb = LoadBalancer.from_api_response(item)
-                            all_load_balancers.append(lb)
-
-                    except Exception as e:
-                        logger.debug(f"Failed to list forwarding rules in region {region}: {e}")
-                        continue
+                for result in region_results:
+                    if isinstance(result, list):
+                        all_load_balancers.extend(result)
 
                 return all_load_balancers
 
