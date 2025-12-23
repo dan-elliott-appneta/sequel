@@ -68,7 +68,8 @@ class DetailPane(TextArea):
         try:
             # Create a formatted display of the resource
             content = self._format_resource(resource)
-            self.load_text(content)
+            # Use call_after_refresh to defer load_text and prevent UI blocking
+            self.call_after_refresh(self.load_text, content)
 
         except Exception as e:
             logger.error(f"Failed to format resource details: {e}")

@@ -38,6 +38,7 @@ class ResourceType:
     IAM = "iam"
     IAM_SERVICE_ACCOUNT = "iam_service_account"  # Expandable service account
     IAM_ROLE = "iam_role"  # Individual role binding (leaf)
+    FIREWALL = "firewall"  # Firewall policies (leaf)
 
 
 class ResourceTreeNode:
@@ -339,6 +340,14 @@ class ResourceTree(Tree[ResourceTreeNode]):
         )
         project_node.add("👤 Service Accounts", data=iam_data, allow_expand=True)
 
+        # Add Firewall
+        firewall_data = ResourceTreeNode(
+            resource_type=ResourceType.FIREWALL,
+            resource_id=f"{project_id}:firewall",
+            project_id=project_id,
+        )
+        project_node.add("🔥 Firewall Policies", data=firewall_data, allow_expand=True)
+
     def _remove_empty_project_node(self, project_node: TreeNode[ResourceTreeNode]) -> None:
         """Remove a project node if it has no children.
 
@@ -452,6 +461,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 task = self._load_secrets(resource_node)
             elif resource_type == ResourceType.IAM:
                 task = self._load_service_accounts(resource_node)
+            elif resource_type == ResourceType.FIREWALL:
+                task = self._load_firewalls(resource_node)
 
             if task:
                 tasks.append(task)
@@ -487,6 +498,16 @@ class ResourceTree(Tree[ResourceTreeNode]):
         if node.data.loaded:
             return
 
+        # Skip expansion for leaf nodes that have resource_data
+        # FIREWALL uses the same ResourceType for both parent and leaf nodes
+        # Leaf nodes have resource_data, parent category nodes do not
+        is_firewall_leaf = (
+            node.data.resource_type == ResourceType.FIREWALL
+            and node.data.resource_data is not None
+        )
+        if is_firewall_leaf:
+            return
+
         try:
             # Load resources based on type
             if node.data.resource_type == ResourceType.CLOUDDNS:
@@ -509,6 +530,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 await self._load_service_accounts(node)
             elif node.data.resource_type == ResourceType.IAM_SERVICE_ACCOUNT:
                 await self._load_service_account_roles(node)
+            elif node.data.resource_type == ResourceType.FIREWALL:
+                await self._load_firewalls(node)
 
             node.data.loaded = True
 
@@ -1154,6 +1177,67 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 allow_expand=False,
             )
 
+    async def _load_firewalls(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load firewall policies for a project from state."""
+        if parent_node.data is None or parent_node.data.project_id is None:
+            return
+
+        project_id = parent_node.data.project_id
+        logger.info(f"Loading firewall policies for {project_id} from state")
+
+        # Load into state (uses cache from service layer)
+        firewalls = await self._state.load_firewalls(project_id)
+
+        parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(firewalls)} firewall policies")
+            firewalls = [
+                f for f in firewalls
+                if self._matches_filter(f.policy_name)
+            ]
+            logger.info(f"Filtered to {len(firewalls)} firewall policies matching '{self._filter_text}'")
+
+        if not firewalls:
+            # Remove the parent node if there are no firewall policies
+            project_node = parent_node.parent
+            parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
+            return
+
+        # Update parent label with count
+        policy_word = "policy" if len(firewalls) == 1 else "policies"
+        parent_node.set_label(f"🔥 Firewall Policies ({len(firewalls)} {policy_word})")
+
+        # Limit number of children to prevent segfaults with large datasets
+        total_firewalls = len(firewalls)
+        firewalls_to_show = (
+            firewalls[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_firewalls)
+            else firewalls
+        )
+
+        for firewall in firewalls_to_show:
+            node_data = ResourceTreeNode(
+                resource_type=ResourceType.FIREWALL,
+                resource_id=firewall.policy_name,
+                resource_data=firewall,
+                project_id=project_id,
+            )
+            status_icon = "✓" if firewall.is_enabled() else "✗"
+            parent_node.add_leaf(
+                f"{status_icon} {firewall.policy_name}",
+                data=node_data,
+            )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_firewalls):
+            remaining = total_firewalls - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
+
     async def apply_filter(self, filter_text: str) -> None:
         """Apply filter by querying state and rebuilding tree.
 
@@ -1258,6 +1342,13 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 ]
                 if matching_accounts:
                     matching_resources["iam_accounts"] = matching_accounts
+
+            # Check Firewalls (if loaded)
+            if self._state.is_loaded(project.project_id, "firewalls"):
+                firewalls = self._state.get_firewalls(project.project_id)
+                matching_firewalls = [f for f in firewalls if self._matches_filter(f.policy_name)]
+                if matching_firewalls:
+                    matching_resources["firewalls"] = matching_firewalls
 
             # Only add project if it matches or has matching resources
             if project_matches or matching_resources:
@@ -1450,6 +1541,33 @@ class ResourceTree(Tree[ResourceTreeNode]):
                             f"{status_icon} {account.email}",
                             data=account_data,
                             allow_expand=True,
+                        )
+
+                # Add matching Firewalls
+                if "firewalls" in matching_resources:
+                    firewalls = matching_resources["firewalls"]
+                    firewall_data = ResourceTreeNode(
+                        resource_type=ResourceType.FIREWALL,
+                        resource_id=f"{project.project_id}:firewall",
+                        project_id=project.project_id,
+                    )
+                    policy_word = "policy" if len(firewalls) == 1 else "policies"
+                    firewall_node = project_node.add(
+                        f"🔥 Firewall Policies ({len(firewalls)} {policy_word})",
+                        data=firewall_data,
+                        allow_expand=True,
+                    )
+                    for firewall in firewalls:
+                        fw_data = ResourceTreeNode(
+                            resource_type=ResourceType.FIREWALL,
+                            resource_id=firewall.policy_name,
+                            resource_data=firewall,
+                            project_id=project.project_id,
+                        )
+                        status_icon = "✓" if firewall.is_enabled() else "✗"
+                        firewall_node.add_leaf(
+                            f"{status_icon} {firewall.policy_name}",
+                            data=fw_data,
                         )
 
         logger.info(f"Filter applied: showing {len(self.root.children)} matching projects")

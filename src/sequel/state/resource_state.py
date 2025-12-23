@@ -4,6 +4,7 @@ from sequel.config import get_config
 from sequel.models.clouddns import DNSRecord, ManagedZone
 from sequel.models.cloudsql import CloudSQLInstance
 from sequel.models.compute import ComputeInstance, InstanceGroup
+from sequel.models.firewall import FirewallPolicy
 from sequel.models.gke import GKECluster, GKENode
 from sequel.models.iam import IAMRoleBinding, ServiceAccount
 from sequel.models.project import Project
@@ -11,6 +12,7 @@ from sequel.models.secrets import Secret
 from sequel.services.clouddns import get_clouddns_service
 from sequel.services.cloudsql import get_cloudsql_service
 from sequel.services.compute import get_compute_service
+from sequel.services.firewall import get_firewall_service
 from sequel.services.gke import get_gke_service
 from sequel.services.iam import get_iam_service
 from sequel.services.projects import get_project_service
@@ -44,6 +46,7 @@ class ResourceState:
         self._secrets: dict[str, list[Secret]] = {}
         self._iam_accounts: dict[str, list[ServiceAccount]] = {}
         self._iam_roles: dict[tuple[str, str], list[IAMRoleBinding]] = {}
+        self._firewalls: dict[str, list[FirewallPolicy]] = {}
 
         # Track what's been loaded - set of tuple keys
         self._loaded: set[tuple[str, ...]] = set()
@@ -278,6 +281,26 @@ class ResourceState:
         logger.info(f"Loaded {len(accounts)} IAM accounts into state")
         return accounts
 
+    async def load_firewalls(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[FirewallPolicy]:
+        """Load firewall policies for a project."""
+        key = (project_id, "firewalls")
+
+        if not force_refresh and key in self._loaded:
+            firewalls = self._firewalls.get(project_id, [])
+            logger.info(f"Returning {len(firewalls)} firewall policies from state")
+            return firewalls
+
+        service = await get_firewall_service()
+        firewalls = await service.list_firewall_policies(project_id, use_cache=not force_refresh)
+
+        self._firewalls[project_id] = firewalls
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(firewalls)} firewall policies into state")
+        return firewalls
+
     def is_loaded(self, *key_parts: str) -> bool:
         """Check if a resource type has been loaded into state.
 
@@ -320,6 +343,10 @@ class ResourceState:
     def get_iam_accounts(self, project_id: str) -> list[ServiceAccount]:
         """Get IAM accounts from state."""
         return self._iam_accounts.get(project_id, [])
+
+    def get_firewalls(self, project_id: str) -> list[FirewallPolicy]:
+        """Get firewall policies from state."""
+        return self._firewalls.get(project_id, [])
 
 
 # Global singleton instance
