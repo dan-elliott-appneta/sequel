@@ -6,7 +6,7 @@ Sequel is a Python TUI application for browsing Google Cloud resources. It uses 
 
 ## Version Management
 
-**Current Version: 1.2.0**
+**Current Version: 1.3.0**
 
 We follow [Semantic Versioning](https://semver.org/) (SemVer):
 - **MAJOR** version: Incompatible API changes
@@ -143,6 +143,19 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Icons: 📢 for topics, 📬 for push subscriptions, 📭 for pull subscriptions
   - Full test coverage (23 model tests, 15 service tests)
   - PR: #23
+
+- ✅ **Cloud Run (v1.3.0)**: Added Cloud Run services and jobs support using gcloud CLI
+  - Simple flat resources (Tier 1 difficulty)
+  - **Uses gcloud CLI instead of API client** to avoid thread-safety issues and core dumps
+  - Services show name, URL, image, status, region, traffic allocation percentage
+  - Jobs show name, image, status, region, last execution time, execution count
+  - Icons: ☁️ for services, ⚙️ for jobs
+  - Subprocess-based execution prevents segfaults (learned from load balancer removal)
+  - 30-second timeout per command prevents UI hangs
+  - Parses Knative (services) and Cloud Run v1 (jobs) JSON formats
+  - gcloud CLI takes ~1 second per command (acceptable tradeoff for stability)
+  - Full test coverage (20 model tests, 12 service tests)
+  - PR: #24
 
 ## Development Workflow
 

@@ -6,14 +6,18 @@ Based on exploration of the Sequel codebase, I've identified the implementation 
 
 ## Current Implementation Status
 
-**Currently Supported (7 categories):**
+**Currently Supported (11 categories):**
 1. Cloud DNS (zones → records) - Complex hierarchical
 2. Cloud SQL instances - Simple flat
-3. Compute Instance Groups (groups → instances) - Complex hierarchical
-4. GKE Clusters (clusters → nodes) - Complex hierarchical
-5. Secrets - Simple flat
-6. Service Accounts (accounts → role bindings) - Complex hierarchical
-7. Firewall Policies - Simple flat
+3. Cloud Storage Buckets - Simple flat
+4. Pub/Sub Topics → Subscriptions - Complex hierarchical
+5. Compute Instance Groups (groups → instances) - Complex hierarchical
+6. GKE Clusters (clusters → nodes) - Complex hierarchical
+7. Secrets - Simple flat
+8. Service Accounts (accounts → role bindings) - Complex hierarchical
+9. Firewall Policies - Simple flat
+10. Cloud Run Services - Simple flat
+11. Cloud Run Jobs - Simple flat
 
 ## Implementation Pattern Summary
 
@@ -85,6 +89,29 @@ Single API call, flat structure, no sub-resources
 - Why easy: Wildcard location support
 - Similar to: Cloud Functions
 - Popular serverless option
+
+**Implementation Status:** ✅ **COMPLETED v1.3.0**
+- Created CloudRunService and CloudRunJob models in `src/sequel/models/cloudrun.py`
+- Implemented CloudRunService with list_services() and list_jobs() in `src/sequel/services/cloudrun.py`
+- Added flat tree structure with separate nodes for Services and Jobs
+- Uses icons: ☁️ for services, ⚙️ for jobs
+- Shows service URL, image, status, and traffic allocation percentage
+- Shows job execution count, last run time, and status
+- Comprehensive test coverage: 20 model tests, 11 service tests
+- Wildcard location support (`-`) for efficient cross-region queries
+
+#### 5a. **Cloud Run Jobs**
+**Difficulty: 3/10**
+- API: `run.projects().locations().jobs().list()`
+- Structure: Per-location, supports `-` wildcard
+- Fields: name, image, status, region, last execution time, execution count
+- Why easy: Wildcard location support, same API as Cloud Run Services
+- Similar to: Cloud Run Services
+- Batch processing option
+
+**Implementation Status:** ✅ **COMPLETED v1.3.0** (implemented together with Cloud Run Services)
+- Part of same implementation as Cloud Run Services (see section 5)
+- Separate tree node for Jobs under same project
 
 #### 6. **SSL Certificates**
 **Difficulty: 3/10**
@@ -312,8 +339,8 @@ Resources with known stability issues or extreme complexity
 
 1. ✅ **Cloud Storage Buckets** (Tier 1) - Universal need, very easy - **COMPLETED v1.1.0**
 2. ✅ **Pub/Sub Topics → Subscriptions** (Tier 3) - Messaging backbone - **COMPLETED v1.2.0**
-3. **Persistent Disks** (Tier 1) - Shows compute storage, easy
-4. **Cloud Run Services** (Tier 1) - Modern serverless, popular
+3. ⚙️ **Cloud Run Services & Jobs** (Tier 1) - Modern serverless, popular - **IN PROGRESS v1.3.0**
+4. **Persistent Disks** (Tier 1) - Shows compute storage, easy
 5. **BigQuery Datasets → Tables** (Tier 3) - Data analytics, high value
 
 ### Implementation Strategy
