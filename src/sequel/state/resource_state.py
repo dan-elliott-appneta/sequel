@@ -2,6 +2,7 @@
 
 from sequel.config import get_config
 from sequel.models.clouddns import DNSRecord, ManagedZone
+from sequel.models.cloudrun import CloudRunJob, CloudRunService
 from sequel.models.cloudsql import CloudSQLInstance
 from sequel.models.compute import ComputeInstance, InstanceGroup
 from sequel.models.firewall import FirewallPolicy
@@ -12,6 +13,7 @@ from sequel.models.pubsub import Subscription, Topic
 from sequel.models.secrets import Secret
 from sequel.models.storage import Bucket
 from sequel.services.clouddns import get_clouddns_service
+from sequel.services.cloudrun import get_cloudrun_service
 from sequel.services.cloudsql import get_cloudsql_service
 from sequel.services.compute import get_compute_service
 from sequel.services.firewall import get_firewall_service
@@ -54,6 +56,8 @@ class ResourceState:
         self._buckets: dict[str, list[Bucket]] = {}
         self._pubsub_topics: dict[str, list[Topic]] = {}
         self._pubsub_subscriptions: dict[str, list[Subscription]] = {}
+        self._cloudrun_services: dict[str, list[CloudRunService]] = {}
+        self._cloudrun_jobs: dict[str, list[CloudRunJob]] = {}
 
         # Track what's been loaded - set of tuple keys
         self._loaded: set[tuple[str, ...]] = set()
@@ -442,6 +446,70 @@ class ResourceState:
     def get_pubsub_subscriptions(self, project_id: str) -> list[Subscription]:
         """Get Pub/Sub subscriptions from state."""
         return self._pubsub_subscriptions.get(project_id, [])
+
+    async def load_cloudrun_services(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[CloudRunService]:
+        """Load Cloud Run services for a project.
+
+        Args:
+            project_id: GCP project ID
+            force_refresh: If True, bypass state cache and reload from API
+
+        Returns:
+            List of CloudRunService instances
+        """
+        key = (project_id, "cloudrun_services")
+
+        if not force_refresh and key in self._loaded:
+            services = self._cloudrun_services.get(project_id, [])
+            logger.info(f"Returning {len(services)} Cloud Run services from state")
+            return services
+
+        service = await get_cloudrun_service()
+        services = await service.list_services(project_id, use_cache=not force_refresh)
+
+        self._cloudrun_services[project_id] = services
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(services)} Cloud Run services into state")
+        return services
+
+    async def load_cloudrun_jobs(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[CloudRunJob]:
+        """Load Cloud Run jobs for a project.
+
+        Args:
+            project_id: GCP project ID
+            force_refresh: If True, bypass state cache and reload from API
+
+        Returns:
+            List of CloudRunJob instances
+        """
+        key = (project_id, "cloudrun_jobs")
+
+        if not force_refresh and key in self._loaded:
+            jobs = self._cloudrun_jobs.get(project_id, [])
+            logger.info(f"Returning {len(jobs)} Cloud Run jobs from state")
+            return jobs
+
+        service = await get_cloudrun_service()
+        jobs = await service.list_jobs(project_id, use_cache=not force_refresh)
+
+        self._cloudrun_jobs[project_id] = jobs
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(jobs)} Cloud Run jobs into state")
+        return jobs
+
+    def get_cloudrun_services(self, project_id: str) -> list[CloudRunService]:
+        """Get Cloud Run services from state."""
+        return self._cloudrun_services.get(project_id, [])
+
+    def get_cloudrun_jobs(self, project_id: str) -> list[CloudRunJob]:
+        """Get Cloud Run jobs from state."""
+        return self._cloudrun_jobs.get(project_id, [])
 
 
 # Global singleton instance

@@ -43,6 +43,8 @@ class ResourceType:
     PUBSUB = "pubsub"  # Pub/Sub (category)
     PUBSUB_TOPIC = "pubsub_topic"  # Expandable topic
     PUBSUB_SUBSCRIPTION = "pubsub_subscription"  # Individual subscription (leaf)
+    CLOUDRUN_SERVICE = "cloudrun_service"  # Cloud Run service (leaf)
+    CLOUDRUN_JOB = "cloudrun_job"  # Cloud Run job (leaf)
 
 
 class ResourceTreeNode:
@@ -368,6 +370,22 @@ class ResourceTree(Tree[ResourceTreeNode]):
         )
         project_node.add("📢 Pub/Sub", data=pubsub_data, allow_expand=True)
 
+        # Add Cloud Run Services
+        cloudrun_service_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDRUN_SERVICE,
+            resource_id=f"{project_id}:cloudrun_services",
+            project_id=project_id,
+        )
+        project_node.add("☁️ Cloud Run Services", data=cloudrun_service_data, allow_expand=True)
+
+        # Add Cloud Run Jobs
+        cloudrun_job_data = ResourceTreeNode(
+            resource_type=ResourceType.CLOUDRUN_JOB,
+            resource_id=f"{project_id}:cloudrun_jobs",
+            project_id=project_id,
+        )
+        project_node.add("⚙️ Cloud Run Jobs", data=cloudrun_job_data, allow_expand=True)
+
     def _remove_empty_project_node(self, project_node: TreeNode[ResourceTreeNode]) -> None:
         """Remove a project node if it has no children.
 
@@ -487,6 +505,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 task = self._load_buckets(resource_node)
             elif resource_type == ResourceType.PUBSUB:
                 task = self._load_pubsub_topics(resource_node)
+            elif resource_type == ResourceType.CLOUDRUN_SERVICE:
+                task = self._load_cloudrun_services(resource_node)
+            elif resource_type == ResourceType.CLOUDRUN_JOB:
+                task = self._load_cloudrun_jobs(resource_node)
 
             if task:
                 tasks.append(task)
@@ -566,6 +588,10 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 await self._load_pubsub_topics(node)
             elif node.data.resource_type == ResourceType.PUBSUB_TOPIC:
                 await self._load_pubsub_subscriptions(node)
+            elif node.data.resource_type == ResourceType.CLOUDRUN_SERVICE:
+                await self._load_cloudrun_services(node)
+            elif node.data.resource_type == ResourceType.CLOUDRUN_JOB:
+                await self._load_cloudrun_jobs(node)
 
             node.data.loaded = True
 
@@ -1500,6 +1526,132 @@ class ResourceTree(Tree[ResourceTreeNode]):
             remaining = total_subscriptions - MAX_CHILDREN_PER_NODE
             self._add_more_indicator(parent_node, remaining)
 
+    async def _load_cloudrun_services(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load Cloud Run services for a project from state."""
+        if parent_node.data is None:
+            return
+
+        project_id = parent_node.data.project_id
+        if project_id is None:
+            return
+
+        logger.info(f"Loading Cloud Run services for project {project_id}")
+
+        # Load from state (which loads from service/cache)
+        services = await self._state.load_cloudrun_services(project_id)
+
+        parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(services)} Cloud Run services")
+            services = [
+                s for s in services
+                if self._matches_filter(s.service_name)
+            ]
+            logger.info(f"Filtered to {len(services)} Cloud Run services matching '{self._filter_text}'")
+
+        if not services:
+            # Remove the parent node if there are no services
+            project_node = parent_node.parent
+            parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
+            return
+
+        # Update parent label with count
+        service_word = "service" if len(services) == 1 else "services"
+        parent_node.set_label(f"☁️ Cloud Run Services ({len(services)} {service_word})")
+
+        # Limit number of children to prevent segfaults with large datasets
+        total_services = len(services)
+        services_to_show = (
+            services[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_services)
+            else services
+        )
+
+        for service in services_to_show:
+            node_data = ResourceTreeNode(
+                resource_type=ResourceType.CLOUDRUN_SERVICE,
+                resource_id=service.service_name,
+                resource_data=service,
+                project_id=project_id,
+            )
+            parent_node.add_leaf(
+                f"☁️ {service.service_name}",
+                data=node_data,
+            )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_services):
+            remaining = total_services - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
+
+    async def _load_cloudrun_jobs(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load Cloud Run jobs for a project from state."""
+        if parent_node.data is None:
+            return
+
+        project_id = parent_node.data.project_id
+        if project_id is None:
+            return
+
+        logger.info(f"Loading Cloud Run jobs for project {project_id}")
+
+        # Load from state (which loads from service/cache)
+        jobs = await self._state.load_cloudrun_jobs(project_id)
+
+        parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(jobs)} Cloud Run jobs")
+            jobs = [
+                j for j in jobs
+                if self._matches_filter(j.job_name)
+            ]
+            logger.info(f"Filtered to {len(jobs)} Cloud Run jobs matching '{self._filter_text}'")
+
+        if not jobs:
+            # Remove the parent node if there are no jobs
+            project_node = parent_node.parent
+            parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
+            return
+
+        # Update parent label with count
+        job_word = "job" if len(jobs) == 1 else "jobs"
+        parent_node.set_label(f"⚙️ Cloud Run Jobs ({len(jobs)} {job_word})")
+
+        # Limit number of children to prevent segfaults with large datasets
+        total_jobs = len(jobs)
+        jobs_to_show = (
+            jobs[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_jobs)
+            else jobs
+        )
+
+        for job in jobs_to_show:
+            node_data = ResourceTreeNode(
+                resource_type=ResourceType.CLOUDRUN_JOB,
+                resource_id=job.job_name,
+                resource_data=job,
+                project_id=project_id,
+            )
+            parent_node.add_leaf(
+                f"⚙️ {job.job_name}",
+                data=node_data,
+            )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_jobs):
+            remaining = total_jobs - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
+
     async def apply_filter(self, filter_text: str) -> None:
         """Apply filter by querying state and rebuilding tree.
 
@@ -1625,6 +1777,20 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 matching_topics = [t for t in topics if self._matches_filter(t.topic_name)]
                 if matching_topics:
                     matching_resources["pubsub_topics"] = matching_topics
+
+            # Check Cloud Run Services (if loaded)
+            if self._state.is_loaded(project.project_id, "cloudrun_services"):
+                services = self._state.get_cloudrun_services(project.project_id)
+                matching_services = [s for s in services if self._matches_filter(s.service_name)]
+                if matching_services:
+                    matching_resources["cloudrun_services"] = matching_services
+
+            # Check Cloud Run Jobs (if loaded)
+            if self._state.is_loaded(project.project_id, "cloudrun_jobs"):
+                jobs = self._state.get_cloudrun_jobs(project.project_id)
+                matching_jobs = [j for j in jobs if self._matches_filter(j.job_name)]
+                if matching_jobs:
+                    matching_resources["cloudrun_jobs"] = matching_jobs
 
             # Only add project if it matches or has matching resources
             if project_matches or matching_resources:
@@ -1908,6 +2074,58 @@ class ResourceTree(Tree[ResourceTreeNode]):
                             f"📢 {topic.topic_name}",
                             data=topic_data,
                             allow_expand=True,
+                        )
+
+                # Add matching Cloud Run Services
+                if "cloudrun_services" in matching_resources:
+                    services = matching_resources["cloudrun_services"]
+                    cloudrun_service_data = ResourceTreeNode(
+                        resource_type=ResourceType.CLOUDRUN_SERVICE,
+                        resource_id=f"{project.project_id}:cloudrun_services",
+                        project_id=project.project_id,
+                    )
+                    service_word = "service" if len(services) == 1 else "services"
+                    cloudrun_service_node = project_node.add(
+                        f"☁️ Cloud Run Services ({len(services)} {service_word})",
+                        data=cloudrun_service_data,
+                        allow_expand=True,
+                    )
+                    for service in services:
+                        service_data = ResourceTreeNode(
+                            resource_type=ResourceType.CLOUDRUN_SERVICE,
+                            resource_id=service.service_name,
+                            resource_data=service,
+                            project_id=project.project_id,
+                        )
+                        cloudrun_service_node.add_leaf(
+                            f"☁️ {service.service_name}",
+                            data=service_data,
+                        )
+
+                # Add matching Cloud Run Jobs
+                if "cloudrun_jobs" in matching_resources:
+                    jobs = matching_resources["cloudrun_jobs"]
+                    cloudrun_job_data = ResourceTreeNode(
+                        resource_type=ResourceType.CLOUDRUN_JOB,
+                        resource_id=f"{project.project_id}:cloudrun_jobs",
+                        project_id=project.project_id,
+                    )
+                    job_word = "job" if len(jobs) == 1 else "jobs"
+                    cloudrun_job_node = project_node.add(
+                        f"⚙️ Cloud Run Jobs ({len(jobs)} {job_word})",
+                        data=cloudrun_job_data,
+                        allow_expand=True,
+                    )
+                    for job in jobs:
+                        job_data = ResourceTreeNode(
+                            resource_type=ResourceType.CLOUDRUN_JOB,
+                            resource_id=job.job_name,
+                            resource_data=job,
+                            project_id=project.project_id,
+                        )
+                        cloudrun_job_node.add_leaf(
+                            f"⚙️ {job.job_name}",
+                            data=job_data,
                         )
 
         logger.info(f"Filter applied: showing {len(self.root.children)} matching projects")
