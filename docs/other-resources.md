@@ -6,7 +6,7 @@ Based on exploration of the Sequel codebase, I've identified the implementation 
 
 ## Current Implementation Status
 
-**Currently Supported (9 categories):**
+**Currently Supported (11 categories):**
 1. Cloud DNS (zones → records) - Complex hierarchical
 2. Cloud SQL instances - Simple flat
 3. Cloud Storage Buckets - Simple flat
@@ -16,6 +16,8 @@ Based on exploration of the Sequel codebase, I've identified the implementation 
 7. Secrets - Simple flat
 8. Service Accounts (accounts → role bindings) - Complex hierarchical
 9. Firewall Policies - Simple flat
+10. Cloud Run Services - Simple flat
+11. Cloud Run Jobs - Simple flat
 
 ## Implementation Pattern Summary
 
@@ -88,13 +90,15 @@ Single API call, flat structure, no sub-resources
 - Similar to: Cloud Functions
 - Popular serverless option
 
-**Implementation Plan (v1.3.0):** ⚙️ **IN PROGRESS**
-- Create CloudRunService and CloudRunJob models in `src/sequel/models/cloudrun.py`
-- Implement CloudRunService with list_services() and list_jobs()
-- Add flat tree structure with separate nodes for Services and Jobs
-- Use icons: ☁️ for services, ⚙️ for jobs
-- Show service URL, image, status, and traffic allocation
-- Show job execution count, last run time, and status
+**Implementation Status:** ✅ **COMPLETED v1.3.0**
+- Created CloudRunService and CloudRunJob models in `src/sequel/models/cloudrun.py`
+- Implemented CloudRunService with list_services() and list_jobs() in `src/sequel/services/cloudrun.py`
+- Added flat tree structure with separate nodes for Services and Jobs
+- Uses icons: ☁️ for services, ⚙️ for jobs
+- Shows service URL, image, status, and traffic allocation percentage
+- Shows job execution count, last run time, and status
+- Comprehensive test coverage: 20 model tests, 11 service tests
+- Wildcard location support (`-`) for efficient cross-region queries
 
 #### 5a. **Cloud Run Jobs**
 **Difficulty: 3/10**
@@ -104,6 +108,10 @@ Single API call, flat structure, no sub-resources
 - Why easy: Wildcard location support, same API as Cloud Run Services
 - Similar to: Cloud Run Services
 - Batch processing option
+
+**Implementation Status:** ✅ **COMPLETED v1.3.0** (implemented together with Cloud Run Services)
+- Part of same implementation as Cloud Run Services (see section 5)
+- Separate tree node for Jobs under same project
 
 #### 6. **SSL Certificates**
 **Difficulty: 3/10**

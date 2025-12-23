@@ -144,12 +144,14 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Full test coverage (23 model tests, 15 service tests)
   - PR: #23
 
-- ⚙️ **Cloud Run (v1.3.0)**: Adding Cloud Run services and jobs support - **IN PROGRESS**
+- ✅ **Cloud Run (v1.3.0)**: Added Cloud Run services and jobs support
   - Simple flat resources (Tier 1 difficulty)
-  - Services show name, URL, image, status, region, traffic allocation
-  - Jobs show name, image, status, region, last execution time
+  - Services show name, URL, image, status, region, traffic allocation percentage
+  - Jobs show name, image, status, region, last execution time, execution count
   - Icons: ☁️ for services, ⚙️ for jobs
-  - Wildcard location support for efficient API calls
+  - Wildcard location support (`-`) for efficient cross-region queries
+  - Full test coverage (20 model tests, 11 service tests)
+  - 609 total tests passing with 77.21% overall coverage
   - PR: TBD
 
 ## Development Workflow
