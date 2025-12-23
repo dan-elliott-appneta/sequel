@@ -152,7 +152,7 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Uses aggregatedList for subnets to avoid region iteration
   - Follows Cloud DNS pattern for hierarchical expansion
   - Full test coverage (9 model tests, 18 service tests)
-  - PR: #[TBD]
+  - PR: #25
 
 ## Development Workflow
 

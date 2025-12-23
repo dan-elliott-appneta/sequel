@@ -161,7 +161,7 @@ Hierarchical with sub-resources or complex structure
 - Used aggregatedList for subnets to avoid region iteration
 - Followed Cloud DNS pattern for hierarchical expansion
 - Test coverage: 27 tests (9 model tests, 18 service tests)
-- PR: #[TBD]
+- PR: #25
 
 #### 12. **Routes**
 **Difficulty: 5/10**
