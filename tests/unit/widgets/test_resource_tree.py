@@ -1270,14 +1270,16 @@ class TestResourceTree:
 
         resource_tree._add_resource_type_nodes(project_node, "test-project")
 
-        # Should have 6 resource categories
-        assert len(project_node.children) == 6
+        # Should have 8 resource categories
+        assert len(project_node.children) == 8
 
         # Check all categories exist
         labels = [child.label.plain for child in project_node.children]
         assert any("Cloud DNS" in label for label in labels)
         assert any("Cloud SQL" in label for label in labels)
         assert any("Instance Groups" in label for label in labels)
+        assert any("Firewall Policies" in label for label in labels)
+        assert any("Load Balancers" in label for label in labels)
         assert any("GKE Clusters" in label for label in labels)
         assert any("Secrets" in label for label in labels)
         assert any("Service Accounts" in label for label in labels)
@@ -1641,8 +1643,8 @@ class TestEmptyProjectCleanup:
         # Verify CloudDNS node was removed but project still has other categories
         assert clouddns_node not in project_node.children
         assert project_node in resource_tree.root.children
-        # Project should still have 5 other resource type nodes
-        assert len(project_node.children) == 5
+        # Project should still have 7 other resource type nodes (added Firewall and LoadBalancer)
+        assert len(project_node.children) == 7
 
 
 class TestAutomaticCleanup:
@@ -1683,6 +1685,8 @@ class TestAutomaticCleanup:
             patch.object(resource_tree._state, "load_dns_zones", new_callable=AsyncMock) as mock_dns,
             patch.object(resource_tree._state, "load_cloudsql_instances", new_callable=AsyncMock) as mock_sql,
             patch.object(resource_tree._state, "load_compute_groups", new_callable=AsyncMock) as mock_compute,
+            patch.object(resource_tree._state, "load_firewalls", new_callable=AsyncMock) as mock_firewalls,
+            patch.object(resource_tree._state, "load_loadbalancers", new_callable=AsyncMock) as mock_loadbalancers,
             patch.object(resource_tree._state, "load_gke_clusters", new_callable=AsyncMock) as mock_gke,
             patch.object(resource_tree._state, "load_secrets", new_callable=AsyncMock) as mock_secrets,
             patch.object(resource_tree._state, "load_iam_accounts", new_callable=AsyncMock) as mock_iam,
@@ -1691,6 +1695,8 @@ class TestAutomaticCleanup:
             mock_dns.return_value = []
             mock_sql.return_value = []
             mock_compute.return_value = []
+            mock_firewalls.return_value = []
+            mock_loadbalancers.return_value = []
             mock_gke.return_value = []
             mock_secrets.return_value = []
             mock_iam.return_value = []
@@ -1728,6 +1734,8 @@ class TestAutomaticCleanup:
             patch.object(resource_tree._state, "load_dns_zones", new_callable=AsyncMock) as mock_dns,
             patch.object(resource_tree._state, "load_cloudsql_instances", new_callable=AsyncMock) as mock_sql,
             patch.object(resource_tree._state, "load_compute_groups", new_callable=AsyncMock) as mock_compute,
+            patch.object(resource_tree._state, "load_firewalls", new_callable=AsyncMock) as mock_firewalls,
+            patch.object(resource_tree._state, "load_loadbalancers", new_callable=AsyncMock) as mock_loadbalancers,
             patch.object(resource_tree._state, "load_gke_clusters", new_callable=AsyncMock) as mock_gke,
             patch.object(resource_tree._state, "load_secrets", new_callable=AsyncMock) as mock_secrets,
             patch.object(resource_tree._state, "load_iam_accounts", new_callable=AsyncMock) as mock_iam,
@@ -1738,6 +1746,8 @@ class TestAutomaticCleanup:
             # All other methods return empty lists
             mock_sql.return_value = []
             mock_compute.return_value = []
+            mock_firewalls.return_value = []
+            mock_loadbalancers.return_value = []
             mock_gke.return_value = []
             mock_secrets.return_value = []
             mock_iam.return_value = []
@@ -1776,6 +1786,8 @@ class TestAutomaticCleanup:
             patch.object(resource_tree._state, "load_dns_zones", new_callable=AsyncMock) as mock_dns,
             patch.object(resource_tree._state, "load_cloudsql_instances", new_callable=AsyncMock) as mock_sql,
             patch.object(resource_tree._state, "load_compute_groups", new_callable=AsyncMock) as mock_compute,
+            patch.object(resource_tree._state, "load_firewalls", new_callable=AsyncMock) as mock_firewalls,
+            patch.object(resource_tree._state, "load_loadbalancers", new_callable=AsyncMock) as mock_loadbalancers,
             patch.object(resource_tree._state, "load_gke_clusters", new_callable=AsyncMock) as mock_gke,
             patch.object(resource_tree._state, "load_secrets", new_callable=AsyncMock) as mock_secrets,
             patch.object(resource_tree._state, "load_iam_accounts", new_callable=AsyncMock) as mock_iam,
@@ -1786,6 +1798,8 @@ class TestAutomaticCleanup:
             # All other methods return empty lists
             mock_sql.return_value = []
             mock_compute.return_value = []
+            mock_firewalls.return_value = []
+            mock_loadbalancers.return_value = []
             mock_gke.return_value = []
             mock_secrets.return_value = []
             mock_iam.return_value = []
