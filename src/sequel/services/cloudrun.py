@@ -1,9 +1,13 @@
-"""Google Cloud Run service for managing services and jobs."""
+"""Google Cloud Run service using gcloud CLI.
+
+This implementation uses gcloud CLI instead of the API client to avoid
+thread-safety issues that caused segfaults with other regional resources.
+"""
 
 import asyncio
+import json
+import subprocess
 from typing import Any, cast
-
-from googleapiclient import discovery
 
 from sequel.cache.memory import get_cache
 from sequel.config import get_config
@@ -13,7 +17,6 @@ from sequel.models.cloudrun import (
 from sequel.models.cloudrun import (
     CloudRunService as CloudRunServiceModel,
 )
-from sequel.services.auth import get_auth_manager
 from sequel.services.base import BaseService
 from sequel.utils.logging import get_logger
 
@@ -21,34 +24,67 @@ logger = get_logger(__name__)
 
 
 class CloudRunService(BaseService):
-    """Service for interacting with Google Cloud Run API."""
+    """Service for interacting with Google Cloud Run via gcloud CLI."""
 
     def __init__(self) -> None:
         """Initialize Cloud Run service."""
         super().__init__()
-        self._client: Any | None = None
         self._cache = get_cache()
 
-    async def _get_client(self) -> Any:
-        """Get or create Cloud Run API client.
+    async def _run_gcloud_command(
+        self, command: list[str], timeout: float = 30.0
+    ) -> list[dict[str, Any]]:
+        """Run a gcloud command and return parsed JSON output.
+
+        Args:
+            command: Command arguments to pass to gcloud
+            timeout: Timeout in seconds
 
         Returns:
-            Cloud Run API client
+            List of parsed JSON objects from gcloud output
         """
-        if self._client is None:
-            auth_manager = await get_auth_manager()
-            self._client = discovery.build(
-                "run",
-                "v2",
-                credentials=auth_manager.credentials,
-                cache_discovery=False,
+        try:
+            # Run gcloud command with JSON output
+            process = await asyncio.create_subprocess_exec(
+                "gcloud",
+                *command,
+                "--format=json",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
-        return self._client
+
+            # Wait for completion with timeout
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(), timeout=timeout
+            )
+
+            # Check for errors
+            if process.returncode != 0:
+                error_msg = stderr.decode().strip()
+                logger.error(f"gcloud command failed: {error_msg}")
+                return []
+
+            # Parse JSON output
+            if stdout:
+                result = json.loads(stdout.decode())
+                if isinstance(result, list):
+                    return cast("list[dict[str, Any]]", result)
+            return []
+
+        except TimeoutError:
+            logger.error(f"gcloud command timed out after {timeout}s: {' '.join(command)}")
+            return []
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse gcloud JSON output: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"gcloud command failed: {e}", exc_info=True)
+            return []
 
     async def list_services(
         self, project_id: str, use_cache: bool = True
     ) -> list[CloudRunServiceModel]:
-        """List all Cloud Run services in a project.
+        """List all Cloud Run services in a project using gcloud CLI.
 
         Args:
             project_id: GCP project ID
@@ -56,11 +92,6 @@ class CloudRunService(BaseService):
 
         Returns:
             List of CloudRunServiceModel instances
-
-        Raises:
-            AuthError: If authentication fails
-            PermissionError: If user lacks permission
-            ServiceError: If API call fails
         """
         cache_key = f"cloudrun:services:{project_id}"
 
@@ -72,60 +103,31 @@ class CloudRunService(BaseService):
                 return cast("list[CloudRunServiceModel]", cached)
 
         async def _list_services() -> list[CloudRunServiceModel]:
-            """Internal function to list Cloud Run services."""
-            client = await self._get_client()
-
+            """Internal function to list Cloud Run services via gcloud."""
             logger.info(f"Listing Cloud Run services in project: {project_id}")
 
             try:
-                # Use wildcard location to get all services across all regions
-                # Format: projects/{project}/locations/-
-                parent = f"projects/{project_id}/locations/-"
+                # Run gcloud command to list services
+                command = [
+                    "run",
+                    "services",
+                    "list",
+                    f"--project={project_id}",
+                ]
+
+                items = await self._run_gcloud_command(command)
 
                 services: list[CloudRunServiceModel] = []
-                next_page_token = None
-
-                # Handle pagination
-                while True:
-                    # Call the API with pagination token
-                    request = client.projects().locations().services().list(
-                        parent=parent, pageToken=next_page_token
-                    )
-                    # Run blocking execute() in thread with timeout to prevent UI hangs
-                    try:
-                        response = await asyncio.wait_for(
-                            asyncio.to_thread(request.execute),
-                            timeout=10.0  # 10 second timeout per API call
-                        )
-                    except asyncio.TimeoutError:
-                        logger.error(
-                            f"Timeout listing Cloud Run services for {project_id} "
-                            f"(pageToken={next_page_token})"
-                        )
-                        # Return what we have so far on timeout
-                        return services
-
-                    # Process services from this page
-                    for item in response.get("services", []):
-                        service = CloudRunServiceModel.from_api_response(item)
-                        services.append(service)
-                        logger.debug(f"Loaded Cloud Run service: {service.service_name}")
-
-                    # Check for more pages
-                    next_page_token = response.get("nextPageToken")
-                    if not next_page_token:
-                        break
-
-                    logger.debug(
-                        f"Fetching next page of services (current count: {len(services)})"
-                    )
+                for item in items:
+                    service = CloudRunServiceModel.from_gcloud_response(item)
+                    services.append(service)
+                    logger.debug(f"Loaded Cloud Run service: {service.service_name}")
 
                 logger.info(f"Found {len(services)} Cloud Run services")
                 return services
 
             except Exception as e:
                 logger.error(f"Failed to list Cloud Run services: {e}", exc_info=True)
-                # Return empty list instead of raising for API not enabled case
                 return []
 
         # Execute with retry logic
@@ -147,7 +149,7 @@ class CloudRunService(BaseService):
     async def list_jobs(
         self, project_id: str, use_cache: bool = True
     ) -> list[CloudRunJobModel]:
-        """List all Cloud Run jobs in a project.
+        """List all Cloud Run jobs in a project using gcloud CLI.
 
         Args:
             project_id: GCP project ID
@@ -155,11 +157,6 @@ class CloudRunService(BaseService):
 
         Returns:
             List of CloudRunJobModel instances
-
-        Raises:
-            AuthError: If authentication fails
-            PermissionError: If user lacks permission
-            ServiceError: If API call fails
         """
         cache_key = f"cloudrun:jobs:{project_id}"
 
@@ -171,60 +168,31 @@ class CloudRunService(BaseService):
                 return cast("list[CloudRunJobModel]", cached)
 
         async def _list_jobs() -> list[CloudRunJobModel]:
-            """Internal function to list Cloud Run jobs."""
-            client = await self._get_client()
-
+            """Internal function to list Cloud Run jobs via gcloud."""
             logger.info(f"Listing Cloud Run jobs in project: {project_id}")
 
             try:
-                # Use wildcard location to get all jobs across all regions
-                # Format: projects/{project}/locations/-
-                parent = f"projects/{project_id}/locations/-"
+                # Run gcloud command to list jobs
+                command = [
+                    "run",
+                    "jobs",
+                    "list",
+                    f"--project={project_id}",
+                ]
+
+                items = await self._run_gcloud_command(command)
 
                 jobs: list[CloudRunJobModel] = []
-                next_page_token = None
-
-                # Handle pagination
-                while True:
-                    # Call the API with pagination token
-                    request = client.projects().locations().jobs().list(
-                        parent=parent, pageToken=next_page_token
-                    )
-                    # Run blocking execute() in thread with timeout to prevent UI hangs
-                    try:
-                        response = await asyncio.wait_for(
-                            asyncio.to_thread(request.execute),
-                            timeout=10.0  # 10 second timeout per API call
-                        )
-                    except asyncio.TimeoutError:
-                        logger.error(
-                            f"Timeout listing Cloud Run jobs for {project_id} "
-                            f"(pageToken={next_page_token})"
-                        )
-                        # Return what we have so far on timeout
-                        return jobs
-
-                    # Process jobs from this page
-                    for item in response.get("jobs", []):
-                        job = CloudRunJobModel.from_api_response(item)
-                        jobs.append(job)
-                        logger.debug(f"Loaded Cloud Run job: {job.job_name}")
-
-                    # Check for more pages
-                    next_page_token = response.get("nextPageToken")
-                    if not next_page_token:
-                        break
-
-                    logger.debug(
-                        f"Fetching next page of jobs (current count: {len(jobs)})"
-                    )
+                for item in items:
+                    job = CloudRunJobModel.from_gcloud_response(item)
+                    jobs.append(job)
+                    logger.debug(f"Loaded Cloud Run job: {job.job_name}")
 
                 logger.info(f"Found {len(jobs)} Cloud Run jobs")
                 return jobs
 
             except Exception as e:
                 logger.error(f"Failed to list Cloud Run jobs: {e}", exc_info=True)
-                # Return empty list instead of raising for API not enabled case
                 return []
 
         # Execute with retry logic

@@ -159,6 +159,126 @@ class CloudRunService(BaseModel):
             raw_data=data.copy(),
         )
 
+    @classmethod
+    def from_gcloud_response(cls, data: dict[str, Any]) -> "CloudRunService":
+        """Create CloudRunService from gcloud CLI response.
+
+        Args:
+            data: JSON response from 'gcloud run services list --format=json'
+
+        Returns:
+            CloudRunService instance
+
+        Example gcloud response structure (Knative format):
+            {
+                "metadata": {
+                    "name": "my-service",
+                    "namespace": "1234567890",
+                    "creationTimestamp": "2025-01-21T21:14:21.483114Z",
+                    "labels": {
+                        "cloud.googleapis.com/location": "us-east1"
+                    }
+                },
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "containers": [{
+                                "image": "gcr.io/project/image:tag"
+                            }]
+                        }
+                    },
+                    "traffic": [{
+                        "percent": 100,
+                        "latestRevision": true
+                    }]
+                },
+                "status": {
+                    "url": "https://my-service-abc.run.app",
+                    "conditions": [{
+                        "type": "Ready",
+                        "status": "True"
+                    }]
+                }
+            }
+        """
+        metadata = data.get("metadata", {})
+        spec = data.get("spec", {})
+        status_obj = data.get("status", {})
+
+        # Extract service name
+        service_name = metadata.get("name", "")
+
+        # Extract region from labels
+        labels = metadata.get("labels", {})
+        region = labels.get("cloud.googleapis.com/location")
+
+        # Extract project_id from namespace
+        project_id = metadata.get("namespace")
+
+        # Extract container image from spec
+        image = None
+        template = spec.get("template", {})
+        if isinstance(template, dict):
+            template_spec = template.get("spec", {})
+            if isinstance(template_spec, dict):
+                containers = template_spec.get("containers", [])
+                if containers and isinstance(containers, list):
+                    image = containers[0].get("image")
+
+        # Calculate traffic allocation
+        traffic_percent = 0
+        traffic = spec.get("traffic", [])
+        if isinstance(traffic, list):
+            for route in traffic:
+                if isinstance(route, dict):
+                    traffic_percent += route.get("percent", 0)
+
+        # Determine status from conditions
+        status = "UNKNOWN"
+        conditions = status_obj.get("conditions", [])
+        if isinstance(conditions, list):
+            for condition in conditions:
+                if isinstance(condition, dict) and condition.get("type") == "Ready":
+                    cond_status = condition.get("status", "")
+                    if cond_status == "True":
+                        status = "READY"
+                    elif cond_status == "False":
+                        status = "FAILED"
+                    break
+
+        # Count labels
+        labels_count = len(labels) if isinstance(labels, dict) else 0
+
+        # Parse creation timestamp
+        created_at = None
+        last_modified = None
+        if "creationTimestamp" in metadata:
+            try:
+                timestamp = metadata["creationTimestamp"].replace("Z", "+00:00")
+                created_at = datetime.fromisoformat(timestamp)
+                last_modified = created_at  # Use creation time as last modified
+            except (ValueError, AttributeError):
+                pass
+
+        # Extract URL
+        url = status_obj.get("url")
+
+        return cls(
+            id=service_name,
+            name=service_name,
+            project_id=project_id,
+            created_at=created_at,
+            service_name=service_name,
+            url=url,
+            image=image,
+            status=status,
+            region=region,
+            traffic_percent=traffic_percent,
+            labels_count=labels_count,
+            last_modified=last_modified,
+            raw_data=data.copy(),
+        )
+
 
 class CloudRunJob(BaseModel):
     """Model for a Google Cloud Run job.
@@ -291,6 +411,133 @@ class CloudRunJob(BaseModel):
         if "createTime" in data:
             try:
                 timestamp = data["createTime"].replace("Z", "+00:00")
+                created_at = datetime.fromisoformat(timestamp)
+            except (ValueError, AttributeError):
+                pass
+
+        return cls(
+            id=job_name,
+            name=job_name,
+            project_id=project_id,
+            created_at=created_at,
+            job_name=job_name,
+            image=image,
+            status=status,
+            region=region,
+            execution_count=execution_count,
+            last_execution_time=last_execution_time,
+            labels_count=labels_count,
+            raw_data=data.copy(),
+        )
+
+    @classmethod
+    def from_gcloud_response(cls, data: dict[str, Any]) -> "CloudRunJob":
+        """Create CloudRunJob from gcloud CLI response.
+
+        Args:
+            data: JSON response from 'gcloud run jobs list --format=json'
+
+        Returns:
+            CloudRunJob instance
+
+        Example gcloud response structure:
+            {
+                "metadata": {
+                    "name": "my-job",
+                    "namespace": "1234567890",
+                    "creationTimestamp": "2025-09-11T21:44:18.800633Z",
+                    "labels": {
+                        "cloud.googleapis.com/location": "us-east1"
+                    }
+                },
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "template": {
+                                "spec": {
+                                    "containers": [{
+                                        "image": "gcr.io/project/image:tag"
+                                    }]
+                                }
+                            }
+                        }
+                    }
+                },
+                "status": {
+                    "conditions": [{
+                        "type": "Ready",
+                        "status": "True"
+                    }],
+                    "executionCount": 5,
+                    "latestCreatedExecution": {
+                        "name": "my-job-abc",
+                        "creationTime": "2025-09-11T22:00:00.000000Z"
+                    }
+                }
+            }
+        """
+        metadata = data.get("metadata", {})
+        spec = data.get("spec", {})
+        status_obj = data.get("status", {})
+
+        # Extract job name
+        job_name = metadata.get("name", "")
+
+        # Extract region from labels
+        labels = metadata.get("labels", {})
+        region = labels.get("cloud.googleapis.com/location")
+
+        # Extract project_id from namespace
+        project_id = metadata.get("namespace")
+
+        # Extract container image from deeply nested spec
+        image = None
+        template = spec.get("template", {})
+        if isinstance(template, dict):
+            template_spec = template.get("spec", {})
+            if isinstance(template_spec, dict):
+                task_template = template_spec.get("template", {})
+                if isinstance(task_template, dict):
+                    task_spec = task_template.get("spec", {})
+                    if isinstance(task_spec, dict):
+                        containers = task_spec.get("containers", [])
+                        if containers and isinstance(containers, list):
+                            image = containers[0].get("image")
+
+        # Get execution count from status
+        execution_count = status_obj.get("executionCount", 0)
+
+        # Get last execution time from status
+        last_execution_time = None
+        latest_execution = status_obj.get("latestCreatedExecution", {})
+        if isinstance(latest_execution, dict) and "creationTime" in latest_execution:
+            try:
+                timestamp = latest_execution["creationTime"].replace("Z", "+00:00")
+                last_execution_time = datetime.fromisoformat(timestamp)
+            except (ValueError, AttributeError):
+                pass
+
+        # Determine status from conditions
+        status = "UNKNOWN"
+        conditions = status_obj.get("conditions", [])
+        if isinstance(conditions, list):
+            for condition in conditions:
+                if isinstance(condition, dict) and condition.get("type") == "Ready":
+                    cond_status = condition.get("status", "")
+                    if cond_status == "True":
+                        status = "READY"
+                    elif cond_status == "False":
+                        status = "FAILED"
+                    break
+
+        # Count labels
+        labels_count = len(labels) if isinstance(labels, dict) else 0
+
+        # Parse creation timestamp
+        created_at = None
+        if "creationTimestamp" in metadata:
+            try:
+                timestamp = metadata["creationTimestamp"].replace("Z", "+00:00")
                 created_at = datetime.fromisoformat(timestamp)
             except (ValueError, AttributeError):
                 pass
