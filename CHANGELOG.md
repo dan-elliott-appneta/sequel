@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2025-12-23
+
+### Added
+- **Firewall Policies Support**
+  - New resource type for viewing Google Cloud VPC firewall policies
+  - Model: `FirewallPolicy` with fields for name, priority, direction, rules, etc.
+  - Service: `FirewallService` for listing firewall policies from Compute Engine API
+  - Full integration with state management, tree rendering, and filtering
+  - 14 model tests, 10 service tests, 2 integration tests
+  - Policy details: priority, direction (INGRESS/EGRESS), enabled/disabled status
+  - Count of rules per policy (allowed/denied)
+  - Automatic cleanup of empty firewall category nodes
+  - Supports project filtering regex
+
+### Changed
+- Application now supports **7 resource categories** (added Firewall Policies)
+- Detail pane uses deferred rendering (`call_after_refresh`) to prevent UI blocking during JSON syntax highlighting
+- Test count: 468 tests passing (up from 477 in previous release - removed load balancer tests)
+
+### Removed
+- **Load Balancer support removed** due to persistent stability issues:
+  - Segfaults when loading 60+ load balancers
+  - UI hangs during node expansion
+  - Memory corruption (`free(): invalid next size (normal)`)
+  - Thread-safety issues in `googleapiclient` library
+  - Multiple fix attempts (locks, semaphores, sequential execution) were unsuccessful
+  - Load balancers require querying 30+ regions, exacerbating the problem
+  - Removed to maintain application stability
+
+### Notes
+- Firewall policies follow the same ResourceType pattern as IAM (parent container + leaf nodes)
+- Load balancer code was fully removed including models, services, state management, and tests
+- All CI checks passing on Python 3.11 and 3.12
+
 ## [1.0.5] - 2025-12-23
 
 **Note:** This release contains the same functionality as v1.0.4, which was tagged but not published to PyPI due to a release workflow issue. Publishing as v1.0.5 to complete the PyPI release.
