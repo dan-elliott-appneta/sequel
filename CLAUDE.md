@@ -6,7 +6,7 @@ Sequel is a Python TUI application for browsing Google Cloud resources. It uses 
 
 ## Version Management
 
-**Current Version: 1.4.1**
+**Current Version: 1.5.1**
 
 We follow [Semantic Versioning](https://semver.org/) (SemVer):
 - **MAJOR** version: Incompatible API changes
@@ -153,6 +153,16 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Follows Cloud DNS pattern for hierarchical expansion
   - Full test coverage (9 model tests, 18 service tests)
   - PR: #25
+
+- ✅ **Cloud Storage Objects (v1.5.1)**: Cloud Storage Objects support
+  - Hierarchical resource: Buckets → Objects (Tier 2 difficulty)
+  - Buckets already implemented in v1.1.0, now making them expandable
+  - Objects show name, size (human-readable), content type, creation time, storage class
+  - Icons: 🪣 for buckets, 📄 for objects
+  - Pagination support with 100-object limit per bucket
+  - Follows Cloud DNS pattern for hierarchical expansion
+  - Full test coverage (15 model tests, 8 service tests)
+  - PR: #26
 
 ## Development Workflow
 

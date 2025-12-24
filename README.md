@@ -4,7 +4,7 @@ A Terminal User Interface (TUI) for browsing and inspecting Google Cloud resourc
 
 ## Version
 
-Current version: **1.1.0**
+Current version: **1.5.1**
 
 ## Features
 
@@ -12,12 +12,13 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 
 - **Hierarchical tree view** with expandable sub-nodes showing real resource data:
   - Cloud DNS Zones → DNS records (A, CNAME, MX, TXT, etc.)
+  - Cloud Storage Buckets → Objects (with file sizes and content types)
   - Service Accounts → IAM role bindings (with actual role names)
   - GKE Clusters → Individual nodes (with actual node pool names)
   - Instance Groups → VM instances (with actual instance names and status)
   - Sub-resources display in JSON details pane when selected
   - Automatic empty category removal
-  - Virtual scrolling with smart limits (50 items per node) and "... and N more" indicators
+  - Virtual scrolling with smart limits (50-100 items per node) and "... and N more" indicators
 - **JSON details pane** with tree-sitter syntax highlighting, pretty-printed API responses, and mouse text selection
 - **Performance optimized**:
   - Parallel API operations for simultaneous resource loading
@@ -35,7 +36,7 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 - Projects
 - Cloud DNS managed zones and DNS records
 - CloudSQL instances
-- Cloud Storage buckets
+- Cloud Storage buckets and objects
 - Pub/Sub topics and subscriptions
 - VPC Networks and subnets
 - Compute Engine Instance Groups

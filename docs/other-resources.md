@@ -104,13 +104,25 @@ Single API call, flat structure, no sub-resources
 ### ⭐ TIER 2: Easy (1 day)
 Single level hierarchy or simple multi-region
 
-#### 7. **Cloud Storage Buckets → Objects**
+#### 7. **Cloud Storage Buckets → Objects** ✅ COMPLETED (v1.5.1)
 **Difficulty: 4/10**
 - APIs: `storage.buckets().list()` + `storage.objects().list(bucket=name)`
 - Structure: Buckets (parent) → Objects (children, paginated)
 - Why medium: Object listing can be huge (need limits)
 - Similar to: CloudDNS zones → records
 - Consideration: Limit to first 100 objects per bucket
+- Fields (objects): name, size, content type, creation time, storage class, CRC32C checksum
+- Icons: 🪣 for buckets (already implemented), 📄 for objects
+
+**Implementation (v1.5.1):**
+- Added StorageObject model to `src/sequel/models/storage.py` with get_display_size() helper
+- Updated StorageService with list_objects() method (pagination support, max 100 objects)
+- Made buckets expandable in resource tree (ResourceType.STORAGE_BUCKET)
+- Added _load_storage_objects() expansion handler
+- Objects display with 📄 icon and human-readable sizes (B, KB, MB, GB)
+- Followed Cloud DNS pattern for hierarchical expansion
+- Test coverage: 15 model tests, 8 service tests
+- PR: #26
 
 #### 8. **Snapshots**
 **Difficulty: 4/10**
@@ -323,14 +335,15 @@ Resources with known stability issues or extreme complexity
 
 ## Recommendations
 
-### Top 5 to Add Next (Best ROI)
+### Top Additions (Best ROI)
 
 1. ✅ **Cloud Storage Buckets** (Tier 1) - Universal need, very easy - **COMPLETED v1.1.0**
 2. ✅ **Pub/Sub Topics → Subscriptions** (Tier 3) - Messaging backbone - **COMPLETED v1.2.0**
 3. ✅ **Cloud Run Services** (Tier 1) - Modern serverless, popular - **COMPLETED v1.3.0**
 4. ✅ **VPC Networks → Subnets** (Tier 3) - Networking foundation - **COMPLETED v1.4.0**
-5. **Persistent Disks** (Tier 1) - Shows compute storage, easy
-6. **BigQuery Datasets → Tables** (Tier 3) - Data analytics, high value
+5. ✅ **Cloud Storage Buckets → Objects** (Tier 2) - File browsing, easy - **COMPLETED v1.5.1**
+6. **Persistent Disks** (Tier 1) - Shows compute storage, easy
+7. **BigQuery Datasets → Tables** (Tier 3) - Data analytics, high value
 
 ### Implementation Strategy
 

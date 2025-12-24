@@ -1,3 +1,3 @@
 """Sequel - A TUI for browsing Google Cloud resources."""
 
-__version__ = "1.4.1"
+__version__ = "1.5.1"

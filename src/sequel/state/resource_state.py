@@ -11,7 +11,7 @@ from sequel.models.networks import Subnet, VPCNetwork
 from sequel.models.project import Project
 from sequel.models.pubsub import Subscription, Topic
 from sequel.models.secrets import Secret
-from sequel.models.storage import Bucket
+from sequel.models.storage import Bucket, StorageObject
 from sequel.services.clouddns import get_clouddns_service
 from sequel.services.cloudsql import get_cloudsql_service
 from sequel.services.compute import get_compute_service
@@ -54,6 +54,7 @@ class ResourceState:
         self._iam_roles: dict[tuple[str, str], list[IAMRoleBinding]] = {}
         self._firewalls: dict[str, list[FirewallPolicy]] = {}
         self._buckets: dict[str, list[Bucket]] = {}
+        self._storage_objects: dict[tuple[str, str], list[StorageObject]] = {}
         self._pubsub_topics: dict[str, list[Topic]] = {}
         self._pubsub_subscriptions: dict[str, list[Subscription]] = {}
         self._networks: dict[str, list[VPCNetwork]] = {}
@@ -332,6 +333,37 @@ class ResourceState:
         logger.info(f"Loaded {len(buckets)} buckets into state")
         return buckets
 
+    async def load_storage_objects(
+        self, project_id: str, bucket_name: str, force_refresh: bool = False
+    ) -> list[StorageObject]:
+        """Load objects from a Cloud Storage bucket.
+
+        Args:
+            project_id: GCP project ID
+            bucket_name: Name of the bucket
+            force_refresh: If True, bypass state cache and reload from API
+
+        Returns:
+            List of StorageObject instances
+        """
+        key = (project_id, "storage_objects", bucket_name)
+
+        if not force_refresh and key in self._loaded:
+            objects = self._storage_objects.get((project_id, bucket_name), [])
+            logger.info(f"Returning {len(objects)} objects from state for bucket: {bucket_name}")
+            return objects
+
+        service = await get_storage_service()
+        objects = await service.list_objects(
+            project_id, bucket_name, use_cache=not force_refresh
+        )
+
+        self._storage_objects[(project_id, bucket_name)] = objects
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(objects)} objects into state for bucket: {bucket_name}")
+        return objects
+
     def is_loaded(self, *key_parts: str) -> bool:
         """Check if a resource type has been loaded into state.
 
@@ -382,6 +414,10 @@ class ResourceState:
     def get_buckets(self, project_id: str) -> list[Bucket]:
         """Get Cloud Storage buckets from state."""
         return self._buckets.get(project_id, [])
+
+    def get_storage_objects(self, project_id: str, bucket_name: str) -> list[StorageObject]:
+        """Get objects from state for a specific bucket."""
+        return self._storage_objects.get((project_id, bucket_name), [])
 
     async def load_pubsub_topics(
         self, project_id: str, force_refresh: bool = False
