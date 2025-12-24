@@ -5,8 +5,9 @@ common error handling, retry logic, and timeout management.
 """
 
 import asyncio
+import re
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -26,6 +27,18 @@ from sequel.utils.logging import get_logger
 logger = get_logger(__name__)
 
 T = TypeVar("T")
+
+
+def _refresh_credentials_sync(credentials: Any) -> None:
+    """Synchronous credential refresh helper for asyncio.to_thread().
+
+    Args:
+        credentials: Google credentials object to refresh
+    """
+    import google.auth.transport.requests
+
+    request = google.auth.transport.requests.Request()  # type: ignore[no-untyped-call]
+    credentials.refresh(request)
 
 
 class PermissionError(Exception):
@@ -177,10 +190,9 @@ class BaseService:
                     try:
                         auth_manager = await self._get_auth_manager()
                         if hasattr(auth_manager.credentials, "refresh"):
-                            import google.auth.transport.requests
-
-                            request = google.auth.transport.requests.Request()  # type: ignore[no-untyped-call]
-                            auth_manager.credentials.refresh(request)  # type: ignore[no-untyped-call]
+                            await asyncio.to_thread(
+                                _refresh_credentials_sync, auth_manager.credentials
+                            )
                             logger.info("Credentials refreshed successfully. Retrying...")
                             continue  # Retry with refreshed credentials
                     except Exception as refresh_error:
@@ -253,8 +265,6 @@ class BaseService:
 
         # Try to extract retry-after time
         # Example: "Retry after 60 seconds"
-        import re
-
         match = re.search(r"retry.*?(\d+)\s*seconds?", error_str, re.IGNORECASE)
         if match:
             return int(match.group(1))
@@ -280,8 +290,6 @@ class BaseService:
         # Try to extract permission name
         if "Permission" in error_str:
             # Example: "Permission 'compute.instances.list' denied"
-            import re
-
             match = re.search(r"Permission ['\"]([^'\"]+)['\"]", error_str)
             if match:
                 permission = match.group(1)
@@ -310,8 +318,6 @@ class BaseService:
         ]
 
         for pattern in patterns:
-            import re
-
             match = re.search(pattern, error_str)
             if match:
                 return match.group(1)

@@ -147,7 +147,7 @@ class CloudSQLService(BaseService):
                     project=project_id,
                     instance=instance_name,
                 )
-                response = request.execute()
+                response = await asyncio.to_thread(request.execute)
 
                 instance = CloudSQLInstance.from_api_response(response)
                 logger.info(f"Retrieved Cloud SQL instance: {instance_name}")

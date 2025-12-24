@@ -166,7 +166,7 @@ class IAMService(BaseService):
                 name = f"projects/{project_id}/serviceAccounts/{email}"
 
                 request = client.projects().serviceAccounts().get(name=name)
-                response = request.execute()
+                response = await asyncio.to_thread(request.execute)
 
                 sa = ServiceAccount.from_api_response(response)
                 logger.info(f"Retrieved service account: {email}")
