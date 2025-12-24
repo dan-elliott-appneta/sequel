@@ -1,5 +1,6 @@
 """Google Cloud Storage models."""
 
+import contextlib
 from datetime import datetime
 from typing import Any
 
@@ -148,10 +149,8 @@ class StorageObject(BaseModel):
         # Parse size (API returns it as string)
         size = None
         if "size" in data:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 size = int(data["size"])
-            except (ValueError, TypeError):
-                pass
 
         # Get content type
         content_type = data.get("contentType")
@@ -208,7 +207,7 @@ class StorageObject(BaseModel):
             return "Unknown"
 
         # Convert bytes to human-readable format
-        size_bytes = self.size
+        size_bytes = float(self.size)
         for unit in ["B", "KB", "MB", "GB", "TB"]:
             if size_bytes < 1024.0:
                 return f"{size_bytes:.1f} {unit}"
