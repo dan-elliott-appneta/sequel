@@ -326,3 +326,204 @@ class TestGetStorageService:
 
         assert service1 is service2
         assert isinstance(service1, StorageService)
+    @pytest.mark.asyncio
+    async def test_list_objects_success(
+        self, storage_service: StorageService, mock_storage_client: MagicMock
+    ) -> None:
+        """Test listing objects successfully."""
+        mock_response = {
+            "items": [
+                {
+                    "name": "file1.txt",
+                    "bucket": "my-bucket",
+                    "size": "1024",
+                    "contentType": "text/plain",
+                    "storageClass": "STANDARD",
+                    "crc32c": "AAAAAA==",
+                    "timeCreated": "2023-01-01T00:00:00.000Z",
+                    "generation": "1234567890",
+                },
+                {
+                    "name": "docs/report.pdf",
+                    "bucket": "my-bucket",
+                    "size": "2048576",
+                    "contentType": "application/pdf",
+                    "storageClass": "STANDARD",
+                    "crc32c": "BBBBBB==",
+                    "timeCreated": "2023-02-01T00:00:00.000Z",
+                    "generation": "9876543210",
+                },
+            ]
+        }
+
+        mock_request = MagicMock()
+        mock_request.execute = MagicMock(return_value=mock_response)
+        mock_storage_client.objects().list.return_value = mock_request
+
+        storage_service._client = mock_storage_client
+
+        from sequel.models.storage import StorageObject
+        objects = await storage_service.list_objects(
+            "test-project", "my-bucket", use_cache=False
+        )
+
+        assert len(objects) == 2
+        assert isinstance(objects[0], StorageObject)
+        assert objects[0].object_name == "file1.txt"
+        assert objects[0].size == 1024
+        assert objects[0].content_type == "text/plain"
+        assert objects[1].object_name == "docs/report.pdf"
+        assert objects[1].size == 2048576
+
+    @pytest.mark.asyncio
+    async def test_list_objects_empty(
+        self, storage_service: StorageService, mock_storage_client: MagicMock
+    ) -> None:
+        """Test listing objects when bucket is empty."""
+        mock_response: dict[str, Any] = {"items": []}
+
+        mock_request = MagicMock()
+        mock_request.execute = MagicMock(return_value=mock_response)
+        mock_storage_client.objects().list.return_value = mock_request
+
+        storage_service._client = mock_storage_client
+
+        objects = await storage_service.list_objects(
+            "test-project", "my-bucket", use_cache=False
+        )
+
+        assert len(objects) == 0
+
+    @pytest.mark.asyncio
+    async def test_list_objects_with_max_results(
+        self, storage_service: StorageService, mock_storage_client: MagicMock
+    ) -> None:
+        """Test listing objects with max_results parameter."""
+        mock_response = {
+            "items": [
+                {
+                    "name": "file.txt",
+                    "bucket": "my-bucket",
+                    "size": "1024",
+                }
+            ]
+        }
+
+        mock_request = MagicMock()
+        mock_request.execute = MagicMock(return_value=mock_response)
+        mock_storage_client.objects().list.return_value = mock_request
+
+        storage_service._client = mock_storage_client
+
+        objects = await storage_service.list_objects(
+            "test-project", "my-bucket", use_cache=False, max_results=50
+        )
+
+        # Verify maxResults was passed
+        mock_storage_client.objects().list.assert_called_once_with(
+            bucket="my-bucket",
+            maxResults=50,
+        )
+        assert len(objects) == 1
+
+    @pytest.mark.asyncio
+    async def test_list_objects_error(
+        self, storage_service: StorageService, mock_storage_client: MagicMock
+    ) -> None:
+        """Test error handling when listing objects."""
+        mock_request = MagicMock()
+        mock_request.execute = MagicMock(side_effect=Exception("API Error"))
+        mock_storage_client.objects().list.return_value = mock_request
+
+        storage_service._client = mock_storage_client
+
+        objects = await storage_service.list_objects(
+            "test-project", "my-bucket", use_cache=False
+        )
+
+        # Should return empty list on error
+        assert len(objects) == 0
+
+    @pytest.mark.asyncio
+    async def test_list_objects_with_cache(
+        self, storage_service: StorageService
+    ) -> None:
+        """Test listing objects with caching."""
+        from sequel.models.storage import StorageObject
+        mock_object = StorageObject(
+            id="my-bucket:cached.txt",
+            name="cached.txt",
+            object_name="cached.txt",
+            bucket_name="my-bucket",
+            size=1024,
+        )
+
+        with patch.object(storage_service._cache, "get", return_value=[mock_object]):
+            objects = await storage_service.list_objects(
+                "test-project", "my-bucket", use_cache=True
+            )
+
+            assert len(objects) == 1
+            assert objects[0] == mock_object
+
+    @pytest.mark.asyncio
+    async def test_list_objects_caching(
+        self, storage_service: StorageService, mock_storage_client: MagicMock
+    ) -> None:
+        """Test that object results are cached."""
+        mock_response = {
+            "items": [
+                {
+                    "name": "file.txt",
+                    "bucket": "my-bucket",
+                    "size": "1024",
+                },
+            ]
+        }
+
+        mock_request = MagicMock()
+        mock_request.execute = MagicMock(return_value=mock_response)
+        mock_storage_client.objects().list.return_value = mock_request
+
+        storage_service._client = mock_storage_client
+
+        with patch.object(storage_service._cache, "set") as mock_set:
+            await storage_service.list_objects(
+                "test-project", "my-bucket", use_cache=False
+            )
+
+            # Verify cache.set was called
+            mock_set.assert_called_once()
+            # First argument should be cache key
+            assert mock_set.call_args[0][0] == "storage:objects:test-project:my-bucket"
+            # Second argument should be the objects list
+            assert len(mock_set.call_args[0][1]) == 1
+
+    @pytest.mark.asyncio
+    async def test_list_objects_sets_project_id(
+        self, storage_service: StorageService, mock_storage_client: MagicMock
+    ) -> None:
+        """Test that project_id is set on returned objects."""
+        mock_response = {
+            "items": [
+                {
+                    "name": "file.txt",
+                    "bucket": "my-bucket",
+                },
+            ]
+        }
+
+        mock_request = MagicMock()
+        mock_request.execute = MagicMock(return_value=mock_response)
+        mock_storage_client.objects().list.return_value = mock_request
+
+        storage_service._client = mock_storage_client
+
+        objects = await storage_service.list_objects(
+            "test-project", "my-bucket", use_cache=False
+        )
+
+        assert len(objects) == 1
+        assert objects[0].project_id == "test-project"
+
+
