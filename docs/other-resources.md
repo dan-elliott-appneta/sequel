@@ -277,6 +277,7 @@ Complex hierarchies, many regions, or special handling
 - Follows Firewall pattern for flat resource implementation
 - Test coverage: 29 model tests, 12 service tests
 - Branch: `alerts`
+- PR: #27
 
 #### 21. **VPN Gateways → Tunnels**
 **Difficulty: 8/10**

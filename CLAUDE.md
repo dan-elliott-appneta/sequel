@@ -173,7 +173,7 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Helper methods for enabled status and condition summary
   - Full test coverage (29 model tests, 12 service tests)
   - Branch: `alerts`
-  - PR: TBD
+  - PR: #27
 
 ## Development Workflow
 
