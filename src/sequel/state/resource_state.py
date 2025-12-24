@@ -7,6 +7,7 @@ from sequel.models.compute import ComputeInstance, InstanceGroup
 from sequel.models.firewall import FirewallPolicy
 from sequel.models.gke import GKECluster, GKENode
 from sequel.models.iam import IAMRoleBinding, ServiceAccount
+from sequel.models.monitoring import AlertPolicy
 from sequel.models.networks import Subnet, VPCNetwork
 from sequel.models.project import Project
 from sequel.models.pubsub import Subscription, Topic
@@ -18,6 +19,7 @@ from sequel.services.compute import get_compute_service
 from sequel.services.firewall import get_firewall_service
 from sequel.services.gke import get_gke_service
 from sequel.services.iam import get_iam_service
+from sequel.services.monitoring import get_monitoring_service
 from sequel.services.networks import get_networks_service
 from sequel.services.projects import get_project_service
 from sequel.services.pubsub import get_pubsub_service
@@ -59,6 +61,7 @@ class ResourceState:
         self._pubsub_subscriptions: dict[str, list[Subscription]] = {}
         self._networks: dict[str, list[VPCNetwork]] = {}
         self._subnets: dict[str, list[Subnet]] = {}
+        self._alert_policies: dict[str, list[AlertPolicy]] = {}
 
         # Track what's been loaded - set of tuple keys
         self._loaded: set[tuple[str, ...]] = set()
@@ -313,6 +316,34 @@ class ResourceState:
         logger.info(f"Loaded {len(firewalls)} firewall policies into state")
         return firewalls
 
+    async def load_alert_policies(
+        self, project_id: str, force_refresh: bool = False
+    ) -> list[AlertPolicy]:
+        """Load Cloud Monitoring alert policies for a project.
+
+        Args:
+            project_id: GCP project ID
+            force_refresh: If True, bypass state cache and reload from API
+
+        Returns:
+            List of AlertPolicy instances
+        """
+        key = (project_id, "alert_policies")
+
+        if not force_refresh and key in self._loaded:
+            policies = self._alert_policies.get(project_id, [])
+            logger.info(f"Returning {len(policies)} alert policies from state")
+            return policies
+
+        service = await get_monitoring_service()
+        policies = await service.list_alert_policies(project_id, use_cache=not force_refresh)
+
+        self._alert_policies[project_id] = policies
+        self._loaded.add(key)
+
+        logger.info(f"Loaded {len(policies)} alert policies into state")
+        return policies
+
     async def load_buckets(
         self, project_id: str, force_refresh: bool = False
     ) -> list[Bucket]:
@@ -410,6 +441,10 @@ class ResourceState:
     def get_firewalls(self, project_id: str) -> list[FirewallPolicy]:
         """Get firewall policies from state."""
         return self._firewalls.get(project_id, [])
+
+    def get_alert_policies(self, project_id: str) -> list[AlertPolicy]:
+        """Get Cloud Monitoring alert policies from state."""
+        return self._alert_policies.get(project_id, [])
 
     def get_buckets(self, project_id: str) -> list[Bucket]:
         """Get Cloud Storage buckets from state."""
