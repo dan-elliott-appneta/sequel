@@ -1270,8 +1270,8 @@ class TestResourceTree:
 
         resource_tree._add_resource_type_nodes(project_node, "test-project")
 
-        # Should have 10 resource categories
-        assert len(project_node.children) == 10
+        # Should have 11 resource categories
+        assert len(project_node.children) == 11
 
         # Check all categories exist
         labels = [child.label.plain for child in project_node.children]
@@ -1279,6 +1279,7 @@ class TestResourceTree:
         assert any("Cloud SQL" in label for label in labels)
         assert any("Instance Groups" in label for label in labels)
         assert any("Firewall Policies" in label for label in labels)
+        assert any("Alert Policies" in label for label in labels)
         assert any("GKE Clusters" in label for label in labels)
         assert any("Secrets" in label for label in labels)
         assert any("Service Accounts" in label for label in labels)
@@ -1645,8 +1646,8 @@ class TestEmptyProjectCleanup:
         # Verify CloudDNS node was removed but project still has other categories
         assert clouddns_node not in project_node.children
         assert project_node in resource_tree.root.children
-        # Project should still have 9 other resource type nodes (CloudSQL, Compute, GKE, Secrets, IAM, Firewall, Storage, Pub/Sub, VPC Networks)
-        assert len(project_node.children) == 9
+        # Project should still have 10 other resource type nodes (CloudSQL, Compute, GKE, Secrets, IAM, Firewall, Alert Policies, Storage, Pub/Sub, VPC Networks)
+        assert len(project_node.children) == 10
 
 
 class TestAutomaticCleanup:
