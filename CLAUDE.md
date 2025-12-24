@@ -6,7 +6,7 @@ Sequel is a Python TUI application for browsing Google Cloud resources. It uses 
 
 ## Version Management
 
-**Current Version: 1.6.0**
+**Current Version: 1.6.1**
 
 We follow [Semantic Versioning](https://semver.org/) (SemVer):
 - **MAJOR** version: Incompatible API changes
@@ -174,6 +174,16 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Full test coverage (29 model tests, 12 service tests)
   - Branch: `alerts`
   - PR: #27
+
+- ✅ **Performance & Code Quality Optimizations (v1.6.1)**: COMPLETED
+  - Fixed 3 critical blocking API calls that blocked the event loop
+  - Fixed CloudSQL.get_instance() blocking execute() call
+  - Fixed IAM.get_service_account() blocking execute() call
+  - Fixed BaseService credential refresh blocking operations
+  - Moved inline re imports to module level for better code organization
+  - All 666 tests passing with no regressions
+  - Branch: `optimize`
+  - PR: #28
 
 ## Development Workflow
 
