@@ -39,6 +39,7 @@ class ResourceType:
     IAM_SERVICE_ACCOUNT = "iam_service_account"  # Expandable service account
     IAM_ROLE = "iam_role"  # Individual role binding (leaf)
     FIREWALL = "firewall"  # Firewall policies (leaf)
+    ALERT_POLICY = "alert_policy"  # Cloud Monitoring alert policies (leaf)
     STORAGE = "storage"  # Cloud Storage (category)
     STORAGE_BUCKET = "storage_bucket"  # Expandable bucket
     STORAGE_OBJECT = "storage_object"  # Individual object (leaf)
@@ -357,6 +358,14 @@ class ResourceTree(Tree[ResourceTreeNode]):
         )
         project_node.add("🔥 Firewall Policies", data=firewall_data, allow_expand=True)
 
+        # Add Alert Policies
+        alert_policy_data = ResourceTreeNode(
+            resource_type=ResourceType.ALERT_POLICY,
+            resource_id=f"{project_id}:alert_policies",
+            project_id=project_id,
+        )
+        project_node.add("🚨 Alert Policies", data=alert_policy_data, allow_expand=True)
+
         # Add Cloud Storage
         storage_data = ResourceTreeNode(
             resource_type=ResourceType.STORAGE,
@@ -496,6 +505,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 task = self._load_service_accounts(resource_node)
             elif resource_type == ResourceType.FIREWALL:
                 task = self._load_firewalls(resource_node)
+            elif resource_type == ResourceType.ALERT_POLICY:
+                task = self._load_alert_policies(resource_node)
             elif resource_type == ResourceType.STORAGE:
                 task = self._load_buckets(resource_node)
             elif resource_type == ResourceType.PUBSUB:
@@ -544,10 +555,16 @@ class ResourceTree(Tree[ResourceTreeNode]):
             node.data.resource_type == ResourceType.FIREWALL
             and node.data.resource_data is not None
         )
+        # ALERT_POLICY uses the same ResourceType for both parent and leaf nodes
+        # Leaf nodes have resource_data, parent category nodes do not
+        is_alert_policy_leaf = (
+            node.data.resource_type == ResourceType.ALERT_POLICY
+            and node.data.resource_data is not None
+        )
         # STORAGE_BUCKET nodes are expandable (contain objects)
         # STORAGE_OBJECT nodes are leaf nodes
         is_storage_object_leaf = node.data.resource_type == ResourceType.STORAGE_OBJECT
-        if is_firewall_leaf or is_storage_object_leaf:
+        if is_firewall_leaf or is_alert_policy_leaf or is_storage_object_leaf:
             return
 
         try:
@@ -574,6 +591,8 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 await self._load_service_account_roles(node)
             elif node.data.resource_type == ResourceType.FIREWALL:
                 await self._load_firewalls(node)
+            elif node.data.resource_type == ResourceType.ALERT_POLICY:
+                await self._load_alert_policies(node)
             elif node.data.resource_type == ResourceType.STORAGE:
                 await self._load_buckets(node)
             elif node.data.resource_type == ResourceType.STORAGE_BUCKET:
@@ -1292,6 +1311,70 @@ class ResourceTree(Tree[ResourceTreeNode]):
             remaining = total_firewalls - MAX_CHILDREN_PER_NODE
             self._add_more_indicator(parent_node, remaining)
 
+    async def _load_alert_policies(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
+        """Load Cloud Monitoring alert policies for a project from state."""
+        if parent_node.data is None or parent_node.data.project_id is None:
+            return
+
+        project_id = parent_node.data.project_id
+        logger.info(f"Loading alert policies for {project_id} from state")
+
+        # Load into state (uses cache from service layer)
+        policies = await self._state.load_alert_policies(project_id)
+
+        parent_node.remove_children()
+
+        # Apply UI filter if active
+        if self._filter_text:
+            logger.info(f"Applying UI filter '{self._filter_text}' to {len(policies)} alert policies")
+            policies = [
+                p for p in policies
+                if self._matches_filter(p.policy_name) or (p.display_name and self._matches_filter(p.display_name))
+            ]
+            logger.info(f"Filtered to {len(policies)} alert policies matching '{self._filter_text}'")
+
+        if not policies:
+            # Remove the parent node if there are no alert policies
+            project_node = parent_node.parent
+            parent_node.remove()
+            # Check if project is now empty and remove it
+            if project_node and project_node.data and project_node.data.resource_type == ResourceType.PROJECT:
+                self._remove_empty_project_node(project_node)
+            return
+
+        # Update parent label with count
+        policy_word = "policy" if len(policies) == 1 else "policies"
+        parent_node.set_label(f"🚨 Alert Policies ({len(policies)} {policy_word})")
+
+        # Limit number of children to prevent segfaults with large datasets
+        total_policies = len(policies)
+        policies_to_show = (
+            policies[:MAX_CHILDREN_PER_NODE]
+            if self._should_limit_children(total_policies)
+            else policies
+        )
+
+        for policy in policies_to_show:
+            node_data = ResourceTreeNode(
+                resource_type=ResourceType.ALERT_POLICY,
+                resource_id=policy.policy_name,
+                resource_data=policy,
+                project_id=project_id,
+            )
+            # Display enabled/disabled status and condition count
+            status_icon = "✓" if policy.is_enabled() else "✗"
+            condition_summary = policy.get_condition_summary()
+            display_name = policy.display_name or policy.policy_name
+            parent_node.add_leaf(
+                f"{status_icon} {display_name} - {condition_summary}",
+                data=node_data,
+            )
+
+        # Add "... and N more" indicator if we limited the children
+        if self._should_limit_children(total_policies):
+            remaining = total_policies - MAX_CHILDREN_PER_NODE
+            self._add_more_indicator(parent_node, remaining)
+
     async def _load_buckets(self, parent_node: TreeNode[ResourceTreeNode]) -> None:
         """Load Cloud Storage buckets for a project from state."""
         if parent_node.data is None or parent_node.data.project_id is None:
@@ -1826,6 +1909,18 @@ class ResourceTree(Tree[ResourceTreeNode]):
                 if matching_firewalls:
                     matching_resources["firewalls"] = matching_firewalls
 
+            # Check Alert Policies (if loaded)
+            if self._state.is_loaded(project.project_id, "alert_policies"):
+                policies = self._state.get_alert_policies(project.project_id)
+                matching_policies = [
+                    p
+                    for p in policies
+                    if self._matches_filter(p.policy_name)
+                    or (p.display_name and self._matches_filter(p.display_name))
+                ]
+                if matching_policies:
+                    matching_resources["alert_policies"] = matching_policies
+
             # Check Cloud Storage Buckets (if loaded)
             if self._state.is_loaded(project.project_id, "buckets"):
                 buckets = self._state.get_buckets(project.project_id)
@@ -2058,6 +2153,35 @@ class ResourceTree(Tree[ResourceTreeNode]):
                         firewall_node.add_leaf(
                             f"{status_icon} {firewall.policy_name}",
                             data=fw_data,
+                        )
+
+                # Add matching Alert Policies
+                if "alert_policies" in matching_resources:
+                    policies = matching_resources["alert_policies"]
+                    alert_policy_data = ResourceTreeNode(
+                        resource_type=ResourceType.ALERT_POLICY,
+                        resource_id=f"{project.project_id}:alert_policies",
+                        project_id=project.project_id,
+                    )
+                    policy_word = "policy" if len(policies) == 1 else "policies"
+                    alert_node = project_node.add(
+                        f"🚨 Alert Policies ({len(policies)} {policy_word})",
+                        data=alert_policy_data,
+                        allow_expand=True,
+                    )
+                    for policy in policies:
+                        policy_data = ResourceTreeNode(
+                            resource_type=ResourceType.ALERT_POLICY,
+                            resource_id=policy.policy_name,
+                            resource_data=policy,
+                            project_id=project.project_id,
+                        )
+                        status_icon = "✓" if policy.is_enabled() else "✗"
+                        condition_summary = policy.get_condition_summary()
+                        display_name = policy.display_name or policy.policy_name
+                        alert_node.add_leaf(
+                            f"{status_icon} {display_name} - {condition_summary}",
+                            data=policy_data,
                         )
 
                 # Add matching Cloud Storage Buckets

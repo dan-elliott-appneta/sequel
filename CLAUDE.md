@@ -6,7 +6,7 @@ Sequel is a Python TUI application for browsing Google Cloud resources. It uses 
 
 ## Version Management
 
-**Current Version: 1.5.1**
+**Current Version: 1.6.0**
 
 We follow [Semantic Versioning](https://semver.org/) (SemVer):
 - **MAJOR** version: Incompatible API changes
@@ -163,6 +163,17 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Follows Cloud DNS pattern for hierarchical expansion
   - Full test coverage (15 model tests, 8 service tests)
   - PR: #26
+
+- ✅ **Cloud Monitoring Alert Policies (v1.6.0)**: COMPLETED
+  - Simple flat resource (Tier 4 difficulty - complex nested structure)
+  - Shows alert policy name, enabled status, condition count, notification channels
+  - Icon: 🚨 for alert policies
+  - Follows Firewall pattern for flat resource implementation
+  - Complex condition structures visible in JSON detail pane
+  - Helper methods for enabled status and condition summary
+  - Full test coverage (29 model tests, 12 service tests)
+  - Branch: `alerts`
+  - PR: #27
 
 ## Development Workflow
 

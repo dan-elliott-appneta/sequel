@@ -4,7 +4,7 @@ A Terminal User Interface (TUI) for browsing and inspecting Google Cloud resourc
 
 ## Version
 
-Current version: **1.5.1**
+Current version: **1.6.0**
 
 ## Features
 
@@ -44,6 +44,7 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 - Google Kubernetes Engine (GKE) clusters and nodes
 - Secret Manager secrets (metadata only)
 - IAM Service Accounts
+- Cloud Monitoring Alert Policies
 
 ## Prerequisites
 
