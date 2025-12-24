@@ -4,7 +4,7 @@ A Terminal User Interface (TUI) for browsing and inspecting Google Cloud resourc
 
 ## Version
 
-Current version: **1.1.0**
+Current version: **1.5.1**
 
 ## Features
 
