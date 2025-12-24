@@ -6,7 +6,7 @@ Sequel is a Python TUI application for browsing Google Cloud resources. It uses 
 
 ## Version Management
 
-**Current Version: 1.5.1**
+**Current Version: 1.6.0**
 
 We follow [Semantic Versioning](https://semver.org/) (SemVer):
 - **MAJOR** version: Incompatible API changes
