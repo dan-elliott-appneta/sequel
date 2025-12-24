@@ -7,7 +7,7 @@ common error handling, retry logic, and timeout management.
 import asyncio
 import re
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -29,7 +29,7 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 
 
-def _refresh_credentials_sync(credentials: any) -> None:  # type: ignore[valid-type]
+def _refresh_credentials_sync(credentials: Any) -> None:
     """Synchronous credential refresh helper for asyncio.to_thread().
 
     Args:
@@ -38,7 +38,7 @@ def _refresh_credentials_sync(credentials: any) -> None:  # type: ignore[valid-t
     import google.auth.transport.requests
 
     request = google.auth.transport.requests.Request()  # type: ignore[no-untyped-call]
-    credentials.refresh(request)  # type: ignore[no-untyped-call]
+    credentials.refresh(request)
 
 
 class PermissionError(Exception):
