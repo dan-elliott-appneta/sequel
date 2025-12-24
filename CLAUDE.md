@@ -164,6 +164,14 @@ This project is being built in 10 phases. Each phase is implemented in its own b
   - Full test coverage (15 model tests, 8 service tests)
   - PR: #26
 
+- 🚧 **Cloud Monitoring Alert Policies (v1.6.0)**: IN PROGRESS
+  - Simple flat resource (Tier 4 difficulty - complex nested structure)
+  - Shows alert policy name, enabled status, condition count, notification channels
+  - Icon: 🚨 for alert policies
+  - Follows Firewall pattern for flat resource implementation
+  - Complex condition structures visible in JSON detail pane
+  - Branch: `alerts`
+
 ## Development Workflow
 
 ### Branch Strategy

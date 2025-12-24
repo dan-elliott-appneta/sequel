@@ -44,6 +44,7 @@ Sequel provides a keyboard-focused, responsive interface for exploring Google Cl
 - Google Kubernetes Engine (GKE) clusters and nodes
 - Secret Manager secrets (metadata only)
 - IAM Service Accounts
+- Cloud Monitoring Alert Policies
 
 ## Prerequisites
 

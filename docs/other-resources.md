@@ -257,14 +257,23 @@ Complex hierarchies, many regions, or special handling
 - Similar to: GKE but different paradigm
 - Legacy service: Lower priority
 
-#### 20. **Cloud Monitoring Alert Policies**
+#### 20. **Cloud Monitoring Alert Policies** 🚧 IN PROGRESS (v1.6.0)
 **Difficulty: 8/10**
 - API: `monitoring.projects().alertPolicies().list(name=project_path)`
 - Structure: Complex nested conditions and notifications
-- Fields: name, conditions, notification channels, thresholds
+- Fields: name, display_name, enabled status, conditions, notification channels, documentation
 - Why hard: Very complex object structure
 - Display challenge: Summarizing alert logic
 - Similar to: Cloud Armor (complex rules)
+- Icons: 🚨 for alert policies
+
+**Implementation Plan (v1.6.0):**
+- Create AlertPolicy model in `src/sequel/models/monitoring.py`
+- Implement MonitoringService with list_alert_policies() method
+- Add flat list structure in resource tree (ResourceType.ALERT_POLICY)
+- Summarize complex conditions in tree label
+- Full policy details available in JSON detail pane
+- Follow Firewall pattern for flat resource implementation
 
 #### 21. **VPN Gateways → Tunnels**
 **Difficulty: 8/10**
