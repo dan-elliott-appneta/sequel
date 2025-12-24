@@ -1,41 +1,45 @@
-# Cloud Storage Objects Support 📄
+# Cloud Monitoring Alert Policies Support 🚨
 
-This release adds support for browsing Cloud Storage objects within buckets, creating a hierarchical Buckets → Objects view.
+This release adds support for browsing Cloud Monitoring Alert Policies, enabling users to view and manage their alerting configuration directly from Sequel.
 
 ## New Features
 
-### Cloud Storage Buckets → Objects
-- **Hierarchical resource browsing**: Buckets → Objects
-- **Object information**: Name, human-readable size (B, KB, MB, GB, TB), content type, creation time, storage class, CRC32C checksum
-- **Visual indicators**: 🪣 for buckets, 📄 for objects
-- **Smart pagination**: Limit to first 100 objects per bucket to prevent UI overload
-- **Lazy loading**: Objects load only when bucket is expanded
-- **Filter support**: Filter objects by name using the search functionality
+### Cloud Monitoring Alert Policies
+- **Flat resource browsing**: Alert Policies displayed as a flat list per project
+- **Policy information**: Name, display name, enabled status, condition count, notification channel count, combiner type, documentation
+- **Visual indicators**: 🚨 for alert policies, ✓/✗ for enabled/disabled status
+- **Condition summary**: Displays condition count with combiner (e.g., "3 conditions (AND)")
+- **Smart filtering**: Filter by policy name or display name
+- **Lazy loading**: Policies load only when category is expanded
+- **Full details**: Complete policy configuration visible in JSON detail pane
 
 ## Implementation Details
 
-- Added StorageObject model with comprehensive metadata and get_display_size() helper
-- Implemented list_objects() service method with pagination support (max 100 objects)
-- Made buckets expandable in resource tree following Cloud DNS pattern
+- Added AlertPolicy model with comprehensive metadata extraction
+- Implemented MonitoringService with Cloud Monitoring API v3 integration
+- Helper methods: `is_enabled()`, `get_condition_summary()`
 - Integrated with state management for efficient caching
-- Full test coverage: 15 model tests, 8 service tests
+- Follows Firewall pattern for flat resource implementation
+- Full test coverage: 29 model tests, 12 service tests
 
 ## Technical Improvements
 
-- Used contextlib.suppress for cleaner exception handling (ruff SIM105)
-- Proper type annotations for mypy strict mode compliance
-- Human-readable file size formatting (e.g., "1.5 MB", "3.2 GB")
+- Robust API response parsing handling complex nested structures
+- Proper project path formatting for Cloud Monitoring API (projects/{PROJECT_ID})
+- Graceful handling of missing or invalid data
+- Support for all combiner types (OR, AND, AND_WITH_MATCHING_RESOURCE, etc.)
 
 ## Statistics
 
-- **Total Tests**: 625 (all passing)
-- **Coverage**: 76.76%
-- **New Files**: Modified 11 files
-- **New Tests**: 23 tests (15 model, 8 service)
+- **Total Tests**: 666 (all passing)
+- **Coverage**: 91.98%
+- **New Files**: 4 (models, service, tests)
+- **Modified Files**: 8
+- **New Tests**: 41 (29 model, 12 service)
 
 ## Supported Resources
 
-Sequel now supports **11 resource categories** with **5 hierarchical resources**:
+Sequel now supports **12 resource categories**:
 1. Cloud DNS (zones → records)
 2. Cloud SQL instances
 3. Compute Instance Groups (groups → instances)
@@ -43,15 +47,16 @@ Sequel now supports **11 resource categories** with **5 hierarchical resources**
 5. Secrets
 6. Service Accounts (accounts → role bindings)
 7. Firewall Policies
-8. **Cloud Storage (buckets → objects)** ✨ NEW
+8. Cloud Storage Buckets (buckets → objects)
 9. Pub/Sub (topics → subscriptions)
 10. Cloud Run (services and jobs)
 11. VPC Networks (networks → subnets)
+12. **Cloud Monitoring Alert Policies** ✨ NEW
 
 ## Installation
 
 ```bash
-pip install sequel-ag==1.5.1
+pip install sequel-ag==1.6.0
 ```
 
 Or upgrade from a previous version:
@@ -63,15 +68,15 @@ pip install --upgrade sequel-ag
 ## Full Changelog
 
 **Merged PRs:**
-- #26: Add Cloud Storage Buckets → Objects hierarchical support
+- #27: Add Cloud Monitoring Alert Policies support
 
 **Commits:**
-- docs: Add Cloud Storage Objects to implementation plan
-- feat: Add Cloud Storage Objects hierarchical support
-- test: Add comprehensive tests for Cloud Storage Objects
-- docs: Update README to include Cloud Storage Objects feature
-- fix: Resolve linting and type checking issues
-- chore: Bump version to 1.5.1 and update documentation
+- docs: Add Cloud Monitoring Alert Policies to implementation plan
+- feat: Add Cloud Monitoring Alert Policies support
+- test: Add comprehensive tests for Cloud Monitoring Alert Policies
+- docs: Mark Cloud Monitoring Alert Policies as completed
+- docs: Add PR #27 reference to alert policies documentation
+- chore: Bump version to 1.6.0
 
 ---
 
