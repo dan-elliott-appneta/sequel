@@ -1,5 +1,11 @@
 # Sequel
 
+<p align="center">
+  <img src="docs/logo.png" alt="Sequel Logo" width="200">
+</p>
+
+[![PyPI version](https://img.shields.io/pypi/v/sequel-ag.svg)](https://pypi.org/project/sequel-ag/)
+
 A Terminal User Interface (TUI) for browsing and inspecting Google Cloud resources.
 
 ## Version
